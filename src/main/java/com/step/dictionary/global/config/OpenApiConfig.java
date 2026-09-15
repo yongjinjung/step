@@ -5,8 +5,10 @@ import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import org.springdoc.core.customizers.OperationCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.util.StringUtils;
 
 /**
  * springdoc-openapi 문서 설정.
@@ -15,6 +17,8 @@ import org.springframework.context.annotation.Configuration;
  *
  * <p>Swagger UI에서 API를 호출하려면 {@code POST /api/auth/login}으로 토큰을 받은 뒤,
  * 오른쪽 위 Authorize 버튼에 토큰 값만 붙여 넣는다 ("Bearer " 접두어는 UI가 붙인다).
+ *
+ * <p>프론트엔드({@code frontend/})는 이 문서로 API 클라이언트 코드를 생성하므로, operationId와 응답 타입이 곧 생성 코드의 이름과 타입이 된다.
  */
 @Configuration
 public class OpenApiConfig {
@@ -36,5 +40,22 @@ public class OpenApiConfig {
                                 .scheme("bearer")
                                 .bearerFormat("JWT")))
                 .addSecurityItem(new SecurityRequirement().addList(BEARER_SCHEME));
+    }
+
+    /**
+     * operationId를 "컨트롤러 이름(Controller 제외) + 메서드 이름"으로 만든다. 예: {@code WordController.search} → {@code wordSearch}.
+     *
+     * <p>springdoc 기본값은 메서드 이름이라 여러 컨트롤러의 {@code create}가 {@code create_1}, {@code create_2}처럼
+     * 등록 순서에 따라 번호가 붙는다. 번호는 컨트롤러가 늘면 바뀔 수 있어, 이 값으로 이름을 만드는 프론트 생성 코드가 흔들린다.
+     * 컨트롤러 안에서 메서드 이름은 겹치지 않으므로 이 규칙이면 전체에서 유일하고 안정적이다.
+     */
+    @Bean
+    public OperationCustomizer operationIdCustomizer() {
+        return (operation, handlerMethod) -> {
+            String controller = handlerMethod.getBeanType().getSimpleName().replaceFirst("Controller$", "");
+            operation.setOperationId(StringUtils.uncapitalize(controller)
+                    + StringUtils.capitalize(handlerMethod.getMethod().getName()));
+            return operation;
+        };
     }
 }

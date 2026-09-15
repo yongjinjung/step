@@ -16,6 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Flyway, springdoc-openapi 3.1.1
 - Spring Security 7.1 + OAuth2 Resource Server (JWT HS256, Nimbus JOSE 10.9)
 - Apache POI `poi-ooxml` 5.5.1 (엑셀 .xlsx, Boot BOM이 관리하지 않아 버전 명시)
+- 프론트엔드(`frontend/`): React 19 + TypeScript 5.9 + Vite 8, Ant Design 6, TanStack Query 5, React Router 7, openapi-typescript + openapi-fetch + openapi-react-query (Node 22.16 기준으로 검증)
 - JUnit 5 + Mockito + AssertJ, REST Assured 6.0.1, JaCoCo
 
 ## 명령어
@@ -121,3 +122,35 @@ Boot 3 기준 자료와 다른 부분이다.
 - Jackson 3를 쓴다. 기본 패키지가 `tools.jackson`이고, 어노테이션만 `com.fasterxml.jackson.annotation` 그대로다.
 - REST Assured는 Boot BOM이 버전을 관리하지 않으므로 `build.gradle.kts`에 버전을 명시한다(6.x는 Groovy 5, Jackson 3 호환).
 - 원본 `com.querydsl` 아티팩트는 쓰지 않는다. OpenFeign 포크의 패키지명은 `com.querydsl.*` 그대로다.
+
+## 프론트엔드 (`frontend/`)
+
+```bash
+cd frontend
+npm install
+npm run dev            # http://localhost:5173, /api는 백엔드(기본 8080)로 프록시
+npm run build          # tsc -b 타입 검사 + vite build (dist/)
+npm run typecheck      # 타입 검사만
+npm run api:generate   # 백엔드 API 문서 받기(api:fetch) + 타입 생성(api:types)
+```
+
+- 백엔드가 8080이 아니면 `frontend/.env.local`에 `VITE_API_PROXY_TARGET=http://localhost:8081`을 적는다. API 문서를 다른 주소에서 받으려면 `API_DOCS_URL=http://localhost:8081/v3/api-docs npm run api:fetch`.
+
+```
+frontend/src
+├── api/        client.ts($api 훅·apiClient, 인증 미들웨어), schema.d.ts(생성, 직접 수정 금지), errors.ts, download.ts
+├── auth/       token.ts(sessionStorage·JWT 해석), AuthContext.tsx(useAuth), RequireAuth.tsx(보호 라우트)
+├── layouts/    AppLayout.tsx(메뉴·헤더), navigation.tsx(메뉴 정의 = 라우트 목록)
+├── pages/      LoginPage, MyPage, PlaceholderPage(준비 중), NotFoundPage
+├── components/ PageHeader 등 공통 컴포넌트
+├── router.tsx  라우트 구성
+└── main.tsx    Provider 조립 (ConfigProvider → AntdApp → QueryClient → AuthProvider → Router)
+```
+
+- **API 호출은 생성 타입으로만 한다.** `$api.useQuery('get', '/api/words', { params: { query } })`, `$api.useMutation('post', '/api/words')`. 경로·파라미터·본문·응답 타입이 `schema.d.ts`에서 온다. 백엔드 API(DTO, 경로)를 바꾸면 백엔드를 띄운 뒤 `npm run api:generate`를 실행하고 `openapi/api-docs.json`과 `schema.d.ts` 변경을 함께 커밋한다. 타입 오류가 곧 영향받는 화면이다.
+- **백엔드 operationId 규칙:** `OpenApiConfig`가 "컨트롤러 이름 + 메서드 이름"(`wordSearch`)으로 만든다. 응답 기본 media type은 `application/json`이고 엑셀 다운로드는 xlsx로 선언한다(`OpenApiIntegrationTest`).
+- **오류 타입:** 오류 응답은 API 문서에 선언돼 있지 않아 생성된 에러 타입이 `never`다. `onError: (error: unknown) => ...`로 받고 `isApiError`/`errorMessage`/`applyFieldErrors`(`api/errors.ts`)로 다룬다. 폼 필드 오류는 `applyFieldErrors(form, error)`로 표시하고, 분기는 `error.code`로 한다.
+- **인증:** 토큰은 sessionStorage에 두고 모든 요청에 미들웨어가 Bearer 헤더를 붙인다. 401(로그인 요청 제외)이면 로그아웃된다. 역할별 메뉴·버튼은 `useAuth().user.isAdmin`으로 나누되, 권한 검사는 서버가 한다.
+- **파일 다운로드**는 `<a href>`로 하지 않고 `downloadFile('/api/excel/words', query)`(`api/download.ts`)를 쓴다. Authorization 헤더가 필요하기 때문이다.
+- **새 화면:** `layouts/navigation.tsx`에 메뉴가 이미 있으면 `router.tsx`에서 그 경로의 element만 실제 페이지로 바꾼다. 제목 줄은 `PageHeader`를 쓴다.
+- **버전 제약(Node 22.16):** orval은 Node 22.18+, react-router 8은 Node 22.22+가 필요해 쓰지 않았다. openapi-typescript가 `typescript ^5`를 요구해 TypeScript 7로 올리지 않는다. 의존성은 `--save-exact`로 고정한다.

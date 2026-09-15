@@ -48,9 +48,9 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/excel")
 public class ExcelController {
 
-    /** .xlsx MIME 타입. */
-    private static final MediaType XLSX =
-            MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    /** .xlsx MIME 타입. 다운로드 매핑의 produces에도 쓴다 (API 문서에 파일 응답으로 표시되도록). */
+    private static final String XLSX_VALUE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    private static final MediaType XLSX = MediaType.parseMediaType(XLSX_VALUE);
 
     private final StandardExcelService standardExcelService;
     private final MetaExcelService metaExcelService;
@@ -66,32 +66,32 @@ public class ExcelController {
     // ---- 다운로드 ----
 
     @Operation(summary = "단어 다운로드", description = "단어 검색과 같은 조건. 파일 이름은 단어_yyyyMMdd.xlsx")
-    @GetMapping("/words")
+    @GetMapping(value = "/words", produces = XLSX_VALUE)
     public ResponseEntity<byte[]> downloadWords(@ParameterObject WordSearchCondition condition) {
         return download(ExcelSheet.WORD, standardExcelService.downloadWords(condition));
     }
 
     @Operation(summary = "도메인 다운로드", description = "도메인 검색과 같은 조건.")
-    @GetMapping("/domains")
+    @GetMapping(value = "/domains", produces = XLSX_VALUE)
     public ResponseEntity<byte[]> downloadDomains(@ParameterObject DomainSearchCondition condition) {
         return download(ExcelSheet.DOMAIN, standardExcelService.downloadDomains(condition));
     }
 
     @Operation(summary = "용어 다운로드", description = "용어 검색과 같은 조건.")
-    @GetMapping("/terms")
+    @GetMapping(value = "/terms", produces = XLSX_VALUE)
     public ResponseEntity<byte[]> downloadTerms(@ParameterObject TermSearchCondition condition) {
         return download(ExcelSheet.TERM, standardExcelService.downloadTerms(condition));
     }
 
     @Operation(summary = "테이블 정의 다운로드", description = "테이블 검색과 같은 조건. 한 행이 컬럼 하나이며 비표준 사유가 참고 열에 들어간다.")
-    @GetMapping("/tables")
+    @GetMapping(value = "/tables", produces = XLSX_VALUE)
     public ResponseEntity<byte[]> downloadTables(@ParameterObject MetaTableSearchCondition condition) {
         return download(ExcelSheet.TABLE, metaExcelService.downloadTables(condition));
     }
 
     /** 업로드 양식. 경로 이름이 양식에 없으면 400. */
     @Operation(summary = "업로드 양식 다운로드", description = "target은 words, domains, terms, tables 중 하나.")
-    @GetMapping("/{target}/template")
+    @GetMapping(value = "/{target}/template", produces = XLSX_VALUE)
     public ResponseEntity<byte[]> template(@PathVariable String target) {
         ExcelSheet sheet = ExcelSheet.fromPath(target)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT));

@@ -16,6 +16,12 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
 
+# API 문서 (springdoc)
+springdoc:
+  # 컨트롤러에 produces를 적지 않은 응답을 */* 대신 application/json으로 문서화한다.
+  # 프론트 코드 생성기가 응답을 JSON으로 다루게 하기 위해서다. (엑셀 다운로드는 컨트롤러에서 xlsx로 지정)
+  default-produces-media-type: application/json
+
 # 애플리케이션 설정
 app:
   # JWT 액세스 토큰 (5단계). 설정 클래스: auth.JwtProperties

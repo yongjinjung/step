@@ -21,7 +21,13 @@ class OpenApiIntegrationTest extends IntegrationTest {
                 .statusCode(200)
                 .body("info.title", equalTo("데이터 표준 용어사전 관리 API"))
                 .body("paths", hasKey("/api/words"))
-                .body("components.securitySchemes.bearerAuth.scheme", equalTo("bearer"));
+                .body("components.securitySchemes.bearerAuth.scheme", equalTo("bearer"))
+                // 프론트 코드 생성용: operationId는 "컨트롤러 + 메서드", 응답은 JSON, 엑셀 다운로드는 xlsx
+                .body("paths.'/api/words'.get.operationId", equalTo("wordSearch"))
+                .body("paths.'/api/words'.post.operationId", equalTo("wordCreate"))
+                .body("paths.'/api/terms/{id}'.get.responses.'200'.content", hasKey("application/json"))
+                .body("paths.'/api/excel/words'.get.responses.'200'.content",
+                        hasKey("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
 
         given()
         .when().get("/swagger-ui/index.html")

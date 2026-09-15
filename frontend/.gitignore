@@ -1,0 +1,10 @@
+# 의존성과 빌드 결과
+node_modules/
+dist/
+
+# 로컬 환경 변수 (예: VITE_API_PROXY_TARGET을 바꿀 때)
+*.local
+
+# 로그
+npm-debug.log*
+*.log

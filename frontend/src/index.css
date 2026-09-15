@@ -1,0 +1,85 @@
+/* 전역 스타일. 컴포넌트 모양은 Ant Design 테마(main.tsx)로 정하고, 여기에는 배치만 둔다. */
+
+body {
+  margin: 0;
+}
+
+.full-width {
+  width: 100%;
+}
+
+/* ---- 레이아웃 ---- */
+.app-layout {
+  min-height: 100vh;
+}
+
+.app-logo {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 24px;
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.app-content {
+  margin: 24px;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.page-title.ant-typography {
+  margin: 0;
+}
+
+.narrow-form {
+  max-width: 420px;
+}
+
+/* ---- 로그인 ---- */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: linear-gradient(135deg, #eef3fb 0%, #dfe8f7 100%);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+}
+
+.login-title.ant-typography {
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.login-subtitle.ant-typography {
+  text-align: center;
+}
+
+.login-alert {
+  margin-bottom: 16px;
+}
