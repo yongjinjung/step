@@ -85,6 +85,7 @@ com.step.dictionary
 - 스키마는 Flyway만 관리한다(`ddl-auto: validate`, `open-in-view: false`).
 - `app.jwt.secret`(32바이트 이상)이 없으면 기동에 실패한다. 기본 `application.yml`은 환경변수 `JWT_SECRET`을 쓰고, `local`/`test` 프로파일 yml에 개발용 키가 있다. `@ConfigurationProperties` record는 `@ConfigurationPropertiesScan`으로 등록된다.
 - 최초 관리자: 사용자 테이블이 비어 있으면 기동 시 `app.initial-admin.*`로 ADMIN을 만든다. `test` 프로파일은 비밀번호를 두지 않아 만들지 않는다.
+- **`application-local.yml`은 git에 올리지 않는다**(`.gitignore`). DB 비밀번호, JWT 키, 초기 관리자 비밀번호가 들어가기 때문이다. 새로 받은 저장소에서는 `src/main/resources/application-local.yml.example`을 같은 폴더에 `application-local.yml`로 복사해 값을 채운 뒤 `bootRun`한다. 로컬 설정 항목을 추가하면 예시 파일에도 반영한다.
 
 ## Flyway
 
