@@ -1,0 +1,17 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: dictionary-mysql
+    environment:
+      MYSQL_DATABASE: dictionary
+      MYSQL_USER: dictionary
+      MYSQL_PASSWORD: dictionary
+      MYSQL_ROOT_PASSWORD: root
+      TZ: Asia/Seoul
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+volumes:
+  mysql-data:

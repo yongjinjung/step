@@ -1,0 +1,64 @@
+-- =====================================================================
+-- V4: 테이블 정의 (meta_table) + 컬럼 정의 (meta_column)
+-- ---------------------------------------------------------------------
+-- 실제 운영 테이블/컬럼을 등록하고 컬럼을 표준 용어에 매핑한다.
+-- 비표준 여부는 저장하지 않고 조회할 때마다 현재 용어/도메인 기준으로 계산한다.
+--   NO_TERM         용어 매핑 없음 (term_id IS NULL)
+--   NAME_MISMATCH   physical_name <> 용어 abbreviation
+--   TYPE_MISMATCH   data_type <> 도메인 data_type
+--   LENGTH_MISMATCH data_length / data_scale이 도메인과 다름 (NULL끼리는 같다고 본다)
+-- =====================================================================
+CREATE TABLE meta_table (
+    -- 테이블 정의 ID (자동 증가 기본키)
+    id            BIGINT        NOT NULL AUTO_INCREMENT,
+    -- 테이블 물리명. 대문자로 정규화해 저장하며 전체에서 유일하다.
+    -- 영문자로 시작하는 영문/숫자/'_', MySQL 식별자 한도인 64자 이하. 예) TB_CUSTOMER
+    physical_name VARCHAR(64)   NOT NULL,
+    -- 테이블 논리명(한글명). 예) 고객
+    logical_name  VARCHAR(200)  NOT NULL,
+    -- 설명 (선택)
+    description   VARCHAR(1000),
+    -- 생성 일시 (JPA 감사)
+    created_at    DATETIME(6)   NOT NULL,
+    -- 최종 수정 일시 (JPA 감사)
+    updated_at    DATETIME(6)   NOT NULL,
+    PRIMARY KEY (id),
+    -- 테이블 물리명 유일 제약 (409 DUPLICATE_TABLE_NAME)
+    CONSTRAINT uk_meta_table_physical_name UNIQUE (physical_name)
+);
+
+CREATE TABLE meta_column (
+    -- 컬럼 정의 ID (자동 증가 기본키)
+    id             BIGINT        NOT NULL AUTO_INCREMENT,
+    -- 소속 테이블 ID (meta_table.id). 테이블을 삭제하면 서비스가 컬럼을 먼저 일괄 삭제한다.
+    table_id       BIGINT        NOT NULL,
+    -- 컬럼 물리명. 대문자로 정규화해 저장하며 테이블 안에서 유일하다. 예) CUST_NO
+    physical_name  VARCHAR(64)   NOT NULL,
+    -- 컬럼 논리명(한글명). 예) 고객번호
+    logical_name   VARCHAR(200)  NOT NULL,
+    -- 매핑된 표준 용어 ID (std_term.id). 선택이며 NULL이면 NO_TERM으로 검출된다.
+    term_id        BIGINT,
+    -- 데이터 타입 (도메인과 같은 DataType enum 이름)
+    data_type      VARCHAR(20)   NOT NULL,
+    -- 길이. 길이를 쓰지 않는 타입이면 NULL
+    data_length    INT,
+    -- 소수점 자리수. DECIMAL만 값을 가지며 생략 시 0으로 저장한다 (도메인과 같은 규칙)
+    data_scale     INT,
+    -- NULL 허용 여부 'Y'/'N'
+    nullable_yn    CHAR(1)       NOT NULL,
+    -- 기본키 여부 'Y'/'N'. 기본키 컬럼은 NULL을 허용할 수 없다 (400 PRIMARY_KEY_NULLABLE)
+    primary_key_yn CHAR(1)       NOT NULL,
+    -- 테이블 내 컬럼 순서 (1 이상). 유일하지 않으며 같으면 id 순으로 정렬한다.
+    seq            INT           NOT NULL,
+    -- 생성 일시 (JPA 감사)
+    created_at     DATETIME(6)   NOT NULL,
+    -- 최종 수정 일시 (JPA 감사)
+    updated_at     DATETIME(6)   NOT NULL,
+    PRIMARY KEY (id),
+    -- 테이블 내 컬럼 물리명 유일 제약 (409 DUPLICATE_COLUMN_NAME)
+    CONSTRAINT uk_meta_column_table_physical_name UNIQUE (table_id, physical_name),
+    -- 테이블 참조
+    CONSTRAINT fk_meta_column_table FOREIGN KEY (table_id) REFERENCES meta_table (id),
+    -- 용어 참조. 컬럼에 매핑된 용어는 서비스에서 먼저 막아 409(TERM_IN_USE)로 응답한다.
+    CONSTRAINT fk_meta_column_term FOREIGN KEY (term_id) REFERENCES std_term (id)
+);
