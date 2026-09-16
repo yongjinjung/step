@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { createContext, use, useCallback, useEffect, useMemo, useState, type PropsWithChildren } from 'react'
 import { setUnauthorizedHandler } from '@/api/client'
+import { clearWorkspaceTabs } from '@/layouts/workspaceTabsStorage'
 import { clearToken, decodeToken, loadValidUser, saveToken, type AuthUser } from './token'
 
 interface AuthContextValue {
@@ -30,6 +31,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setUser(null)
     // 다른 사용자로 다시 로그인했을 때 이전 사용자의 조회 결과가 보이지 않게 캐시를 비운다.
     queryClient.clear()
+    // 열어 두었던 화면 탭도 지운다. 같은 브라우저 탭에서 다시 로그인했을 때 이전 사용자가 보던 화면이 남으면 안 된다.
+    clearWorkspaceTabs()
   }, [queryClient])
 
   const login = useCallback((accessToken: string) => {

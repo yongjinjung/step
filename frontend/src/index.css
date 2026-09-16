@@ -35,8 +35,48 @@ body {
   border-bottom: 1px solid #f0f0f0;
 }
 
+/* 본문. 여백은 탭 화면(.workspace-pane)이 가지므로 여기에는 두지 않는다. */
 .app-content {
+  min-width: 0;
+}
+
+/* ---- 화면 탭 (포틀릿) ---- */
+.workspace-tabbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: 8px 16px 0;
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.workspace-tabbar .ant-tabs-nav {
+  margin: 0;
+}
+
+/* 상세 탭 이름("테이블 정의 · TB_ORDER")이 길어지면 줄이고 말줄임표를 붙인다. */
+.workspace-tabbar .ant-tabs-tab-btn {
+  max-width: 260px;
+  overflow: hidden;
+}
+
+.workspace-tab-label {
+  min-width: 0;
+}
+
+.workspace-tab-label span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 열어 둔 화면. 보고 있지 않은 탭은 hidden으로 감춘다(그대로 두므로 상태가 남는다). */
+.workspace-pane {
   margin: 24px;
+}
+
+.workspace-pane[hidden] {
+  display: none;
 }
 
 .page-header {
@@ -52,8 +92,152 @@ body {
   margin: 0;
 }
 
+.page-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* 상세 화면에서 위아래로 쌓는 카드 */
+.page-card {
+  margin-bottom: 16px;
+}
+
+.card-title-hint {
+  font-size: 13px;
+  font-weight: normal;
+}
+
+/* 알림 안의 짧은 목록 */
+.plain-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
 .narrow-form {
   max-width: 420px;
+}
+
+/* ---- 목록 화면 ---- */
+.page-notice {
+  margin-bottom: 16px;
+}
+
+.list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.search-input {
+  width: 320px;
+  max-width: 100%;
+}
+
+.filter-select {
+  width: 200px;
+  max-width: 100%;
+}
+
+/* 선택지가 짧은 필터 (대상·종류) */
+.filter-select-narrow {
+  width: 130px;
+  max-width: 100%;
+}
+
+/* 기간 필터의 날짜 입력 */
+.date-input {
+  width: 150px;
+}
+
+/* 표 위에 보여주는 닫을 수 있는 조건 태그 (대상 #ID, 신청 #N) */
+.active-filters {
+  margin-bottom: 12px;
+}
+
+/* 상세 드로어 끝의 다른 화면 링크 */
+.section-link {
+  margin-top: 16px;
+}
+
+/* 행 전체를 눌러 상세를 여는 표 */
+.clickable-row {
+  cursor: pointer;
+}
+
+/* 신청 내용 비교 표에서 신청으로 바뀌는 항목 */
+.compare-table .row-changed > td {
+  background: #fffbe6;
+}
+
+/* 이름이 긴 값(테이블 물리명 + 논리명)을 고르는 필터 */
+.filter-select-wide {
+  width: 280px;
+  max-width: 100%;
+}
+
+/* 선택 목록 항목 옆의 보조 설명 (데이터 타입 규칙 등) */
+.option-hint {
+  font-size: 12px;
+}
+
+/* 선택 목록 항목 옆의 표시 태그 (분류어 등) */
+.option-tag.ant-tag {
+  margin-inline: 6px 0;
+}
+
+/* ---- 용어 구성 단어 입력: 순번 · 단어 선택 · 순서 이동/빼기 버튼 ---- */
+.term-word-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.term-word-seq {
+  flex: none;
+  width: 20px;
+  line-height: 32px;
+  text-align: right;
+  margin-right: 4px;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.term-word-row .term-word-select {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 8px;
+}
+
+/* 폼 안내 문구 자리에 넣는 링크 버튼: 입력란과 줄을 맞춘다 */
+.inline-link.ant-btn {
+  padding-inline: 0;
+  height: auto;
+}
+
+/* 영문약어·물리명처럼 글자 모양이 중요한 값 */
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+}
+
+.form-notice {
+  margin-bottom: 16px;
+}
+
+.section-title.ant-typography {
+  margin: 24px 0 12px;
+}
+
+/* ---- 변경 이력 ---- */
+.history-changes {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.history-value {
+  word-break: break-all;
 }
 
 /* ---- 로그인 ---- */

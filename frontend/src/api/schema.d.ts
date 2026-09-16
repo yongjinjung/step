@@ -146,6 +146,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/code-groups/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 코드 그룹 단건 조회 */
+        get: operations["codeGroupFindById"];
+        /** 코드 그룹 수정 */
+        put: operations["codeGroupUpdate"];
+        post?: never;
+        /**
+         * 코드 그룹 삭제
+         * @description 속한 코드값도 함께 삭제한다. 컬럼에 매핑된 그룹은 삭제할 수 없다.
+         */
+        delete: operations["codeGroupDelete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/code-groups/{groupId}/values/{valueId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 코드값 단건 조회 */
+        get: operations["codeValueFindById"];
+        /** 코드값 수정 */
+        put: operations["codeValueUpdate"];
+        post?: never;
+        /** 코드값 삭제 */
+        delete: operations["codeValueDelete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/me/password": {
         parameters: {
             query?: never;
@@ -523,6 +564,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/code-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 코드 그룹 검색
+         * @description keyword는 코드ID/코드명에 부분 일치. 코드ID 오름차순 정렬.
+         */
+        get: operations["codeGroupSearch"];
+        put?: never;
+        /**
+         * 코드 그룹 등록
+         * @description 코드ID는 대문자로 저장한다.
+         */
+        post: operations["codeGroupCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/code-groups/{groupId}/values": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 코드값 목록
+         * @description 정렬 순서(sortOrder) 오름차순. 미사용 코드값도 포함한다.
+         */
+        get: operations["codeValueFindAll"];
+        put?: never;
+        /**
+         * 코드값 등록
+         * @description 코드값은 대문자로 저장한다.
+         */
+        post: operations["codeValueCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/login": {
         parameters: {
             query?: never;
@@ -657,6 +746,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/code-groups/{id}/columns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 코드 그룹 매핑 컬럼 목록
+         * @description 이 코드 그룹에 매핑된 컬럼 정의. 테이블 물리명, 컬럼 순서로 정렬.
+         */
+        get: operations["codeGroupFindColumns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/me": {
         parameters: {
             query?: never;
@@ -758,6 +867,8 @@ export interface components {
             logicalName: string;
             /** Format: int64 */
             termId?: number;
+            /** Format: int64 */
+            codeGroupId?: number;
             /** @enum {string} */
             dataType: "CHAR" | "VARCHAR" | "DECIMAL" | "INTEGER" | "BIGINT" | "DATE" | "DATETIME" | "TEXT";
             /** Format: int32 */
@@ -790,6 +901,10 @@ export interface components {
             /** Format: int64 */
             termId?: number;
             termName?: string;
+            /** Format: int64 */
+            codeGroupId?: number;
+            codeId?: string;
+            codeName?: string;
             expected?: components["schemas"]["StandardSpec"];
             standard?: boolean;
             issues?: ("NO_TERM" | "NAME_MISMATCH" | "TYPE_MISMATCH" | "LENGTH_MISMATCH")[];
@@ -854,6 +969,49 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
+        CodeGroupRequest: {
+            codeId: string;
+            codeName: string;
+            description?: string;
+            used: boolean;
+        };
+        CodeGroupResponse: {
+            /** Format: int64 */
+            id?: number;
+            codeId?: string;
+            codeName?: string;
+            description?: string;
+            used?: boolean;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        CodeValueRequest: {
+            codeValue: string;
+            valueName: string;
+            description?: string;
+            /** Format: int32 */
+            sortOrder: number;
+            used: boolean;
+        };
+        CodeValueResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            groupId?: number;
+            codeId?: string;
+            codeValue?: string;
+            valueName?: string;
+            description?: string;
+            /** Format: int32 */
+            sortOrder?: number;
+            used?: boolean;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
         PasswordChangeRequest: {
             currentPassword: string;
             newPassword: string;
@@ -900,25 +1058,25 @@ export interface components {
             float?: boolean;
             number?: boolean;
             floatingPointNumber?: boolean;
-            valueNode?: boolean;
-            integralNumber?: boolean;
-            container?: boolean;
-            bigInteger?: boolean;
-            /** @enum {string} */
-            nodeType?: "ARRAY" | "BINARY" | "BOOLEAN" | "MISSING" | "NULL" | "NUMBER" | "OBJECT" | "POJO" | "STRING";
-            missingNode?: boolean;
-            bigDecimal?: boolean;
+            string?: boolean;
+            object?: boolean;
+            pojo?: boolean;
             long?: boolean;
+            binary?: boolean;
+            double?: boolean;
+            short?: boolean;
+            boolean?: boolean;
             /** @deprecated */
             textual?: boolean;
-            boolean?: boolean;
-            string?: boolean;
-            double?: boolean;
-            pojo?: boolean;
-            binary?: boolean;
             int?: boolean;
-            object?: boolean;
-            short?: boolean;
+            bigDecimal?: boolean;
+            /** @enum {string} */
+            nodeType?: "ARRAY" | "BINARY" | "BOOLEAN" | "MISSING" | "NULL" | "NUMBER" | "OBJECT" | "POJO" | "STRING";
+            integralNumber?: boolean;
+            bigInteger?: boolean;
+            valueNode?: boolean;
+            container?: boolean;
+            missingNode?: boolean;
             embeddedValue?: boolean;
         };
         ApproveForm: {
@@ -1024,7 +1182,7 @@ export interface components {
             /** Format: int64 */
             id?: number;
             /** @enum {string} */
-            targetType?: "WORD" | "DOMAIN" | "TERM" | "TABLE" | "COLUMN";
+            targetType?: "WORD" | "DOMAIN" | "TERM" | "TABLE" | "COLUMN" | "CODE_GROUP" | "CODE_VALUE";
             /** Format: int64 */
             targetId?: number;
             /** @enum {string} */
@@ -1071,6 +1229,27 @@ export interface components {
             totalElements?: number;
             /** Format: int32 */
             totalPages?: number;
+        };
+        PageResponseCodeGroupResponse: {
+            content?: components["schemas"]["CodeGroupResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        CodeGroupColumnResponse: {
+            /** Format: int64 */
+            columnId?: number;
+            /** Format: int64 */
+            tableId?: number;
+            tablePhysicalName?: string;
+            tableLogicalName?: string;
+            physicalName?: string;
+            logicalName?: string;
         };
     };
     responses: never;
@@ -1482,6 +1661,145 @@ export interface operations {
             header?: never;
             path: {
                 id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    codeGroupFindById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeGroupResponse"];
+                };
+            };
+        };
+    };
+    codeGroupUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodeGroupRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeGroupResponse"];
+                };
+            };
+        };
+    };
+    codeGroupDelete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    codeValueFindById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: number;
+                valueId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeValueResponse"];
+                };
+            };
+        };
+    };
+    codeValueUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: number;
+                valueId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodeValueRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeValueResponse"];
+                };
+            };
+        };
+    };
+    codeValueDelete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: number;
+                valueId: number;
             };
             cookie?: never;
         };
@@ -2180,6 +2498,107 @@ export interface operations {
             };
         };
     };
+    codeGroupSearch: {
+        parameters: {
+            query?: {
+                keyword?: string;
+                used?: boolean;
+                /** @description Zero-based page index (0..N) */
+                page?: number;
+                /** @description The size of the page to be returned */
+                size?: number;
+                /** @description Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported. */
+                sort?: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageResponseCodeGroupResponse"];
+                };
+            };
+        };
+    };
+    codeGroupCreate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodeGroupRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeGroupResponse"];
+                };
+            };
+        };
+    };
+    codeValueFindAll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeValueResponse"][];
+                };
+            };
+        };
+    };
+    codeValueCreate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodeValueRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeValueResponse"];
+                };
+            };
+        };
+    };
     authLogin: {
         parameters: {
             query?: never;
@@ -2260,7 +2679,7 @@ export interface operations {
     changeHistorySearch: {
         parameters: {
             query?: {
-                targetType?: "WORD" | "DOMAIN" | "TERM" | "TABLE" | "COLUMN";
+                targetType?: "WORD" | "DOMAIN" | "TERM" | "TABLE" | "COLUMN" | "CODE_GROUP" | "CODE_VALUE";
                 targetId?: number;
                 changeType?: "CREATE" | "UPDATE" | "DELETE";
                 changedBy?: string;
@@ -2360,6 +2779,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PageResponseMetaColumnResponse"];
+                };
+            };
+        };
+    };
+    codeGroupFindColumns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeGroupColumnResponse"][];
                 };
             };
         };

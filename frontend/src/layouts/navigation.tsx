@@ -6,6 +6,7 @@ import {
   FileSearchOutlined,
   HistoryOutlined,
   TableOutlined,
+  TagsOutlined,
   TeamOutlined,
 } from '@ant-design/icons'
 import type { ReactNode } from 'react'
@@ -34,6 +35,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { path: '/words', label: '표준 단어', icon: <BookOutlined />, description: '단어 검색·등록·수정·삭제와 엑셀 업로드/다운로드. USER는 신청으로 등록합니다.' },
       { path: '/domains', label: '표준 도메인', icon: <ClusterOutlined />, description: '분류어별 데이터 타입·길이 규칙 관리' },
       { path: '/terms', label: '표준 용어', icon: <ApartmentOutlined />, description: '단어 조합으로 용어명·영문약어를 만들고 도메인을 연결합니다.' },
+      { path: '/codes', label: '공통 코드', icon: <TagsOutlined />, description: '코드 그룹(코드ID)과 코드값 관리, 코드성 컬럼 매핑 확인' },
     ],
   },
   {
