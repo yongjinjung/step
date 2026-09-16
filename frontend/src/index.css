@@ -17,16 +17,43 @@ body {
 .app-header {
   display: flex;
   align-items: center;
-  gap: 170px;
+  gap: 16px;
   padding: 0 16px;
   background: #001529;
 }
 
+/* 로고: 이름(STEP) 아래에 뜻을 작게 두 줄로 보여준다. 헤더 높이(64px) 안에 들어가도록 줄 간격을 좁힌다. */
 .app-logo {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.25;
   color: #fff;
-  font-weight: 600;
-  font-size: 15px;
   white-space: nowrap;
+  /* 로고와 TOP 메뉴 사이 간격. header의 gap을 키우면 메뉴와 사용자 영역 사이도 함께 벌어져 여기서 준다. */
+  margin-right: 14px;
+}
+
+.app-logo-name {
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: 1px;
+}
+
+.app-logo-tagline {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* 화면이 좁으면 뜻은 숨기고 간격도 줄여 TOP 메뉴 자리를 확보한다. */
+@media (max-width: 991px) {
+  .app-logo-tagline {
+    display: none;
+  }
+
+  .app-logo {
+    margin-right: 24px;
+  }
 }
 
 /* TOP 메뉴는 남는 가로 공간을 모두 쓰고, 좁으면 antd가 ...으로 접는다 */

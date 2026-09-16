@@ -68,7 +68,10 @@ function AppLayoutFrame() {
   return (
     <Layout className="app-layout">
       <Layout.Header className="app-header">
-        <div className="app-logo">STEP</div>
+        <div className="app-logo">
+          <span className="app-logo-name">STEP</span>
+          <span className="app-logo-tagline">Start · Transform · Explore · Progress</span>
+        </div>
         <Menu
           theme="dark"
           mode="horizontal"
