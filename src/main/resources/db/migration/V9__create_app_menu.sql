@@ -1,0 +1,42 @@
+-- =====================================================================
+-- V9: 화면 메뉴 (app_menu)
+-- ---------------------------------------------------------------------
+-- 화면 위쪽(TOP) 메뉴와 그 아래 왼쪽(LEFT) 메뉴를 관리한다. 상위-하위 2단까지만 둔다.
+--   상위(TOP) 메뉴: parent_id IS NULL, 화면이 없는 묶음이라 path도 NULL
+--   하위(LEFT) 메뉴: parent_id = 상위 메뉴, path가 실제 화면 경로 (/words)
+--
+-- 메뉴가 하나도 없으면 기동할 때 MenuInitializer가 기본 메뉴를 만든다(화면에서 관리자가 고칠 수 있다).
+-- 예시 데이터가 아니라 화면 구성이라 마이그레이션이 아니라 초기화 코드로 넣는다
+-- (테스트는 매번 테이블을 비우므로 마이그레이션에 넣으면 테스트마다 사라져 의미가 없다).
+-- =====================================================================
+CREATE TABLE app_menu (
+    -- 메뉴 ID (자동 증가 기본키)
+    id            BIGINT       NOT NULL AUTO_INCREMENT,
+    -- 상위 메뉴 ID (app_menu.id). NULL이면 자기 자신이 상위(TOP) 메뉴다.
+    parent_id     BIGINT,
+    -- 메뉴명. 예) 표준 단어
+    name          VARCHAR(100) NOT NULL,
+    -- 화면 경로. 하위 메뉴만 가지며 전체에서 유일하다. 예) /words
+    -- 상위 메뉴는 묶음이라 NULL이다. UNIQUE 제약은 NULL을 여러 개 허용한다(MySQL·H2 공통).
+    path          VARCHAR(200),
+    -- 아이콘 이름. 화면(프론트엔드)이 실제 아이콘으로 바꾼다. 예) book
+    icon          VARCHAR(50),
+    -- 같은 단계 안에서의 정렬 순서. 유일하지 않으며 같으면 id 순으로 정렬한다.
+    sort_order    INT          NOT NULL,
+    -- 사용 여부 'Y'/'N'. 미사용 메뉴는 화면에 나오지 않는다(관리 화면에는 나온다).
+    used_yn       CHAR(1)      NOT NULL,
+    -- 관리자 전용 여부 'Y'/'N'. 'Y'면 ADMIN에게만 보인다(화면 접근 권한 자체는 각 API가 검사한다).
+    admin_only_yn CHAR(1)      NOT NULL,
+    -- 생성 일시 (JPA 감사)
+    created_at    DATETIME(6)  NOT NULL,
+    -- 최종 수정 일시 (JPA 감사)
+    updated_at    DATETIME(6)  NOT NULL,
+    PRIMARY KEY (id),
+    -- 메뉴 경로 유일 제약 (409 DUPLICATE_MENU_PATH)
+    CONSTRAINT uk_app_menu_path UNIQUE (path),
+    -- 상위 메뉴 참조. 하위 메뉴가 있는 메뉴는 서비스에서 먼저 막아 409(MENU_HAS_CHILDREN)로 응답한다.
+    CONSTRAINT fk_app_menu_parent FOREIGN KEY (parent_id) REFERENCES app_menu (id)
+);
+
+-- 상위 메뉴별 하위 메뉴를 순서대로 읽는 조회용
+CREATE INDEX idx_app_menu_parent ON app_menu (parent_id, sort_order);

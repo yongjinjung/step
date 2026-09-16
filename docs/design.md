@@ -81,6 +81,20 @@
   - 컬럼 매핑은 컬럼 정의 API로 하므로 USER도 할 수 있다. 엑셀 테이블 정의 양식에는 코드 열이 없어 업로드한 컬럼은 매핑 없이 등록된다.
   - 예시 데이터: `src/main/resources/db/seed/common_code_seed.sql`에 일반적인 코드 그룹 19개(주문상태, 결제수단, 은행, 회원등급 등)와 코드값 100개가 있다. Flyway가 읽지 않는 위치이므로 필요할 때 직접 넣는다.
   - 코드 그룹·코드값 변경도 변경 이력(`CODE_GROUP`, `CODE_VALUE`)을 남기고, 그룹을 삭제하면 코드값마다 삭제 이력이 남는다. 컬럼 스냅샷에 매핑 코드 그룹 ID·코드ID가 추가됐다.
+- 화면 메뉴 **(10단계 구현됨)**: 화면 위쪽(TOP) 상위 메뉴와 그 아래 왼쪽(LEFT) 하위 메뉴를 DB에서 관리한다. 관리자가 메뉴 관리 화면에서 등록·수정·삭제한다.
+  - 상위-하위 2단까지만 둔다(`INVALID_MENU_PARENT`). 상위 메뉴는 하위를 묶는 이름이라 화면 경로가 없고, 하위 메뉴는 경로가 필요하다(`INVALID_MENU_PATH`). 경로는 전체에서 유일하다(`DUPLICATE_MENU_PATH`).
+  - 경로는 앞의 `/`가 없으면 붙여 저장한다. 하위 메뉴가 있는 메뉴는 삭제할 수 없고(`MENU_HAS_CHILDREN`), 하위를 가진 메뉴를 다른 메뉴 밑으로 옮길 수도 없다.
+  - 메뉴는 사용 여부와 관리자 전용 여부를 가진다. 화면 표시용 조회(`GET /api/menus`)는 사용 중인 메뉴만, 관리자 전용은 ADMIN에게만 돌려주고 보여줄 하위가 없는 상위 메뉴는 뺀다. 관리용 조회(`GET /api/menus/all`)는 전부 돌려준다.
+  - 조회는 로그인한 사용자, 관리(전체 조회 포함)는 ADMIN이다. 메뉴의 관리자 전용 여부는 화면에 보이는지의 문제이고, 실제 권한 검사는 각 API가 그대로 한다.
+  - 아이콘은 이름만 저장하고(`book`, `table` 등) 화면이 실제 아이콘으로 바꾼다. 경로가 화면으로 등록되지 않았으면 메뉴는 만들어지되 "준비 중" 화면이 나온다.
+  - 메뉴가 하나도 없으면 기동 시 기본 메뉴(상위 4개·하위 10개)를 만든다. 이미 있으면 건드리지 않아 관리자가 고친 메뉴가 유지된다.
+  - 메뉴는 화면 구성이라 변경 이력을 남기지 않는다.
+- 사용자별 메뉴 권한 **(11단계 구현됨)**: 관리자가 사용자마다 보여줄 메뉴를 지정한다(`app_user_menu`).
+  - 지정이 없는 사용자는 기본 규칙(사용 중 + 역할)대로 본다. 지정하면 그 메뉴만 본다.
+  - 지정은 좁히는 쪽으로만 동작한다. 지정했더라도 미사용 메뉴와 관리자 전용 메뉴 규칙은 그대로 적용된다.
+  - 지정은 하위(LEFT) 메뉴 단위다. 상위 메뉴는 보여줄 하위가 남아 있으면 자동으로 보인다.
+  - 관리자에게도 똑같이 적용된다. 메뉴가 사라져도 주소로는 들어갈 수 있고, 기능 권한은 각 API가 그대로 검사한다.
+  - 권한은 통째로 교체한다. 메뉴를 삭제하면 그 메뉴에 걸린 권한도 함께 지운다.
 
 ## ERD (전체 계획)
 
@@ -187,6 +201,16 @@ erDiagram
         varchar description
         char used_yn "사용 여부 Y/N"
     }
+    app_menu {
+        bigint id PK
+        bigint parent_id FK "NULL이면 상위(TOP) 메뉴"
+        varchar name "메뉴명"
+        varchar path UK "화면 경로, 하위 메뉴만 (예: /words)"
+        varchar icon "아이콘 이름"
+        int sort_order
+        char used_yn "사용 여부 Y/N"
+        char admin_only_yn "관리자 전용 여부 Y/N"
+    }
     com_code_value {
         bigint id PK
         bigint group_id FK
@@ -213,6 +237,8 @@ erDiagram
 | 7 | 변경 이력 | 완료 (H2 테스트 + 로컬 MySQL 8.4 실행 검증) |
 | 8 | 엑셀 업로드/다운로드 (Apache POI) | 완료 (H2 테스트 + 로컬 MySQL 8.4 실행 검증) |
 | 9 | 공통 코드 (코드 그룹·코드값, 컬럼 코드 그룹 매핑) + 화면 | 완료 (H2 테스트 + 로컬 MySQL 8.4 실행 검증) |
+| 10 | 화면 메뉴 관리 (TOP/LEFT 2단 메뉴, 메뉴 관리 화면) | 완료 (H2 테스트 + 로컬 MySQL 8.4 실행 검증) |
+| 11 | 사용자별 메뉴 권한 (메뉴 권한 화면) | 완료 (H2 테스트 + 로컬 MySQL 8.4 실행 검증) |
 
 ## API (1단계)
 
@@ -358,5 +384,33 @@ erDiagram
 매핑 컬럼 응답: `{columnId, tableId, tablePhysicalName, tableLogicalName, physicalName, logicalName}`
 
 컬럼 정의 API 변경: 요청에 `codeGroupId`(선택)가 추가되고, 응답에 `codeGroupId`, `codeId`, `codeName`이 추가됐다. PUT은 전체 교체라 `codeGroupId`를 빼면 매핑이 해제된다.
+
+## API (10단계)
+
+| Method | Path | 권한 | 설명 |
+|---|---|---|---|
+| GET | `/api/menus` | 로그인 | 화면 표시용 메뉴 트리 (사용 중 + 역할에 맞는 메뉴, 하위 없는 상위 제외) |
+| GET | `/api/menus/all` | ADMIN | 관리용 전체 메뉴 트리 (미사용·관리자 전용 포함) |
+| GET | `/api/menus/{id}` | 로그인 | 단건 조회 (하위 메뉴 없이) |
+| POST | `/api/menus` | ADMIN | 메뉴 등록 (201 + Location). `parentId`가 없으면 상위(TOP) 메뉴 |
+| PUT | `/api/menus/{id}` | ADMIN | 수정. 상위 메뉴를 바꾸면 다른 묶음으로 옮겨진다 |
+| DELETE | `/api/menus/{id}` | ADMIN | 삭제 (204). 하위 메뉴가 있으면 409 |
+
+요청 본문: `{"parentId", "name", "path", "icon", "sortOrder", "used", "adminOnly"}`
+
+응답: `{id, parentId, name, path, icon, sortOrder, used, adminOnly, children[], createdAt, updatedAt}` (하위 메뉴 응답의 `children`은 항상 빈 배열)
+
+## API (11단계)
+
+| Method | Path | 권한 | 설명 |
+|---|---|---|---|
+| GET | `/api/users/{userId}/menus` | ADMIN | 사용자 메뉴 권한 조회 |
+| PUT | `/api/users/{userId}/menus` | ADMIN | 사용자 메뉴 권한 저장 (통째로 교체) |
+
+요청 본문: `{"useDefault": true|false, "menuIds": [메뉴 ID]}` (`useDefault`면 지정을 모두 지우고 기본 규칙으로 되돌린다)
+
+응답: `{userId, username, name, role, useDefault, menuIds}`
+
+`GET /api/menus`는 이 지정을 반영해 그 사용자에게 보여줄 메뉴만 돌려준다.
 
 오류 응답 형식: `{"code": "ErrorCode 이름", "message": "...", "fieldErrors": [{"field", "reason"}]}`

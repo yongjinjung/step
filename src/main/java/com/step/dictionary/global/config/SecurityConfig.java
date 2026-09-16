@@ -41,6 +41,8 @@ import org.springframework.security.web.SecurityFilterChain;
  *   <tr><td>POST /api/auth/login, Swagger 문서, /error</td><td>공개</td></tr>
  *   <tr><td>/api/users/**</td><td>ADMIN</td></tr>
  *   <tr><td>POST /api/requests/{id}/approve, /reject (신청 승인·반려)</td><td>ADMIN</td></tr>
+ *   <tr><td>GET /api/menus, /api/menus/{id} (화면 메뉴 조회)</td><td>로그인</td></tr>
+ *   <tr><td>그 밖의 /api/menus/** (전체 조회, 등록·수정·삭제)</td><td>ADMIN</td></tr>
  *   <tr><td>GET 단어/도메인/용어/공통 코드</td><td>로그인</td></tr>
  *   <tr><td>그 밖의 단어/도메인/용어/공통 코드 (등록·수정·삭제)</td><td>ADMIN</td></tr>
  *   <tr><td>나머지 전부 (테이블/컬럼 정의 쓰기, 변경 신청·조회·취소 포함)</td><td>로그인</td></tr>
@@ -85,6 +87,10 @@ public class SecurityConfig {
                         // 신청 승인/반려는 ADMIN. 신청·조회·취소는 아래 anyRequest(로그인)에 해당한다.
                         .requestMatchers(HttpMethod.POST, "/api/requests/*/approve", "/api/requests/*/reject")
                         .hasRole("ADMIN")
+                        // 메뉴는 화면 구성이라 조회는 로그인한 사용자, 관리(전체 조회 포함)는 ADMIN이다.
+                        .requestMatchers(HttpMethod.GET, "/api/menus/all").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/menus", "/api/menus/*").authenticated()
+                        .requestMatchers("/api/menus/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, STANDARD_DATA_PATHS).authenticated()
                         .requestMatchers(STANDARD_DATA_PATHS).hasRole("ADMIN")
                         .anyRequest().authenticated())

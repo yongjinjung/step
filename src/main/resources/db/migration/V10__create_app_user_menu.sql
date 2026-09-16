@@ -1,0 +1,30 @@
+-- =====================================================================
+-- V10: 사용자별 메뉴 권한 (app_user_menu)
+-- ---------------------------------------------------------------------
+-- 사용자에게 보여줄 메뉴를 하나씩 지정한다. 관리자가 메뉴 권한 화면에서 관리한다.
+--
+--   행이 하나도 없는 사용자 → 기본 규칙대로 본다 (사용 중인 메뉴 + 역할에 맞는 메뉴)
+--   행이 있는 사용자       → 지정된 메뉴만 본다 (그중에서도 미사용·관리자 전용 규칙은 그대로 적용)
+--
+-- 즉 권한 설정은 "더 보여주기"가 아니라 "좁히기"다. 메뉴가 보이는지의 문제일 뿐,
+-- 실제 기능 권한은 각 API가 그대로 검사한다(관리자 전용 API는 USER에게 403).
+-- =====================================================================
+CREATE TABLE app_user_menu (
+    -- 메뉴 권한 ID (자동 증가 기본키)
+    id         BIGINT      NOT NULL AUTO_INCREMENT,
+    -- 사용자 ID (app_user.id)
+    user_id    BIGINT      NOT NULL,
+    -- 메뉴 ID (app_menu.id). 하위(LEFT) 메뉴를 지정한다. 상위 메뉴는 보여줄 하위가 있으면 자동으로 보인다.
+    menu_id    BIGINT      NOT NULL,
+    -- 부여 일시 (JPA 감사). 권한 행은 만들거나 지우기만 하고 수정하지 않아 updated_at은 두지 않는다.
+    created_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    -- 같은 사용자에게 같은 메뉴를 두 번 넣지 않는다.
+    CONSTRAINT uk_app_user_menu UNIQUE (user_id, menu_id),
+    CONSTRAINT fk_app_user_menu_user FOREIGN KEY (user_id) REFERENCES app_user (id),
+    -- 메뉴를 지우면 서비스가 이 권한 행을 먼저 지운다(MenuService.delete).
+    CONSTRAINT fk_app_user_menu_menu FOREIGN KEY (menu_id) REFERENCES app_menu (id)
+);
+
+-- 로그인한 사용자의 메뉴를 조회할 때 쓴다.
+CREATE INDEX idx_app_user_menu_user ON app_user_menu (user_id);

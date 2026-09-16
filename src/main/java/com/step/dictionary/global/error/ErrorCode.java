@@ -130,7 +130,18 @@ public enum ErrorCode {
     /** 코드값이 없거나, 경로의 코드 그룹에 속하지 않은 코드값일 때. */
     CODE_VALUE_NOT_FOUND(HttpStatus.NOT_FOUND, "코드값을 찾을 수 없습니다."),
     /** 대문자로 정규화한 뒤 그룹 안에서 비교한다. 다른 그룹에는 같은 코드값이 있어도 된다. */
-    DUPLICATE_CODE_VALUE(HttpStatus.CONFLICT, "코드 그룹에 이미 등록된 코드값입니다.");
+    DUPLICATE_CODE_VALUE(HttpStatus.CONFLICT, "코드 그룹에 이미 등록된 코드값입니다."),
+
+    // ---- 메뉴 (10단계) ----
+    MENU_NOT_FOUND(HttpStatus.NOT_FOUND, "메뉴를 찾을 수 없습니다."),
+    MENU_PARENT_NOT_FOUND(HttpStatus.NOT_FOUND, "상위 메뉴를 찾을 수 없습니다."),
+    /** 하위 메뉴를 상위로 지정했거나, 하위를 가진 메뉴를 다른 메뉴 밑으로 옮기려 할 때. 메뉴는 2단까지만 둔다. */
+    INVALID_MENU_PARENT(HttpStatus.BAD_REQUEST, "메뉴는 상위-하위 2단까지만 만들 수 있습니다."),
+    /** 상위 메뉴에 경로를 지정했거나, 하위 메뉴에 경로가 없을 때. */
+    INVALID_MENU_PATH(HttpStatus.BAD_REQUEST, "상위 메뉴는 화면 경로를 둘 수 없고, 하위 메뉴는 화면 경로가 필요합니다."),
+    DUPLICATE_MENU_PATH(HttpStatus.CONFLICT, "이미 등록된 메뉴 경로입니다."),
+    /** 하위 메뉴가 있는 메뉴를 삭제하려 할 때. 하위를 먼저 옮기거나 지워야 한다. */
+    MENU_HAS_CHILDREN(HttpStatus.CONFLICT, "하위 메뉴가 있는 메뉴는 삭제할 수 없습니다.");
 
     /** 응답 HTTP 상태. */
     private final HttpStatus status;
