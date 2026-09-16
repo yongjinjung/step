@@ -23,6 +23,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/users/{userId}/menus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 사용자 메뉴 권한 조회
+         * @description 지정된 메뉴 ID 목록. 비어 있으면(useDefault=true) 역할 기준 기본 메뉴를 본다.
+         */
+        get: operations["menuPermissionFind"];
+        /**
+         * 사용자 메뉴 권한 저장
+         * @description useDefault가 true면 지정을 모두 지우고 기본 규칙으로 되돌린다. false면 menuIds에 준 메뉴만 보인다.
+         */
+        put: operations["menuPermissionReplace"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users/{id}": {
         parameters: {
             query?: never;
@@ -122,6 +146,28 @@ export interface paths {
          * @description 테이블의 컬럼 정의도 함께 삭제한다.
          */
         delete: operations["metaTableDelete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/menus/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 메뉴 단건 조회 */
+        get: operations["menuFindById"];
+        /** 메뉴 수정 */
+        put: operations["menuUpdate"];
+        post?: never;
+        /**
+         * 메뉴 삭제
+         * @description 하위 메뉴가 있으면 삭제할 수 없다. 하위 메뉴를 먼저 옮기거나 지운다.
+         */
+        delete: operations["menuDelete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -444,6 +490,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/menus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 메뉴 트리 조회
+         * @description 화면 표시용. 사용 중인 메뉴만, 관리자 전용은 ADMIN에게만, 하위가 없는 상위 메뉴는 제외한다. 사용자별 메뉴 권한이 지정돼 있으면 그 메뉴만 나온다.
+         */
+        get: operations["menuFindNavigation"];
+        put?: never;
+        /**
+         * 메뉴 등록
+         * @description parentId가 없으면 상위(TOP) 메뉴, 있으면 그 아래 하위(LEFT) 메뉴가 된다.
+         */
+        post: operations["menuCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/excel/words": {
         parameters: {
             query?: never;
@@ -669,6 +739,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/menus/all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 전체 메뉴 트리 조회
+         * @description 메뉴 관리 화면용. 미사용 메뉴와 관리자 전용 메뉴도 모두 나온다.
+         */
+        get: operations["menuFindAll"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/histories": {
         parameters: {
             query?: never;
@@ -807,6 +897,20 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
+        UserMenuPermissionRequest: {
+            useDefault: boolean;
+            menuIds?: number[];
+        };
+        UserMenuPermissionResponse: {
+            /** Format: int64 */
+            userId?: number;
+            username?: string;
+            name?: string;
+            /** @enum {string} */
+            role?: "ADMIN" | "USER";
+            useDefault?: boolean;
+            menuIds?: number[];
+        };
         UserUpdateRequest: {
             name: string;
             /** @enum {string} */
@@ -938,6 +1042,35 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
+        MenuRequest: {
+            /** Format: int64 */
+            parentId?: number;
+            name: string;
+            path?: string;
+            icon?: string;
+            /** Format: int32 */
+            sortOrder: number;
+            used: boolean;
+            adminOnly: boolean;
+        };
+        MenuResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            parentId?: number;
+            name?: string;
+            path?: string;
+            icon?: string;
+            /** Format: int32 */
+            sortOrder?: number;
+            used?: boolean;
+            adminOnly?: boolean;
+            children?: components["schemas"]["MenuResponse"][];
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
         DomainRequest: {
             name: string;
             /** Format: int64 */
@@ -1057,26 +1190,26 @@ export interface components {
             null?: boolean;
             float?: boolean;
             number?: boolean;
-            floatingPointNumber?: boolean;
-            string?: boolean;
-            object?: boolean;
-            pojo?: boolean;
-            long?: boolean;
-            binary?: boolean;
-            double?: boolean;
-            short?: boolean;
-            boolean?: boolean;
+            missingNode?: boolean;
+            integralNumber?: boolean;
+            bigInteger?: boolean;
+            /** @enum {string} */
+            nodeType?: "ARRAY" | "BINARY" | "BOOLEAN" | "MISSING" | "NULL" | "NUMBER" | "OBJECT" | "POJO" | "STRING";
+            valueNode?: boolean;
+            container?: boolean;
+            bigDecimal?: boolean;
             /** @deprecated */
             textual?: boolean;
             int?: boolean;
-            bigDecimal?: boolean;
-            /** @enum {string} */
-            nodeType?: "ARRAY" | "BINARY" | "BOOLEAN" | "MISSING" | "NULL" | "NUMBER" | "OBJECT" | "POJO" | "STRING";
-            integralNumber?: boolean;
-            bigInteger?: boolean;
-            valueNode?: boolean;
-            container?: boolean;
-            missingNode?: boolean;
+            double?: boolean;
+            long?: boolean;
+            boolean?: boolean;
+            binary?: boolean;
+            object?: boolean;
+            pojo?: boolean;
+            string?: boolean;
+            short?: boolean;
+            floatingPointNumber?: boolean;
             embeddedValue?: boolean;
         };
         ApproveForm: {
@@ -1325,6 +1458,54 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    menuPermissionFind: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserMenuPermissionResponse"];
+                };
+            };
+        };
+    };
+    menuPermissionReplace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserMenuPermissionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserMenuPermissionResponse"];
+                };
             };
         };
     };
@@ -1588,6 +1769,74 @@ export interface operations {
         };
     };
     metaTableDelete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    menuFindById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MenuResponse"];
+                };
+            };
+        };
+    };
+    menuUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MenuRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MenuResponse"];
+                };
+            };
+        };
+    };
+    menuDelete: {
         parameters: {
             query?: never;
             header?: never;
@@ -2243,6 +2492,50 @@ export interface operations {
             };
         };
     };
+    menuFindNavigation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MenuResponse"][];
+                };
+            };
+        };
+    };
+    menuCreate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MenuRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MenuResponse"];
+                };
+            };
+        };
+    };
     excelDownloadWords: {
         parameters: {
             query?: {
@@ -2672,6 +2965,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChangeRequestResponse"];
+                };
+            };
+        };
+    };
+    menuFindAll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MenuResponse"][];
                 };
             };
         };

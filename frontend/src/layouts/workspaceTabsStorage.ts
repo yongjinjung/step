@@ -18,10 +18,13 @@
 export interface WorkspaceTab {
   /** 탭 키이자 화면 경로 (pathname) */
   key: string
-  /** 탭에 보이는 이름. 상세 화면은 화면이 대상 이름으로 바꾼다 */
-  label: string
   /** 이 탭에서 마지막으로 보던 주소 (검색 조건·페이지 포함) */
   path: string
+  /**
+   * 상세 화면이 알려 준 대상 이름 (예: TB_ORDER). 메뉴명은 저장하지 않고 그릴 때 메뉴에서 찾는다.
+   * 메뉴는 서버에서 늦게 도착하고 관리 화면에서 이름이 바뀔 수도 있어, 저장해 두면 옛 이름이 남는다.
+   */
+  title?: string
 }
 
 /** 사용자별 저장 키 접두어. 로그아웃 때 이 접두어로 시작하는 값을 모두 지운다. */
@@ -42,7 +45,7 @@ export function loadWorkspaceTabs(username: string): WorkspaceTab[] {
     return saved.filter(
       (tab): tab is WorkspaceTab =>
         typeof tab === 'object' && tab !== null && typeof (tab as WorkspaceTab).key === 'string' &&
-        typeof (tab as WorkspaceTab).label === 'string' && typeof (tab as WorkspaceTab).path === 'string',
+        typeof (tab as WorkspaceTab).path === 'string',
     )
   } catch {
     return []

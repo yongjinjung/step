@@ -12,8 +12,28 @@
   ],
   "tags": [
     {
+      "name": "메뉴",
+      "description": "화면 메뉴(상위/하위) 조회와 관리"
+    },
+    {
+      "name": "엑셀",
+      "description": "표준 데이터와 테이블 정의의 엑셀 다운로드/업로드"
+    },
+    {
+      "name": "공통 코드값",
+      "description": "코드 그룹에 속한 코드값 관리"
+    },
+    {
+      "name": "공통 코드 그룹",
+      "description": "공통 코드 그룹(코드ID) 관리와 매핑된 컬럼 조회"
+    },
+    {
       "name": "컬럼 정의",
       "description": "테이블 컬럼 정의와 비표준 컬럼 검출"
+    },
+    {
+      "name": "사용자 메뉴 권한",
+      "description": "사용자에게 보여줄 메뉴 지정"
     },
     {
       "name": "표준 도메인",
@@ -26,14 +46,6 @@
     {
       "name": "표준 단어",
       "description": "표준 단어사전 관리"
-    },
-    {
-      "name": "엑셀",
-      "description": "표준 데이터와 테이블 정의의 엑셀 다운로드/업로드"
-    },
-    {
-      "name": "공통 코드값",
-      "description": "코드 그룹에 속한 코드값 관리"
     },
     {
       "name": "신청/승인",
@@ -50,10 +62,6 @@
     {
       "name": "변경 이력",
       "description": "표준 단어/도메인/용어와 테이블/컬럼 정의의 변경 이력 조회"
-    },
-    {
-      "name": "공통 코드 그룹",
-      "description": "공통 코드 그룹(코드ID) 관리와 매핑된 컬럼 조회"
     },
     {
       "name": "사용자 관리",
@@ -152,6 +160,80 @@
         "responses": {
           "200": {
             "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/users/{userId}/menus": {
+      "get": {
+        "tags": [
+          "사용자 메뉴 권한"
+        ],
+        "summary": "사용자 메뉴 권한 조회",
+        "description": "지정된 메뉴 ID 목록. 비어 있으면(useDefault=true) 역할 기준 기본 메뉴를 본다.",
+        "operationId": "menuPermissionFind",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserMenuPermissionResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "사용자 메뉴 권한"
+        ],
+        "summary": "사용자 메뉴 권한 저장",
+        "description": "useDefault가 true면 지정을 모두 지우고 기본 규칙으로 되돌린다. false면 menuIds에 준 메뉴만 보인다.",
+        "operationId": "menuPermissionReplace",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserMenuPermissionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserMenuPermissionResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -561,6 +643,102 @@
         "summary": "테이블 삭제",
         "description": "테이블의 컬럼 정의도 함께 삭제한다.",
         "operationId": "metaTableDelete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/menus/{id}": {
+      "get": {
+        "tags": [
+          "메뉴"
+        ],
+        "summary": "메뉴 단건 조회",
+        "operationId": "menuFindById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MenuResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "메뉴"
+        ],
+        "summary": "메뉴 수정",
+        "operationId": "menuUpdate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MenuRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MenuResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "메뉴"
+        ],
+        "summary": "메뉴 삭제",
+        "description": "하위 메뉴가 있으면 삭제할 수 없다. 하위 메뉴를 먼저 옮기거나 지운다.",
+        "operationId": "menuDelete",
         "parameters": [
           {
             "name": "id",
@@ -1637,6 +1815,61 @@
         }
       }
     },
+    "/api/menus": {
+      "get": {
+        "tags": [
+          "메뉴"
+        ],
+        "summary": "메뉴 트리 조회",
+        "description": "화면 표시용. 사용 중인 메뉴만, 관리자 전용은 ADMIN에게만, 하위가 없는 상위 메뉴는 제외한다. 사용자별 메뉴 권한이 지정돼 있으면 그 메뉴만 나온다.",
+        "operationId": "menuFindNavigation",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MenuResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "메뉴"
+        ],
+        "summary": "메뉴 등록",
+        "description": "parentId가 없으면 상위(TOP) 메뉴, 있으면 그 아래 하위(LEFT) 메뉴가 된다.",
+        "operationId": "menuCreate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MenuRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MenuResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/excel/words": {
       "get": {
         "tags": [
@@ -2449,6 +2682,31 @@
         }
       }
     },
+    "/api/menus/all": {
+      "get": {
+        "tags": [
+          "메뉴"
+        ],
+        "summary": "전체 메뉴 트리 조회",
+        "description": "메뉴 관리 화면용. 미사용 메뉴와 관리자 전용 메뉴도 모두 나온다.",
+        "operationId": "menuFindAll",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MenuResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/histories": {
       "get": {
         "tags": [
@@ -2851,6 +3109,56 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "UserMenuPermissionRequest": {
+        "type": "object",
+        "properties": {
+          "useDefault": {
+            "type": "boolean"
+          },
+          "menuIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        },
+        "required": [
+          "useDefault"
+        ]
+      },
+      "UserMenuPermissionResponse": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "username": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "ADMIN",
+              "USER"
+            ]
+          },
+          "useDefault": {
+            "type": "boolean"
+          },
+          "menuIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            }
           }
         }
       },
@@ -3270,6 +3578,94 @@
           }
         }
       },
+      "MenuRequest": {
+        "type": "object",
+        "properties": {
+          "parentId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 0,
+            "pattern": "^/?[A-Za-z0-9/_-]*$"
+          },
+          "icon": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 0
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "used": {
+            "type": "boolean"
+          },
+          "adminOnly": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "adminOnly",
+          "name",
+          "sortOrder",
+          "used"
+        ]
+      },
+      "MenuResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "parentId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "used": {
+            "type": "boolean"
+          },
+          "adminOnly": {
+            "type": "boolean"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MenuResponse"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "DomainRequest": {
         "type": "object",
         "properties": {
@@ -3659,41 +4055,13 @@
           "number": {
             "type": "boolean"
           },
-          "floatingPointNumber": {
+          "missingNode": {
             "type": "boolean"
           },
-          "string": {
+          "integralNumber": {
             "type": "boolean"
           },
-          "object": {
-            "type": "boolean"
-          },
-          "pojo": {
-            "type": "boolean"
-          },
-          "long": {
-            "type": "boolean"
-          },
-          "binary": {
-            "type": "boolean"
-          },
-          "double": {
-            "type": "boolean"
-          },
-          "short": {
-            "type": "boolean"
-          },
-          "boolean": {
-            "type": "boolean"
-          },
-          "textual": {
-            "type": "boolean",
-            "deprecated": true
-          },
-          "int": {
-            "type": "boolean"
-          },
-          "bigDecimal": {
+          "bigInteger": {
             "type": "boolean"
           },
           "nodeType": {
@@ -3710,19 +4078,47 @@
               "STRING"
             ]
           },
-          "integralNumber": {
-            "type": "boolean"
-          },
-          "bigInteger": {
-            "type": "boolean"
-          },
           "valueNode": {
             "type": "boolean"
           },
           "container": {
             "type": "boolean"
           },
-          "missingNode": {
+          "bigDecimal": {
+            "type": "boolean"
+          },
+          "textual": {
+            "type": "boolean",
+            "deprecated": true
+          },
+          "int": {
+            "type": "boolean"
+          },
+          "double": {
+            "type": "boolean"
+          },
+          "long": {
+            "type": "boolean"
+          },
+          "boolean": {
+            "type": "boolean"
+          },
+          "binary": {
+            "type": "boolean"
+          },
+          "object": {
+            "type": "boolean"
+          },
+          "pojo": {
+            "type": "boolean"
+          },
+          "string": {
+            "type": "boolean"
+          },
+          "short": {
+            "type": "boolean"
+          },
+          "floatingPointNumber": {
             "type": "boolean"
           },
           "embeddedValue": {

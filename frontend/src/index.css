@@ -13,26 +13,58 @@ body {
   min-height: 100vh;
 }
 
-.app-logo {
-  height: 64px;
+/* 위쪽 막대: 로고 + TOP 메뉴 + 사용자 */
+.app-header {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 16px;
+  padding: 0 16px;
+  background: #001529;
+}
+
+.app-logo {
   color: #fff;
   font-weight: 600;
   font-size: 15px;
   white-space: nowrap;
-  overflow: hidden;
 }
 
-.app-header {
+/* TOP 메뉴는 남는 가로 공간을 모두 쓰고, 좁으면 antd가 ...으로 접는다 */
+.app-top-menu.ant-menu {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border-bottom: none;
+}
+
+.app-header-user {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 8px;
-  padding: 0 24px;
-  background: #fff;
-  border-bottom: 1px solid #f0f0f0;
+}
+
+.app-user-button.ant-btn {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* 왼쪽 막대: 선택한 TOP 메뉴의 하위 메뉴 */
+.app-sider {
+  border-right: 1px solid #f0f0f0;
+}
+
+.app-sider-loading {
+  padding: 16px;
+}
+
+.page-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.page-loading-content {
+  width: 160px;
 }
 
 /* 본문. 여백은 탭 화면(.workspace-pane)이 가지므로 여기에는 두지 않는다. */
@@ -164,6 +196,11 @@ body {
 }
 
 /* 행 전체를 눌러 상세를 여는 표 */
+/* 메뉴 권한 화면에서 고른 사용자 줄 */
+.selected-row > td {
+  background: #e6f4ff;
+}
+
 .clickable-row {
   cursor: pointer;
 }

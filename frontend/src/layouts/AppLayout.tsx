@@ -1,17 +1,18 @@
 import { LogoutOutlined, UserOutlined } from '@ant-design/icons'
-import { Button, Dropdown, Layout, Menu, Tag, type MenuProps } from 'antd'
+import { Alert, Button, Dropdown, Layout, Menu, Skeleton, Tag, type MenuProps } from 'antd'
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { useAuth } from '@/auth/AuthContext'
-import { NAV_GROUPS, NAV_ITEMS } from './navigation'
+import { useMenus } from './MenuContext'
+import { menuIcon } from './menuIcons'
 import { WorkspaceTabs } from './WorkspaceTabs'
 import { useWorkspaceTabs, WorkspaceTabsProvider } from './WorkspaceTabsContext'
 
 /**
- * 로그인 후 공통 레이아웃: 왼쪽 메뉴 + 위쪽 사용자 영역 + 화면 탭(포틀릿).
+ * 로그인 후 공통 레이아웃: 위쪽(TOP) 상위 메뉴 + 왼쪽(LEFT) 하위 메뉴 + 화면 탭(포틀릿).
  *
- * 본문은 Outlet이 아니라 {@link WorkspaceTabs}가 그린다. 메뉴를 누르면 화면이 탭으로 열리고,
- * 여러 화면을 동시에 열어 둔 채 탭만 바꿔가며 쓸 수 있다.
+ * 메뉴는 DB에서 관리한다(`/api/menus`). 위쪽에서 상위 메뉴를 고르면 왼쪽에 그 하위 메뉴가 나오고,
+ * 하위 메뉴를 누르면 화면이 탭으로 열린다.
  */
 export function AppLayout() {
   return (
@@ -24,22 +25,36 @@ export function AppLayout() {
 /** 탭 상태(WorkspaceTabsProvider)를 쓰기 위해 provider 안쪽에 두는 실제 화면 틀. */
 function AppLayoutFrame() {
   const { user, logout } = useAuth()
+  const { topMenus, loading, failed, findByPath } = useMenus()
   const { tabs } = useWorkspaceTabs()
   const navigate = useNavigate()
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
 
-  const menuItems: MenuProps['items'] = NAV_GROUPS.map((group) => ({
-    type: 'group' as const,
-    key: group.label,
-    label: collapsed ? null : group.label,
-    children: group.items
-      .filter((item) => !item.adminOnly || user?.isAdmin)
-      .map((item) => ({ key: item.path, icon: item.icon, label: item.label })),
-  })).filter((group) => group.children.length > 0)
+  // 지금 보고 있는 화면이 속한 상위 메뉴를 고른다. 메뉴에 없는 화면(내 정보 등)이면 첫 상위 메뉴를 고른다.
+  const match = findByPath(location.pathname)
+  const activeTop = match?.top ?? topMenus[0]
 
-  // 상세 화면(/tables/3 등)에서도 상위 메뉴가 선택돼 보이도록 경로 앞부분으로 찾는다.
-  const selectedKey = NAV_ITEMS.find((item) => location.pathname.startsWith(item.path))?.path
+  /** 이미 열려 있는 화면이면 그 탭이 기억하는 주소(검색 조건 포함)로 돌아간다. */
+  const openPath = (path: string) => navigate(tabs.find((tab) => tab.key === path)?.path ?? path)
+
+  const topItems: MenuProps['items'] = topMenus.map((top) => ({
+    key: String(top.id),
+    icon: menuIcon(top.icon),
+    label: top.name,
+  }))
+
+  const leftItems: MenuProps['items'] = (activeTop?.children ?? [])
+    .filter((menu) => menu.path)
+    .map((menu) => ({ key: menu.path as string, icon: menuIcon(menu.icon), label: menu.name }))
+
+  /** 상위 메뉴를 누르면 그 묶음의 첫 화면을 연다. */
+  const openTopMenu = (topId: string) => {
+    const firstPath = topMenus.find((top) => String(top.id) === topId)?.children?.find((menu) => menu.path)?.path
+    if (firstPath) {
+      openPath(firstPath)
+    }
+  }
 
   const userMenu: MenuProps = {
     items: [
@@ -52,27 +67,56 @@ function AppLayoutFrame() {
 
   return (
     <Layout className="app-layout">
-      <Layout.Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} breakpoint="lg" width={220}>
-        <div className="app-logo">{collapsed ? '용어' : '데이터 표준 용어사전'}</div>
+      <Layout.Header className="app-header">
+        <div className="app-logo">데이터 표준 용어사전</div>
         <Menu
           theme="dark"
-          mode="inline"
-          selectedKeys={selectedKey ? [selectedKey] : []}
-          items={menuItems}
-          // 이미 열려 있는 화면이면 그 탭이 기억하는 주소(검색 조건 포함)로 돌아간다.
-          onClick={({ key }) => navigate(tabs.find((tab) => tab.key === key)?.path ?? key)}
+          mode="horizontal"
+          className="app-top-menu"
+          selectedKeys={activeTop?.id !== undefined ? [String(activeTop.id)] : []}
+          items={topItems}
+          onClick={({ key }) => openTopMenu(key)}
         />
-      </Layout.Sider>
-      <Layout>
-        <Layout.Header className="app-header">
+        <div className="app-header-user">
           <Tag color={user?.isAdmin ? 'volcano' : 'blue'}>{user?.isAdmin ? '관리자' : '사용자'}</Tag>
           <Dropdown menu={userMenu} placement="bottomRight">
-            <Button type="text" icon={<UserOutlined />}>
+            <Button type="text" className="app-user-button" icon={<UserOutlined />}>
               {user?.username}
             </Button>
           </Dropdown>
-        </Layout.Header>
+        </div>
+      </Layout.Header>
+
+      <Layout>
+        <Layout.Sider
+          collapsible
+          collapsed={collapsed}
+          onCollapse={setCollapsed}
+          breakpoint="lg"
+          width={220}
+          theme="light"
+          className="app-sider"
+        >
+          {loading ? (
+            <Skeleton active className="app-sider-loading" paragraph={{ rows: 4 }} title={false} />
+          ) : (
+            <Menu
+              mode="inline"
+              selectedKeys={match?.menu.path ? [match.menu.path] : []}
+              items={leftItems}
+              onClick={({ key }) => openPath(key)}
+            />
+          )}
+        </Layout.Sider>
         <Layout.Content className="app-content">
+          {failed && (
+            <Alert
+              type="error"
+              showIcon
+              className="workspace-pane"
+              title="메뉴를 불러오지 못했습니다. 새로고침해도 같으면 관리자에게 알려주세요."
+            />
+          )}
           <WorkspaceTabs />
         </Layout.Content>
       </Layout>

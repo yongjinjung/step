@@ -1,8 +1,18 @@
-import { createBrowserRouter, Navigate } from 'react-router'
+import { createBrowserRouter, Outlet } from 'react-router'
 import { RequireAuth } from '@/auth/RequireAuth'
 import { AppLayout } from '@/layouts/AppLayout'
-import { NAV_ITEMS } from '@/layouts/navigation'
+import { HomeRedirect } from '@/layouts/HomeRedirect'
+import { MenuProvider } from '@/layouts/MenuContext'
 import { LoginPage } from '@/pages/LoginPage'
+
+/** 로그인 후 모든 화면이 메뉴(`/api/menus`)를 함께 쓰도록 감싸는 레이아웃 라우트. */
+function MenuLayout() {
+  return (
+    <MenuProvider>
+      <Outlet />
+    </MenuProvider>
+  )
+}
 
 /**
  * 라우트 구성.
@@ -10,16 +20,21 @@ import { LoginPage } from '@/pages/LoginPage'
  * /login은 공개, 나머지는 RequireAuth 아래에서 로그인이 필요하다.
  * 로그인 후 모든 주소는 AppLayout 하나가 받는다. 어떤 화면을 그릴지는 화면 탭이 정한다
  * (`layouts/screens.tsx`의 ScreenRoutes). 열어 둔 탭을 동시에 그려야 해서 Outlet(주소 하나 = 화면 하나)을 쓰지 않는다.
- * 새 화면은 `layouts/screens.tsx`에 등록한다.
+ * 새 화면은 `layouts/screens.tsx`에 등록하고, 메뉴는 화면(메뉴 관리)에서 등록한다.
  */
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   {
     element: <RequireAuth />,
     children: [
-      // 첫 주소는 메뉴의 첫 화면으로 보낸다. 탭은 그 뒤에 열린다.
-      { index: true, element: <Navigate to={NAV_ITEMS[0].path} replace /> },
-      { path: '*', element: <AppLayout /> },
+      {
+        element: <MenuLayout />,
+        children: [
+          // 첫 주소는 메뉴의 첫 화면으로 보낸다. 탭은 그 뒤에 열린다.
+          { index: true, element: <HomeRedirect /> },
+          { path: '*', element: <AppLayout /> },
+        ],
+      },
     ],
   },
 ])

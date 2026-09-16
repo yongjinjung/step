@@ -2,35 +2,31 @@ import { MoreOutlined } from '@ant-design/icons'
 import { Button, Dropdown, Space, Tabs, Typography, type MenuProps } from 'antd'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { NAV_ITEMS } from './navigation'
+import { useMenus } from './MenuContext'
+import { menuIcon } from './menuIcons'
 import { ScreenRoutes } from './screens'
 import { useWorkspaceTabs, type WorkspaceTab } from './WorkspaceTabsContext'
 
-/** 탭이 속한 메뉴. 상세 화면(`/tables/3`)은 상위 메뉴(`/tables`)로 찾는다. */
-function menuOf(pathname: string) {
-  return NAV_ITEMS.find((item) => pathname === item.path || pathname.startsWith(`${item.path}/`))
-}
-
 /**
- * 탭 이름. 메뉴 아이콘을 앞에 두고, 상세 탭은 "메뉴명 · 대상 이름"으로 보여준다
+ * 탭 이름. 메뉴 아이콘을 앞에 두고, 대상 이름이 있는 상세 탭은 "메뉴명 · 대상 이름"으로 보여준다
  * (같은 메뉴의 상세를 여러 개 열어도 어느 화면인지 알 수 있게).
  *
- * 대상 이름을 아직 받지 못했으면(화면이 {@code useTabTitle}을 부르기 전) 탭 이름이 메뉴명 그대로라
- * "테이블 정의 · 테이블 정의"가 되지 않도록 메뉴명만 보여준다.
+ * 메뉴명은 저장하지 않고 그릴 때 메뉴에서 찾는다. 메뉴 관리 화면에서 이름을 바꾸면 탭 이름도 따라 바뀐다.
  */
 function TabLabel({ tab }: { tab: WorkspaceTab }) {
-  const menu = menuOf(tab.key)
-  const isDetail = menu !== undefined && tab.key !== menu.path && tab.label !== menu.label
+  const { findByPath } = useMenus()
+  const match = findByPath(tab.key)
+  const menuName = match?.menu.name ?? (tab.key === '/me' ? '내 정보' : '화면')
 
   return (
     <Space size={6} className="workspace-tab-label">
-      {menu?.icon}
-      {isDetail ? (
+      {menuIcon(match?.menu.icon)}
+      {tab.title ? (
         <span>
-          <Typography.Text type="secondary">{menu.label}</Typography.Text> · {tab.label}
+          <Typography.Text type="secondary">{menuName}</Typography.Text> · {tab.title}
         </span>
       ) : (
-        <span>{tab.label}</span>
+        <span>{menuName}</span>
       )}
     </Space>
   )
@@ -40,8 +36,8 @@ function TabLabel({ tab }: { tab: WorkspaceTab }) {
  * 화면 탭(포틀릿) 영역: 위쪽 탭 줄 + 열어 둔 화면들.
  *
  * 열린 탭을 **모두 그려 두고** 보고 있는 탭만 보여준다(`hidden`). 그래서 탭을 옮겨 다녀도
- * 검색 조건, 스크롤이 아닌 입력 중인 값, 불러온 목록이 그대로 남고 다시 조회하지 않는다.
- * 대신 열어 둔 탭 수만큼 화면이 메모리에 남으므로 탭 수를 제한한다({@code MAX_TABS}).
+ * 검색 조건, 입력 중인 값, 불러온 목록이 그대로 남고 다시 조회하지 않는다.
+ * 대신 열어 둔 탭 수만큼 화면이 메모리에 남으므로 탭 수를 제한한다.
  *
  * 탭을 누르면 그 탭이 마지막으로 보던 주소로 이동한다. 즉 주소가 곧 현재 탭이라
  * 새로고침·뒤로 가기·주소 공유가 그대로 동작한다.

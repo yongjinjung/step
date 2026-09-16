@@ -54,7 +54,9 @@ com.step.dictionary
 ├── request/           표준 데이터 변경 신청/승인(ChangeRequest), 대상별 조회·반영(StandardDataApplier) (6단계)
 ├── history/           변경 이력(ChangeHistory) 기록(ChangeHistoryRecorder)·조회 API, snapshot/(대상별 스냅샷 record) (7단계)
 ├── excel/             엑셀 다운로드/업로드 API, ExcelSheet(시트 양식), 서비스(Standard/Meta), support/(Reader·Writer·Row·Errors) (8단계)
-└── code/              공통 코드: group/(코드 그룹 CodeGroup, 매핑 컬럼 조회), value/(코드값 CodeValue, 그룹 하위 리소스) (9단계)
+├── code/              공통 코드: group/(코드 그룹 CodeGroup, 매핑 컬럼 조회), value/(코드값 CodeValue, 그룹 하위 리소스) (9단계)
+└── menu/              화면 메뉴(Menu): TOP/LEFT 2단 메뉴 조회·관리 API, 기본 메뉴 생성(MenuInitializer) (10단계),
+                       사용자별 메뉴 권한(UserMenu, MenuPermissionService) (11단계)
 ```
 
 - **기능 단위 패키지:** 한 기능 패키지 안에 Entity, `XxxRepository`, `XxxRepositoryCustom`/`XxxRepositoryCustomImpl`(Querydsl), `XxxService`, `XxxController`, `dto/`(record)를 둔다. 새 기능은 `standard/word`를 따라 만든다.
@@ -75,6 +77,8 @@ com.step.dictionary
 - **인증 오류 응답:** 401/403은 보안 필터에서 나므로 `GlobalExceptionHandler`가 아니라 `SecurityErrorHandler`가 `ErrorResponse` 형식으로 쓴다. JSON 직렬화는 Boot가 등록한 Jackson 3 `tools.jackson.databind.json.JsonMapper` 빈을 주입받는다.
 - **로그인한 사용자:** 컨트롤러에서 `@AuthenticationPrincipal Jwt jwt`로 받고 `jwt.getSubject()`(소문자 아이디)를 쓴다. 역할은 JWT `roles` 클레임이 `ROLE_*` 권한으로 바뀐 것이다.
 - **신청 승인 반영:** 승인은 `StandardDataApplier`가 신청 내용 JSON을 원래 요청 DTO로 되돌려 기존 서비스(`WordService` 등)를 호출한다. 반영 로직을 따로 만들지 않으므로 표준 데이터 업무 규칙은 서비스 한 곳만 고치면 직접 API와 승인 양쪽에 적용된다. 신청 대상을 늘리면 `TargetType`과 `StandardDataApplier`의 switch를 함께 늘린다. 서비스에서 로그인 사용자의 역할이 필요하면 `CurrentUser.from(jwt)`로 넘긴다.
+- **화면 메뉴:** 메뉴는 DB(`app_menu`)에서 관리하고 화면 구성이 서버에서 온다. 상위(TOP)-하위(LEFT) 2단 고정이며, 상위는 경로가 없고 하위만 경로를 가진다(`MenuService.validate`). 조회는 두 가지다: 화면 표시용(`GET /api/menus`, 사용 중 + 역할 필터 + 빈 상위 제외)과 관리용(`GET /api/menus/all`). 메뉴가 없으면 기동 시 `MenuInitializer`가 기본 메뉴를 만든다(이미 있으면 건드리지 않는다). 메뉴는 변경 이력을 남기지 않는다.
+- **사용자별 메뉴 권한:** `app_user_menu`에 행이 있으면 그 메뉴만, 없으면 기본 규칙대로 보여준다(`MenuService.findNavigation`이 `UserMenuRepository`로 조회). 지정은 좁히기만 하므로 미사용·관리자 전용 규칙은 그대로 살아 있고, 기능 권한은 API가 따로 검사한다. 권한 저장은 통째로 교체하는데, Hibernate가 insert를 delete보다 먼저 실행하므로 삭제 후 `flush()`를 해야 unique 제약에 걸리지 않는다(`MenuPermissionService.replace`). 메뉴 삭제 시 걸린 권한을 먼저 지운다(`MenuService.delete`).
 - **공통 코드 매핑:** 컬럼의 코드 그룹 매핑(`MetaColumn.codeGroup`)은 비표준 검출과 무관해 생성자·`update()`가 아니라 `mapCodeGroup()`으로 바꾼다. 서비스의 `getCodeGroup(요청 ID, 현재 그룹)`이 새로 매핑하는 그룹만 사용 여부를 검사하므로(`CODE_GROUP_NOT_USED`), 이미 매핑된 미사용 그룹은 PUT에서 그대로 유지된다. 컬럼 응답에 코드ID·코드명이 들어가므로 컬럼 목록 조회(`@EntityGraph`, 비표준 검색 fetch join)에 `codeGroup`을 함께 가져온다. 코드값 엔티티 필드는 H2·HQL 예약어 `value`를 피해 `codeValue`/`valueName`으로 둔다.
 - **변경 이력:** 단어/도메인/용어/테이블/컬럼/코드 그룹/코드값을 바꾸는 서비스 메서드는 이력을 직접 남긴다. 수정은 엔티티를 바꾸기 **전에** `XxxSnapshot.from(entity)`로 떠 두고, 변경·flush 후 `historyRecorder.recordUpdate(before, XxxSnapshot.from(entity))`를 호출한다. 등록은 save 후 `recordCreate`, 삭제는 delete 전에 `recordDelete`. 변경자와 신청 ID는 기록기가 보안 컨텍스트와 `HistoryRequestContext`에서 알아서 채운다. 이력 대상을 늘리면 `HistoryTargetType`과 `history/snapshot`의 sealed record를 함께 늘린다. 스냅샷에는 수정 일시 같은 자동 값을 넣지 않는다(넣으면 모든 수정이 변경으로 보인다).
 - **벌크 JPQL 삭제 주의:** 이력을 위해 엔티티를 불러온 뒤 같은 트랜잭션에서 JPQL 벌크 delete를 쓰면, 불러온 엔티티가 영속성 컨텍스트에 남아 연관 대상 삭제 시 `TransientPropertyValueException`이 난다. 이력을 남기는 삭제는 `deleteAll(entities)`처럼 엔티티 단위로 한다(`MetaTableService.delete`).
@@ -143,14 +147,17 @@ npm run api:generate   # 백엔드 API 문서 받기(api:fetch) + 타입 생성(
 frontend/src
 ├── api/        client.ts($api 훅·apiClient, 인증 미들웨어), schema.d.ts(생성, 직접 수정 금지), errors.ts, download.ts
 ├── auth/       token.ts(sessionStorage·JWT 해석), AuthContext.tsx(useAuth), RequireAuth.tsx(보호 라우트)
-├── layouts/    AppLayout.tsx(메뉴·헤더), navigation.tsx(메뉴 정의 = 메뉴 목록), screens.tsx(경로→화면 등록),
-│               WorkspaceTabs.tsx(화면 탭 줄·열어 둔 화면), WorkspaceTabsContext.tsx(탭 상태·useTabTitle)
+├── layouts/    AppLayout.tsx(TOP 메뉴·LEFT 메뉴·헤더), MenuContext.tsx(서버 메뉴 로딩·경로로 메뉴 찾기),
+│               menuIcons.tsx(아이콘 이름→아이콘), HomeRedirect.tsx(첫 화면), screens.tsx(경로→화면 등록),
+│               WorkspaceTabs.tsx(화면 탭 줄·열어 둔 화면), WorkspaceTabsContext.tsx(탭 상태·useTabTitle),
+│               workspaceTabsStorage.ts(탭 저장·로그아웃 시 삭제)
 ├── features/   기능별 화면. words/(WordListPage·WordFormModal·WordDetailDrawer·wordFields)가 목록 화면의 기준 예시, domains/, terms/,
 │               tables/(TableListPage·TableDetailPage(/tables/:id)·NonStandardColumnListPage(/non-standard-columns)·
 │               TableFormModal·ColumnFormModal·columnCells(검출 결과 셀)·useDeleteTable·tableFields),
 │               requests/(RequestListPage·RequestDetailDrawer·RequestPayloadCompare(현재 값↔신청 값)·requestFields),
 │               histories/(HistoryListPage·HistoryChangeDetail(펼친 행의 변경 내용)·historyFields),
-│               codes/(CodeGroupListPage·CodeGroupDetailPage(/codes/:id)·CodeGroupFormModal·CodeValueFormModal·useDeleteCodeGroup·codeFields)
+│               codes/(CodeGroupListPage·CodeGroupDetailPage(/codes/:id)·CodeGroupFormModal·CodeValueFormModal·useDeleteCodeGroup·codeFields),
+│               menus/(MenuManagePage·MenuFormModal·MenuPermissionPage(사용자별 메뉴 권한)·menuFields — 관리자 전용)
 ├── utils/      format(일시, 이력 스냅샷 값), dataType(타입별 길이 규칙·표기·도메인명 추천. 백엔드 DataType과 같게 유지)
 ├── pages/      LoginPage, MyPage, PlaceholderPage(준비 중), NotFoundPage
 ├── components/ PageHeader, ExcelActions(엑셀 다운로드·양식·업로드), ChangeHistoryTimeline, ReasonModal,
@@ -167,11 +174,13 @@ frontend/src
 - **오류 타입:** 오류 응답은 API 문서에 선언돼 있지 않아 생성된 에러 타입이 `never`다. `onError: (error: unknown) => ...`로 받고 `isApiError`/`errorMessage`/`applyFieldErrors`(`api/errors.ts`)로 다룬다. 폼 필드 오류는 `applyFieldErrors(form, error)`로 표시하고, 분기는 `error.code`로 한다.
 - **인증:** 토큰은 sessionStorage에 두고 모든 요청에 미들웨어가 Bearer 헤더를 붙인다. 401(로그인 요청 제외)이면 로그아웃된다. 역할별 메뉴·버튼은 `useAuth().user.isAdmin`으로 나누되, 권한 검사는 서버가 한다.
 - **파일 다운로드**는 `<a href>`로 하지 않고 `downloadFile('/api/excel/words', query)`(`api/download.ts`)를 쓴다. Authorization 헤더가 필요하기 때문이다.
+- **메뉴(TOP/LEFT):** 메뉴는 서버에서 온다. `MenuProvider`(라우트 레이아웃)가 `/api/menus`를 불러 `useMenus()`로 나눠 주고, `AppLayout`이 위쪽에 상위 메뉴, 왼쪽에 그 하위 메뉴를 그린다. 상위 메뉴를 누르면 그 묶음의 첫 화면이 열린다. 메뉴 경로와 화면은 `layouts/screens.tsx`의 `PAGES`로 이어지며, 등록된 화면이 없는 경로는 "준비 중" 화면이 나온다. 메뉴를 바꾸면 `/api/menus`·`/api/menus/all`을 무효화해 메뉴 막대가 바로 바뀐다.
 - **화면 탭(포틀릿):** 메뉴·링크로 연 화면은 탭으로 쌓인다. `router.tsx`는 로그인 확인만 하고 모든 주소를 `AppLayout` 하나가 받으며, 어떤 화면을 그릴지는 `layouts/screens.tsx`의 `ScreenRoutes`가 정한다.
   - 탭 키는 경로(pathname)라 같은 화면은 탭 하나, 상세는 대상마다 다른 탭이다. 탭은 마지막으로 본 주소(검색 조건 포함)를 기억하고, 목록은 `sessionStorage`에 남아 새로고침해도 복원된다(최대 12개).
   - 열어 둔 탭을 **모두 그려 두고** 보고 있는 탭만 `hidden`으로 보여주므로 탭을 옮겨도 검색 조건·입력값·조회 결과가 남는다. 단 화면 수만큼 메모리에 남고 쿼리도 살아 있다. 한 번도 열지 않은(복원된) 탭은 그리지 않는다.
-  - 탭마다 `<Routes location={탭 주소}>`로 그려서 `useParams`·`useSearchParams`가 그 탭의 주소를 읽는다. 상세 화면은 `useTabTitle(이름)`으로 탭 이름을 대상 이름으로 바꾼다.
-- **새 화면:** `features/words`를 따라 `features/{기능}/`에 목록 페이지·폼 모달·상세 드로어·필드 정의를 만들고, `layouts/screens.tsx`의 `PAGES`에 메뉴 경로와 페이지를 등록한다(없으면 준비 중 화면). 제목 줄은 `PageHeader`를 쓴다. 하위 목록이 주 내용인 상세(테이블의 컬럼)는 드로어 대신 별도 라우트(`tables/:id`)로 만들고 `PageHeader`의 `onBack`으로 목록에 돌아간다. `AppLayout`이 경로 앞부분으로 메뉴를 선택하므로 메뉴 경로 아래에 둔다.
+  - 탭마다 `<Routes location={탭 주소}>`로 그려서 `useParams`·`useSearchParams`가 그 탭의 주소를 읽는다.
+  - 탭 이름은 저장하지 않고 그릴 때 메뉴에서 찾는다(메뉴가 늦게 오거나 이름이 바뀌어도 맞는다). 상세 화면은 `useTabTitle(대상 이름)`으로 대상 이름만 알려주고, 탭에는 "메뉴명 · 대상 이름"으로 나온다.
+- **새 화면:** `features/words`를 따라 `features/{기능}/`에 목록 페이지·폼 모달·상세 드로어·필드 정의를 만들고, `layouts/screens.tsx`의 `PAGES`에 경로와 페이지를 등록한 뒤, 메뉴 관리 화면(`/menus`)에서 그 경로로 메뉴를 만든다(메뉴가 없으면 주소로만 들어갈 수 있다). 제목 줄은 `PageHeader`를 쓴다. 하위 목록이 주 내용인 상세(테이블의 컬럼)는 드로어 대신 별도 라우트(`tables/:id`)로 만들고 `PageHeader`의 `onBack`으로 목록에 돌아간다. `AppLayout`이 경로 앞부분으로 메뉴를 선택하므로 메뉴 경로 아래에 둔다.
 - **목록 화면 규칙:**
   - 검색 조건·페이지는 `useListSearchParams(FILTER_KEYS)`로 URL에 둔다. `FILTER_KEYS`는 컴포넌트 밖 상수로 선언하고, URL의 `page`는 1부터이므로 API에는 `page - 1`을 넘긴다.
   - 목록 조회에는 `placeholderData: keepPreviousData`를 준다.
