@@ -71,6 +71,16 @@
   - 표준 데이터 업로드: ADMIN은 바로 등록하고, USER는 행마다 등록 신청을 만든다(신청 사유에 파일명과 행 번호). 신청은 형식만 검증하므로 이름 중복은 승인할 때 드러나고, 승인 안 된 단어/도메인은 참조할 수 없다.
   - 테이블/컬럼 업로드: 역할과 관계없이 바로 등록한다. 한 행이 컬럼 하나이고 같은 테이블 물리명(대소문자 무시)의 행을 한 테이블로 묶는다. 테이블 논리명/설명은 첫 행 값을 쓰고, 컬럼 열이 모두 빈 행은 컬럼 없는 테이블이다. 컬럼 순서를 비우면 나온 순서, Y/N을 비우면 N이다.
   - 업로드는 최대 1,000행, 10MB. Y/N 열은 대소문자와 TRUE/FALSE도 받고, 데이터 타입은 대소문자를 구분하지 않는다.
+- 공통 코드 **(9단계 구현됨)**: 코드 그룹(코드ID) 하나에 코드값 여러 개가 속한다 (예: `ORDER_STAT` 주문상태 → `01` 접수, `02` 결제완료). 코드성 컬럼은 컬럼 정의에서 코드 그룹에 매핑한다.
+  - 코드ID는 영문자로 시작하는 영문/숫자/`_`(50자), 코드값은 영문/숫자/`_`/`-`(50자)이며 둘 다 대문자로 저장한다. 코드ID는 전체에서(`DUPLICATE_CODE_ID`), 코드값은 그룹 안에서(`DUPLICATE_CODE_VALUE`) 유일하다. 다른 그룹에는 같은 코드값이 있어도 된다.
+  - 코드값은 정렬 순서(1 이상, 중복 허용)와 사용 여부를 가진다. 목록은 정렬 순서, 같으면 등록 순이며 미사용 값도 함께 조회된다.
+  - 조회는 로그인한 사용자 누구나, 등록·수정·삭제는 ADMIN만 한다. 신청/승인 대상이 아니다. 엑셀 업·다운로드도 없다.
+  - 코드 그룹을 삭제하면 코드값도 함께 삭제한다. 컬럼에 매핑된 그룹은 삭제할 수 없다(`CODE_GROUP_IN_USE`). 그룹마다 매핑된 컬럼 목록을 조회할 수 있다.
+  - 컬럼 매핑은 선택이며 그룹 ID로 연결되므로 코드ID·코드명을 바꿔도 매핑이 유지되고 컬럼 조회 결과에 바로 반영된다. 비표준 검출과는 무관하다.
+  - 미사용 그룹은 컬럼에 새로 매핑할 수 없다(`CODE_GROUP_NOT_USED`). 이미 매핑된 컬럼은 그룹이 미사용으로 바뀌어도 매핑을 유지한 채 수정하거나 해제할 수 있다.
+  - 컬럼 매핑은 컬럼 정의 API로 하므로 USER도 할 수 있다. 엑셀 테이블 정의 양식에는 코드 열이 없어 업로드한 컬럼은 매핑 없이 등록된다.
+  - 예시 데이터: `src/main/resources/db/seed/common_code_seed.sql`에 일반적인 코드 그룹 19개(주문상태, 결제수단, 은행, 회원등급 등)와 코드값 100개가 있다. Flyway가 읽지 않는 위치이므로 필요할 때 직접 넣는다.
+  - 코드 그룹·코드값 변경도 변경 이력(`CODE_GROUP`, `CODE_VALUE`)을 남기고, 그룹을 삭제하면 코드값마다 삭제 이력이 남는다. 컬럼 스냅샷에 매핑 코드 그룹 ID·코드ID가 추가됐다.
 
 ## ERD (전체 계획)
 
@@ -85,6 +95,8 @@ erDiagram
     app_user ||--o{ std_request : "신청/검토"
     app_user ||--o{ change_history : "변경자"
     std_request |o--o{ change_history : "승인 반영"
+    com_code_group ||--o{ com_code_value : "포함"
+    com_code_group |o--o{ meta_column : "코드 매핑"
 
     std_word {
         bigint id PK
@@ -127,6 +139,7 @@ erDiagram
         varchar physical_name "table 내 유일"
         varchar logical_name
         bigint term_id FK "nullable"
+        bigint code_group_id FK "nullable (9단계)"
         varchar data_type
         int data_length
         int data_scale
@@ -167,6 +180,22 @@ erDiagram
         bigint request_id FK "신청 승인으로 반영된 경우"
         datetime changed_at
     }
+    com_code_group {
+        bigint id PK
+        varchar code_id UK "코드ID, 대문자 (예: ORDER_STAT)"
+        varchar code_name "코드명"
+        varchar description
+        char used_yn "사용 여부 Y/N"
+    }
+    com_code_value {
+        bigint id PK
+        bigint group_id FK
+        varchar code_value "group 내 유일, 대문자 (예: 01)"
+        varchar value_name "코드값명"
+        varchar description
+        int sort_order
+        char used_yn "사용 여부 Y/N"
+    }
 ```
 
 모든 표준/메타 테이블은 `created_at`, `updated_at`을 가진다 (`BaseTimeEntity`).
@@ -183,6 +212,7 @@ erDiagram
 | 6 | 신청/승인 워크플로 | 완료 (H2 테스트 + 로컬 MySQL 8.4 실행 검증) |
 | 7 | 변경 이력 | 완료 (H2 테스트 + 로컬 MySQL 8.4 실행 검증) |
 | 8 | 엑셀 업로드/다운로드 (Apache POI) | 완료 (H2 테스트 + 로컬 MySQL 8.4 실행 검증) |
+| 9 | 공통 코드 (코드 그룹·코드값, 컬럼 코드 그룹 매핑) + 화면 | 완료 (H2 테스트 + 로컬 MySQL 8.4 실행 검증) |
 
 ## API (1단계)
 
@@ -304,5 +334,29 @@ erDiagram
 - 테이블 정의: 테이블 물리명, 테이블 논리명, 테이블 설명, 컬럼 순서, 컬럼 물리명, 컬럼 논리명, 용어명, 데이터 타입, 길이, 소수점, NULL 허용(Y/N), 기본키(Y/N), 비표준 사유(참고)
 
 업로드 응답: `{mode: "APPLIED" | "REQUESTED", rowCount, ids}` (`ids`는 등록된 대상 ID 또는 신청 ID, 테이블 정의는 테이블 ID)
+
+## API (9단계)
+
+| Method | Path | 권한 | 설명 |
+|---|---|---|---|
+| POST | `/api/code-groups` | ADMIN | 코드 그룹 등록 (201 + Location) |
+| GET | `/api/code-groups/{id}` | 로그인 | 단건 조회 |
+| GET | `/api/code-groups?keyword=&used=&page=&size=` | 로그인 | 검색 (코드ID 오름차순). `keyword`는 코드ID/코드명 부분 일치 |
+| PUT | `/api/code-groups/{id}` | ADMIN | 수정 |
+| DELETE | `/api/code-groups/{id}` | ADMIN | 삭제 (204). 코드값도 함께 삭제. 컬럼에 매핑돼 있으면 409 |
+| GET | `/api/code-groups/{id}/columns` | 로그인 | 매핑된 컬럼 목록 (테이블 물리명, 컬럼 순서. 페이징 없음) |
+| POST | `/api/code-groups/{groupId}/values` | ADMIN | 코드값 등록 (201 + Location) |
+| GET | `/api/code-groups/{groupId}/values` | 로그인 | 그룹의 코드값 전체 (정렬 순서, 페이징 없음) |
+| GET | `/api/code-groups/{groupId}/values/{valueId}` | 로그인 | 단건 조회. 다른 그룹의 코드값이면 404 |
+| PUT | `/api/code-groups/{groupId}/values/{valueId}` | ADMIN | 수정 |
+| DELETE | `/api/code-groups/{groupId}/values/{valueId}` | ADMIN | 삭제 (204) |
+
+코드 그룹 요청: `{"codeId", "codeName", "description", "used"}` / 응답: `{id, codeId, codeName, description, used, createdAt, updatedAt}`
+
+코드값 요청: `{"codeValue", "valueName", "description", "sortOrder", "used"}` / 응답: `{id, groupId, codeId, codeValue, valueName, description, sortOrder, used, createdAt, updatedAt}`
+
+매핑 컬럼 응답: `{columnId, tableId, tablePhysicalName, tableLogicalName, physicalName, logicalName}`
+
+컬럼 정의 API 변경: 요청에 `codeGroupId`(선택)가 추가되고, 응답에 `codeGroupId`, `codeId`, `codeName`이 추가됐다. PUT은 전체 교체라 `codeGroupId`를 빼면 매핑이 해제된다.
 
 오류 응답 형식: `{"code": "ErrorCode 이름", "message": "...", "fieldErrors": [{"field", "reason"}]}`

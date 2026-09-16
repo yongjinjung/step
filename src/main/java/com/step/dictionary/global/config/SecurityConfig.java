@@ -41,16 +41,22 @@ import org.springframework.security.web.SecurityFilterChain;
  *   <tr><td>POST /api/auth/login, Swagger 문서, /error</td><td>공개</td></tr>
  *   <tr><td>/api/users/**</td><td>ADMIN</td></tr>
  *   <tr><td>POST /api/requests/{id}/approve, /reject (신청 승인·반려)</td><td>ADMIN</td></tr>
- *   <tr><td>GET 단어/도메인/용어</td><td>로그인</td></tr>
- *   <tr><td>그 밖의 단어/도메인/용어 (등록·수정·삭제)</td><td>ADMIN</td></tr>
+ *   <tr><td>GET 단어/도메인/용어/공통 코드</td><td>로그인</td></tr>
+ *   <tr><td>그 밖의 단어/도메인/용어/공통 코드 (등록·수정·삭제)</td><td>ADMIN</td></tr>
  *   <tr><td>나머지 전부 (테이블/컬럼 정의 쓰기, 변경 신청·조회·취소 포함)</td><td>로그인</td></tr>
  * </table>
  */
 @Configuration
 public class SecurityConfig {
 
-    /** 표준 데이터 API. 조회는 로그인한 모든 사용자, 쓰기는 ADMIN만 (USER는 6단계에서 신청). */
-    private static final String[] STANDARD_DATA_PATHS = {"/api/words/**", "/api/domains/**", "/api/terms/**"};
+    /**
+     * 표준 데이터 API. 조회는 로그인한 모든 사용자, 쓰기는 ADMIN만.
+     * 단어/도메인/용어는 USER가 신청(6단계)으로 바꾸고, 공통 코드(9단계)는 신청 대상이 아니라 ADMIN만 바꾼다.
+     * 코드값은 코드 그룹의 하위 경로({@code /api/code-groups/{groupId}/values})라 같은 규칙에 포함된다.
+     * 컬럼에 코드 그룹을 매핑하는 것은 컬럼 정의 API라 USER도 할 수 있다.
+     */
+    private static final String[] STANDARD_DATA_PATHS =
+            {"/api/words/**", "/api/domains/**", "/api/terms/**", "/api/code-groups/**"};
 
     /** 인증 없이 열어 두는 경로. /error는 예외 발생 시 내부 포워드되는 경로라 막으면 원래 오류가 401로 가려진다. */
     private static final String[] PUBLIC_PATHS = {"/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/error"};

@@ -236,6 +236,111 @@ class MetaColumnApiIntegrationTest extends IntegrationTest {
                 .body("code", equalTo("TERM_IN_USE"));
     }
 
+    @Test
+    @DisplayName("컬럼을 공통 코드 그룹에 매핑하면 코드ID와 코드명이 함께 조회되고, 그룹의 코드ID 변경이 바로 반영된다")
+    void mapCodeGroup() {
+        long groupId = createCodeGroup("ORDER_STAT", true);
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(codedColumnJson("ORDER_STAT_CD", groupId, 1))
+        .when()
+                .post("/api/tables/{tableId}/columns", tableId)
+        .then()
+                .statusCode(201)
+                .body("codeGroupId", equalTo((int) groupId))
+                .body("codeId", equalTo("ORDER_STAT"))
+                .body("codeName", equalTo("ORDER_STAT 코드"));
+
+        // 매핑은 그룹 ID로 연결되므로 코드ID를 바꿔도 매핑이 유지된다.
+        given()
+                .contentType(ContentType.JSON)
+                .body(codeGroupJson("ORDER_STATUS", true))
+        .when()
+                .put("/api/code-groups/{id}", groupId)
+        .then()
+                .statusCode(200);
+
+        given()
+        .when().get("/api/tables/{tableId}/columns", tableId)
+        .then()
+                .statusCode(200)
+                .body("codeId", equalTo(List.of("ORDER_STATUS")));
+    }
+
+    @Test
+    @DisplayName("미사용·없는 코드 그룹은 새로 매핑할 수 없지만, 이미 매핑된 컬럼은 매핑을 유지하거나 해제하며 수정할 수 있다")
+    void mapUnusedCodeGroup() {
+        long groupId = createCodeGroup("ORDER_STAT", true);
+        long columnId = post("/api/tables/" + tableId + "/columns", codedColumnJson("ORDER_STAT_CD", groupId, 1));
+        given()
+                .contentType(ContentType.JSON)
+                .body(codeGroupJson("ORDER_STAT", false))
+        .when()
+                .put("/api/code-groups/{id}", groupId)
+        .then()
+                .statusCode(200);
+
+        // 일반 사용자도 컬럼 정의로 매핑을 다룰 수 있다.
+        authenticate(userToken);
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(codedColumnJson("ORDER_STAT_CD", groupId, 2))
+        .when()
+                .put("/api/tables/{tableId}/columns/{columnId}", tableId, columnId)
+        .then()
+                .statusCode(200)
+                .body("seq", equalTo(2))
+                .body("codeId", equalTo("ORDER_STAT"));
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(codedColumnJson("OLD_STAT_CD", groupId, 3))
+        .when()
+                .post("/api/tables/{tableId}/columns", tableId)
+        .then()
+                .statusCode(409)
+                .body("code", equalTo("CODE_GROUP_NOT_USED"));
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(codedColumnJson("ETC_CD", 999_999L, 3))
+        .when()
+                .post("/api/tables/{tableId}/columns", tableId)
+        .then()
+                .statusCode(404)
+                .body("code", equalTo("CODE_GROUP_NOT_FOUND"));
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(codedColumnJson("ORDER_STAT_CD", null, 2))
+        .when()
+                .put("/api/tables/{tableId}/columns/{columnId}", tableId, columnId)
+        .then()
+                .statusCode(200)
+                .body("codeGroupId", nullValue())
+                .body("codeId", nullValue());
+    }
+
+    private static long createCodeGroup(String codeId, boolean used) {
+        return post("/api/code-groups", codeGroupJson(codeId, used));
+    }
+
+    private static String codeGroupJson(String codeId, boolean used) {
+        return """
+                {"codeId": "%s", "codeName": "ORDER_STAT 코드", "description": null, "used": %s}
+                """.formatted(codeId, used);
+    }
+
+    /** 용어 없이 코드 그룹만 매핑하는 CHAR(2) 코드성 컬럼. codeGroupId가 null이면 매핑 해제. */
+    private static String codedColumnJson(String physicalName, Long codeGroupId, int seq) {
+        return """
+                {"physicalName": "%s", "logicalName": "%s", "termId": null, "codeGroupId": %s, "dataType": "CHAR",
+                 "dataLength": 2, "dataScale": null, "nullable": false, "primaryKey": false, "seq": %d}
+                """.formatted(physicalName, physicalName, codeGroupId, seq);
+    }
+
     private static long createWord(String name, String abbreviation, boolean classifier) {
         return post("/api/words", """
                 {"name": "%s", "abbreviation": "%s", "englishName": "%s", "description": null, "classifier": %s}

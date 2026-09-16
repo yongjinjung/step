@@ -18,7 +18,7 @@ public interface MetaColumnRepository extends JpaRepository<MetaColumn, Long>, M
      * {@code @EntityGraph}는 지정한 연관을 left join fetch로 가져와 컬럼마다 용어/도메인을 따로 조회하는 N+1을 막는다.
      * 테이블 삭제 시에도 이 메서드로 컬럼을 불러와 컬럼별 삭제 이력을 남기고 엔티티 단위로 삭제한다.
      */
-    @EntityGraph(attributePaths = {"term", "term.domain"})
+    @EntityGraph(attributePaths = {"term", "term.domain", "codeGroup"})
     List<MetaColumn> findAllByTableIdOrderBySeqAscIdAsc(Long tableId);
 
     /**
@@ -39,4 +39,15 @@ public interface MetaColumnRepository extends JpaRepository<MetaColumn, Long>, M
 
     /** 이 용어에 매핑된 컬럼이 있는지 확인한다. 용어 삭제 차단(TERM_IN_USE)에 쓴다. */
     boolean existsByTermId(Long termId);
+
+    /** 이 코드 그룹에 매핑된 컬럼이 있는지 확인한다. 코드 그룹 삭제 차단(CODE_GROUP_IN_USE)에 쓴다. */
+    boolean existsByCodeGroupId(Long codeGroupId);
+
+    /**
+     * 코드 그룹에 매핑된 컬럼을 테이블 물리명, 컬럼 순서, ID 순으로 조회한다.
+     * 메서드 이름의 {@code TablePhysicalName}은 연관 경로 {@code table.physicalName}으로 해석된다.
+     * 응답에 테이블 물리명·논리명이 필요하므로 테이블을 함께 가져온다.
+     */
+    @EntityGraph(attributePaths = "table")
+    List<MetaColumn> findAllByCodeGroupIdOrderByTablePhysicalNameAscSeqAscIdAsc(Long codeGroupId);
 }

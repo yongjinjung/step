@@ -1,5 +1,6 @@
 package com.step.dictionary.meta.column;
 
+import com.step.dictionary.code.group.CodeGroup;
 import com.step.dictionary.global.entity.BaseTimeEntity;
 import com.step.dictionary.meta.PhysicalNames;
 import com.step.dictionary.meta.table.MetaTable;
@@ -34,6 +35,7 @@ import org.hibernate.type.YesNoConverter;
  * <ul>
  *   <li>소속 테이블({@link MetaTable})은 필수이며 생성 후 바뀌지 않는다.</li>
  *   <li>표준 용어({@link Term})는 선택이다. 없으면 {@link ColumnIssue#NO_TERM}으로 검출된다.</li>
+ *   <li>공통 코드 그룹({@link CodeGroup})은 선택이다. 코드성 컬럼이 가질 수 있는 값을 나타내며 비표준 검출 대상이 아니다.</li>
  * </ul>
  */
 @Entity
@@ -62,6 +64,15 @@ public class MetaColumn extends BaseTimeEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "term_id")
     private Term term;
+
+    /**
+     * 매핑된 공통 코드 그룹 (선택, 9단계). 예: ORDER_STAT_CD 컬럼 → ORDER_STAT(주문상태) 코드 그룹.
+     * 비표준 검출과 무관하므로 {@link #update}에 넣지 않고 {@link #mapCodeGroup}으로 따로 바꾼다
+     * (검출 규칙을 다루는 생성자·update의 시그니처를 건드리지 않기 위해서다).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "code_group_id")
+    private CodeGroup codeGroup;
 
     // MySQL 방언은 STRING enum을 ENUM 타입으로 보므로 VARCHAR 컬럼과 validate가 어긋나지 않게 지정한다.
     /** 데이터 타입. 용어 도메인의 타입과 같아야 표준이다. */
@@ -131,6 +142,14 @@ public class MetaColumn extends BaseTimeEntity {
     }
 
     /**
+     * 공통 코드 그룹 매핑을 바꾼다. null이면 매핑을 해제한다.
+     * 그룹 존재·사용 여부 검사는 호출 전에 서비스에서 끝내야 한다.
+     */
+    public void mapCodeGroup(CodeGroup codeGroup) {
+        this.codeGroup = codeGroup;
+    }
+
+    /**
      * 비표준 사유를 돌려준다. 비어 있으면 표준 컬럼이다.
      * {@link MetaColumnRepositoryCustomImpl}의 검색 조건과 같은 규칙이어야 한다.
      *
@@ -180,6 +199,10 @@ public class MetaColumn extends BaseTimeEntity {
 
     public Term getTerm() {
         return term;
+    }
+
+    public CodeGroup getCodeGroup() {
+        return codeGroup;
     }
 
     public DataType getDataType() {

@@ -184,8 +184,9 @@ public class MetaExcelService {
             }
             position++;
             Integer seq = row.text(COLUMN_SEQ) == null ? Integer.valueOf(position) : row.integer(COLUMN_SEQ);
+            // 엑셀 양식에는 공통 코드 열이 없어 코드 그룹은 매핑하지 않는다(null). 매핑은 화면·API에서 한다.
             MetaColumnRequest request = new MetaColumnRequest(row.text(COLUMN_PHYSICAL_NAME),
-                    row.text(COLUMN_LOGICAL_NAME), findTermId(row), row.enumValue(DATA_TYPE, DataType.class),
+                    row.text(COLUMN_LOGICAL_NAME), findTermId(row), null, row.enumValue(DATA_TYPE, DataType.class),
                     row.integer(DATA_LENGTH), row.integer(DATA_SCALE), row.yesNo(NULLABLE), row.yesNo(PRIMARY_KEY), seq);
             if (!row.validate(validator, request, COLUMN_FIELDS)) {
                 continue;

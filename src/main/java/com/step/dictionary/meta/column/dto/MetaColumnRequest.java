@@ -18,6 +18,7 @@ import jakarta.validation.constraints.Size;
  * @param physicalName 물리명. 필수, 최대 64자, 영문자로 시작하는 영문/숫자/'_'. 저장 시 대문자로 바뀐다
  * @param logicalName  논리명(한글명). 필수, 최대 200자
  * @param termId       매핑할 표준 용어 ID. 없으면 비표준(NO_TERM)으로 검출된다
+ * @param codeGroupId  매핑할 공통 코드 그룹 ID (선택). 코드성 컬럼에 지정하며, 새로 매핑하는 그룹은 사용 중이어야 한다
  * @param dataType     데이터 타입. 필수
  * @param dataLength   길이를 쓰는 타입(CHAR, VARCHAR, DECIMAL)만 입력한다. 1 이상
  * @param dataScale    DECIMAL만 입력한다. 0 이상, 생략하면 0
@@ -34,6 +35,8 @@ public record MetaColumnRequest(
         String logicalName,
 
         Long termId,
+
+        Long codeGroupId,
 
         @NotNull
         DataType dataType,

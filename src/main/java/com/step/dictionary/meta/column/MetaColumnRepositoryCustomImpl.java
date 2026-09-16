@@ -1,5 +1,6 @@
 package com.step.dictionary.meta.column;
 
+import static com.step.dictionary.code.group.QCodeGroup.codeGroup;
 import static com.step.dictionary.meta.column.QMetaColumn.metaColumn;
 import static com.step.dictionary.meta.table.QMetaTable.metaTable;
 import static com.step.dictionary.standard.domain.QDomain.domain;
@@ -33,13 +34,15 @@ public class MetaColumnRepositoryCustomImpl implements MetaColumnRepositoryCusto
     @Override
     public Page<MetaColumn> searchNonStandard(NonStandardColumnCondition condition, Pageable pageable) {
         // 테이블은 필수 연관이라 inner join, 용어는 없을 수 있어(NO_TERM) left join한다.
-        // 응답 변환(inspect, 테이블 물리명)에 모두 필요하므로 fetch join한다.
+        // 응답 변환(inspect, 테이블 물리명, 코드 그룹)에 모두 필요하므로 fetch join한다.
         // 모두 다대일이라 행 수가 늘지 않아 DB 페이징이 그대로 동작한다.
         List<MetaColumn> content = queryFactory
                 .selectFrom(metaColumn)
                 .join(metaColumn.table, metaTable).fetchJoin()
                 .leftJoin(metaColumn.term, term).fetchJoin()
                 .leftJoin(term.domain, domain).fetchJoin()
+                // 코드 그룹은 검출 조건에 쓰지 않아 count 쿼리에는 조인하지 않는다.
+                .leftJoin(metaColumn.codeGroup, codeGroup).fetchJoin()
                 .where(tableIdEq(condition.tableId()), hasIssue(condition.issue()))
                 .orderBy(metaTable.physicalName.asc(), metaColumn.seq.asc(), metaColumn.id.asc())
                 .offset(pageable.getOffset())

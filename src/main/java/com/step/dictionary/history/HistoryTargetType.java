@@ -15,5 +15,9 @@ public enum HistoryTargetType {
     /** 테이블 정의. */
     TABLE,
     /** 컬럼 정의. */
-    COLUMN
+    COLUMN,
+    /** 공통 코드 그룹 (9단계). 신청 없이 ADMIN이 바로 바꾼다. */
+    CODE_GROUP,
+    /** 공통 코드값 (9단계). */
+    CODE_VALUE
 }

@@ -8,6 +8,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import com.step.dictionary.code.group.CodeGroup;
+import com.step.dictionary.code.group.CodeGroupRepository;
 import com.step.dictionary.global.error.BusinessException;
 import com.step.dictionary.global.error.ErrorCode;
 import com.step.dictionary.history.ChangeHistoryRecorder;
@@ -28,6 +30,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class MetaColumnServiceTest {
@@ -40,6 +43,9 @@ class MetaColumnServiceTest {
 
     @Mock
     private TermRepository termRepository;
+
+    @Mock
+    private CodeGroupRepository codeGroupRepository;
 
     @Mock
     private ChangeHistoryRecorder historyRecorder;
@@ -145,8 +151,52 @@ class MetaColumnServiceTest {
         assertThat(column.getPhysicalName()).isEqualTo("CUST_NO");
     }
 
+    @Test
+    @DisplayName("사용하지 않는 코드 그룹은 컬럼에 새로 매핑할 수 없다")
+    void createWithUnusedCodeGroup() {
+        given(tableRepository.findById(1L)).willReturn(Optional.of(table));
+        given(codeGroupRepository.findById(7L)).willReturn(Optional.of(new CodeGroup("OLD_STAT", "옛 상태", null, false)));
+
+        assertThatThrownBy(() -> columnService.create(1L, codedRequest("OLD_STAT_CD", 7L)))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.CODE_GROUP_NOT_USED);
+        verify(columnRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 코드 그룹은 매핑할 수 없다")
+    void createWithUnknownCodeGroup() {
+        given(tableRepository.findById(1L)).willReturn(Optional.of(table));
+        given(codeGroupRepository.findById(99L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> columnService.create(1L, codedRequest("ORDER_STAT_CD", 99L)))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.CODE_GROUP_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("이미 매핑된 코드 그룹은 미사용으로 바뀌어도 매핑을 유지한 채 컬럼을 수정할 수 있다")
+    void updateKeepingUnusedCodeGroup() {
+        CodeGroup unused = new CodeGroup("ORDER_STAT", "주문상태", null, false);
+        ReflectionTestUtils.setField(unused, "id", 7L);
+        MetaColumn column = new MetaColumn(table, "ORDER_STAT_CD", "주문상태코드", null, DataType.CHAR, 2, null, false, false, 1);
+        column.mapCodeGroup(unused);
+        given(columnRepository.findByIdAndTableId(5L, 1L)).willReturn(Optional.of(column));
+
+        MetaColumnResponse response = columnService.update(1L, 5L, codedRequest("ORDER_STAT_CD", 7L));
+
+        assertThat(response.codeId()).isEqualTo("ORDER_STAT");
+        // 같은 그룹이면 다시 조회해 사용 여부를 검사하지 않는다.
+        verifyNoInteractions(codeGroupRepository);
+    }
+
     private static MetaColumnRequest request(String physicalName, Long termId, DataType dataType, Integer length,
             boolean nullable, boolean primaryKey) {
-        return new MetaColumnRequest(physicalName, "논리명", termId, dataType, length, null, nullable, primaryKey, 1);
+        return new MetaColumnRequest(physicalName, "논리명", termId, null, dataType, length, null, nullable, primaryKey, 1);
+    }
+
+    /** 용어 없이 코드 그룹만 매핑하는 CHAR(2) 코드성 컬럼 요청. */
+    private static MetaColumnRequest codedRequest(String physicalName, Long codeGroupId) {
+        return new MetaColumnRequest(physicalName, "논리명", null, codeGroupId, DataType.CHAR, 2, null, false, false, 1);
     }
 }

@@ -83,17 +83,18 @@ class SecurityApiIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    @DisplayName("일반 사용자는 표준 단어/도메인/용어를 조회할 수 있다")
+    @DisplayName("일반 사용자는 표준 단어/도메인/용어와 공통 코드를 조회할 수 있다")
     void userCanReadStandardData() {
         authenticate(userToken);
 
         given().when().get("/api/words").then().statusCode(200);
         given().when().get("/api/domains").then().statusCode(200);
         given().when().get("/api/terms").then().statusCode(200);
+        given().when().get("/api/code-groups").then().statusCode(200);
     }
 
     @Test
-    @DisplayName("일반 사용자가 표준 단어/도메인/용어를 쓰려 하면 403 FORBIDDEN을 반환한다")
+    @DisplayName("일반 사용자가 표준 단어/도메인/용어와 공통 코드를 쓰려 하면 403 FORBIDDEN을 반환한다")
     void userCannotWriteStandardData() {
         authenticate(userToken);
 
@@ -108,6 +109,12 @@ class SecurityApiIntegrationTest extends IntegrationTest {
         .then().statusCode(403);
         given()
         .when().delete("/api/terms/{id}", 1)
+        .then().statusCode(403);
+        given().contentType(ContentType.JSON).body("{}")
+        .when().post("/api/code-groups")
+        .then().statusCode(403);
+        given().contentType(ContentType.JSON).body("{}")
+        .when().post("/api/code-groups/{groupId}/values", 1)
         .then().statusCode(403);
     }
 

@@ -15,7 +15,8 @@ import com.step.dictionary.history.HistoryTargetType;
  * sealed로 구현을 이 패키지의 record로 제한해, 이력 대상이 늘 때 한 곳에서 확인할 수 있게 한다.
  */
 public sealed interface HistorySnapshot
-        permits WordSnapshot, DomainSnapshot, TermSnapshot, TableSnapshot, ColumnSnapshot {
+        permits WordSnapshot, DomainSnapshot, TermSnapshot, TableSnapshot, ColumnSnapshot,
+        CodeGroupSnapshot, CodeValueSnapshot {
 
     /** 대상 ID. JSON에도 들어간다. */
     Long id();

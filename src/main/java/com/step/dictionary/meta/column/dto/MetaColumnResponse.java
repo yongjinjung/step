@@ -1,5 +1,6 @@
 package com.step.dictionary.meta.column.dto;
 
+import com.step.dictionary.code.group.CodeGroup;
 import com.step.dictionary.meta.column.ColumnIssue;
 import com.step.dictionary.meta.column.MetaColumn;
 import com.step.dictionary.standard.domain.DataType;
@@ -25,6 +26,9 @@ import java.util.List;
  * @param primaryKey        기본키 여부
  * @param termId            매핑 용어 ID (없으면 null)
  * @param termName          매핑 용어명 (없으면 null)
+ * @param codeGroupId       매핑 공통 코드 그룹 ID (없으면 null)
+ * @param codeId            매핑 코드 그룹의 코드ID (없으면 null)
+ * @param codeName          매핑 코드 그룹의 코드명 (없으면 null)
  * @param expected          매핑된 용어/도메인 기준의 표준 값. 용어가 없으면 null
  * @param standard          비표준 사유(issues)가 없으면 true
  * @param issues            비표준 사유 목록. 표준이면 빈 배열
@@ -45,6 +49,9 @@ public record MetaColumnResponse(
         boolean primaryKey,
         Long termId,
         String termName,
+        Long codeGroupId,
+        String codeId,
+        String codeName,
         StandardSpec expected,
         boolean standard,
         List<ColumnIssue> issues,
@@ -71,10 +78,11 @@ public record MetaColumnResponse(
 
     /**
      * 엔티티를 응답으로 변환한다.
-     * 테이블, 용어, 도메인을 읽으므로 트랜잭션 안에서 호출하거나 미리 fetch해 둬야 한다 (open-in-view가 꺼져 있다).
+     * 테이블, 용어, 도메인, 코드 그룹을 읽으므로 트랜잭션 안에서 호출하거나 미리 fetch해 둬야 한다 (open-in-view가 꺼져 있다).
      */
     public static MetaColumnResponse from(MetaColumn column) {
         Term term = column.getTerm();
+        CodeGroup codeGroup = column.getCodeGroup();
         // standard와 issues가 같은 결과를 쓰도록 한 번만 계산한다.
         List<ColumnIssue> issues = column.inspect();
         return new MetaColumnResponse(
@@ -91,6 +99,9 @@ public record MetaColumnResponse(
                 column.isPrimaryKey(),
                 term == null ? null : term.getId(),
                 term == null ? null : term.getName(),
+                codeGroup == null ? null : codeGroup.getId(),
+                codeGroup == null ? null : codeGroup.getCodeId(),
+                codeGroup == null ? null : codeGroup.getCodeName(),
                 term == null ? null : StandardSpec.from(term),
                 issues.isEmpty(),
                 issues,

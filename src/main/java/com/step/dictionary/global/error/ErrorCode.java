@@ -117,7 +117,20 @@ public enum ErrorCode {
     /** 오류 행이 하나라도 있을 때. 전체를 반영하지 않으며 fieldErrors에 행 번호별 사유가 들어간다. */
     EXCEL_INVALID_ROWS(HttpStatus.BAD_REQUEST, "오류가 있는 행이 있어 아무것도 반영하지 않았습니다."),
     /** spring.servlet.multipart.max-file-size(10MB)를 넘는 파일. */
-    EXCEL_FILE_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "업로드 파일이 너무 큽니다 (최대 10MB).");
+    EXCEL_FILE_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "업로드 파일이 너무 큽니다 (최대 10MB)."),
+
+    // ---- 공통 코드 (9단계) ----
+    CODE_GROUP_NOT_FOUND(HttpStatus.NOT_FOUND, "코드 그룹을 찾을 수 없습니다."),
+    /** 대문자로 정규화한 뒤 비교하므로 order_stat과 ORDER_STAT은 같은 코드ID다. */
+    DUPLICATE_CODE_ID(HttpStatus.CONFLICT, "이미 등록된 코드ID입니다."),
+    /** 컬럼 정의에 매핑된 코드 그룹을 삭제하려 할 때. 컬럼의 매핑을 먼저 해제해야 한다. */
+    CODE_GROUP_IN_USE(HttpStatus.CONFLICT, "컬럼에 매핑된 코드 그룹은 삭제할 수 없습니다."),
+    /** 사용 여부가 N인 코드 그룹을 컬럼에 새로 매핑하려 할 때. 이미 매핑된 컬럼은 매핑을 유지한 채 수정할 수 있다. */
+    CODE_GROUP_NOT_USED(HttpStatus.CONFLICT, "사용하지 않는 코드 그룹은 컬럼에 매핑할 수 없습니다."),
+    /** 코드값이 없거나, 경로의 코드 그룹에 속하지 않은 코드값일 때. */
+    CODE_VALUE_NOT_FOUND(HttpStatus.NOT_FOUND, "코드값을 찾을 수 없습니다."),
+    /** 대문자로 정규화한 뒤 그룹 안에서 비교한다. 다른 그룹에는 같은 코드값이 있어도 된다. */
+    DUPLICATE_CODE_VALUE(HttpStatus.CONFLICT, "코드 그룹에 이미 등록된 코드값입니다.");
 
     /** 응답 HTTP 상태. */
     private final HttpStatus status;

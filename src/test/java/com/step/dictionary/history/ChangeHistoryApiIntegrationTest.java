@@ -157,6 +157,31 @@ class ChangeHistoryApiIntegrationTest extends IntegrationTest {
                 .body("code", equalTo("HISTORY_NOT_FOUND"));
     }
 
+    @Test
+    @DisplayName("코드 그룹을 삭제하면 함께 지워진 코드값마다 삭제 이력이 남는다")
+    void codeGroupDeleteRecordsValues() {
+        long groupId = given().contentType(ContentType.JSON)
+                .body("""
+                        {"codeId": "ORDER_STAT", "codeName": "주문상태", "used": true}
+                        """)
+        .when().post("/api/code-groups")
+        .then().statusCode(201)
+        .extract().jsonPath().getLong("id");
+        createCodeValue(groupId, "01", 1);
+        createCodeValue(groupId, "02", 2);
+
+        given().when().delete("/api/code-groups/{id}", groupId).then().statusCode(204);
+
+        given().queryParam("changeType", "DELETE")
+        .when().get("/api/histories")
+        .then()
+                .statusCode(200)
+                .body("content.targetType", equalTo(List.of("CODE_GROUP", "CODE_VALUE", "CODE_VALUE")))
+                .body("content[0].before.codeName", equalTo("주문상태"))
+                .body("content[1].before.codeValue", equalTo("02"))
+                .body("content[1].before.codeId", equalTo("ORDER_STAT"));
+    }
+
     private static long createWord(String name, String abbreviation, String englishName, boolean classifier) {
         return given().contentType(ContentType.JSON)
                 .body("""
@@ -186,6 +211,15 @@ class ChangeHistoryApiIntegrationTest extends IntegrationTest {
                          "dataLength": 20, "dataScale": null, "nullable": false, "primaryKey": false, "seq": %d}
                         """.formatted(physicalName, seq))
                 .when().post("/api/tables/{tableId}/columns", tableId)
+                .then().statusCode(201);
+    }
+
+    private static void createCodeValue(long groupId, String codeValue, int sortOrder) {
+        given().contentType(ContentType.JSON)
+                .body("""
+                        {"codeValue": "%s", "valueName": "값%s", "sortOrder": %d, "used": true}
+                        """.formatted(codeValue, codeValue, sortOrder))
+                .when().post("/api/code-groups/{groupId}/values", groupId)
                 .then().statusCode(201);
     }
 }
