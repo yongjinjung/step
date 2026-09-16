@@ -48,7 +48,7 @@ export function LoginPage() {
     <div className="login-page">
       <Card className="login-card">
         <Typography.Title level={3} className="login-title">
-          데이터 표준 용어사전
+          STEP
         </Typography.Title>
         <Typography.Paragraph type="secondary" className="login-subtitle">
           로그인이 필요합니다

@@ -68,7 +68,7 @@ function AppLayoutFrame() {
   return (
     <Layout className="app-layout">
       <Layout.Header className="app-header">
-        <div className="app-logo">데이터 표준 용어사전</div>
+        <div className="app-logo">STEP</div>
         <Menu
           theme="dark"
           mode="horizontal"
