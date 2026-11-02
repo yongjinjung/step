@@ -141,7 +141,20 @@ public enum ErrorCode {
     INVALID_MENU_PATH(HttpStatus.BAD_REQUEST, "상위 메뉴는 화면 경로를 둘 수 없고, 하위 메뉴는 화면 경로가 필요합니다."),
     DUPLICATE_MENU_PATH(HttpStatus.CONFLICT, "이미 등록된 메뉴 경로입니다."),
     /** 하위 메뉴가 있는 메뉴를 삭제하려 할 때. 하위를 먼저 옮기거나 지워야 한다. */
-    MENU_HAS_CHILDREN(HttpStatus.CONFLICT, "하위 메뉴가 있는 메뉴는 삭제할 수 없습니다.");
+    MENU_HAS_CHILDREN(HttpStatus.CONFLICT, "하위 메뉴가 있는 메뉴는 삭제할 수 없습니다."),
+
+    // ---- 역할/권한 (12단계) ----
+    ROLE_NOT_FOUND(HttpStatus.NOT_FOUND, "역할을 찾을 수 없습니다."),
+    /** 대문자로 정규화한 뒤 비교하므로 admin과 ADMIN은 같은 코드다. */
+    DUPLICATE_ROLE_CODE(HttpStatus.CONFLICT, "이미 등록된 역할 코드입니다."),
+    /** 기본 제공 역할(ADMIN, USER)을 삭제하거나 코드·전권 여부를 바꾸려 할 때. */
+    BUILT_IN_ROLE(HttpStatus.BAD_REQUEST, "기본 제공 역할은 삭제하거나 코드·전권 여부를 바꿀 수 없습니다."),
+    /** 사용자에게 부여된 역할을 삭제하려 할 때. 사용자에게서 먼저 빼야 한다. */
+    ROLE_IN_USE(HttpStatus.CONFLICT, "사용자에게 부여된 역할은 삭제할 수 없습니다."),
+    /** 사용자에게 역할을 하나도 주지 않았을 때. 역할이 없으면 아무 화면도 쓸 수 없다. */
+    USER_ROLE_REQUIRED(HttpStatus.BAD_REQUEST, "사용자에게 역할을 하나 이상 지정해야 합니다."),
+    /** 요청한 기능에 대한 메뉴 권한이 없을 때. {@code SecurityErrorHandler}가 403으로 응답한다. */
+    PERMISSION_DENIED(HttpStatus.FORBIDDEN, "이 기능을 사용할 권한이 없습니다.");
 
     /** 응답 HTTP 상태. */
     private final HttpStatus status;

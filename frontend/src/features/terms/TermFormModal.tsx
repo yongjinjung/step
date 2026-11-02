@@ -4,7 +4,7 @@ import { Alert, App, Button, Descriptions, Form, Input, Modal, Typography } from
 import { useEffect } from 'react'
 import { $api } from '@/api/client'
 import { applyCodeError, applyFieldErrors, errorMessage } from '@/api/errors'
-import { useAuth } from '@/auth/AuthContext'
+import { useMenus } from '@/layouts/MenuContext'
 import { DomainSelect } from '@/components/DomainSelect'
 import { WordSelect } from '@/components/WordSelect'
 import type { WordResponse } from '@/features/words/wordFields'
@@ -47,8 +47,9 @@ const INITIAL_VALUES: TermFormValues = { wordIds: [undefined] }
  * - ADMIN은 바로 저장, USER는 변경 신청으로 보낸다.
  */
 export function TermFormModal({ open, term, onClose }: TermFormModalProps) {
-  const { user } = useAuth()
-  const isAdmin = user?.isAdmin ?? false
+  const { can } = useMenus()
+  // 등록·수정 권한이 있으면 바로 반영하고, 없으면 변경 신청으로 접수된다.
+  const canSave = can('/terms', term?.id === undefined ? 'create' : 'update')
   const isEdit = term?.id !== undefined
   const { message } = App.useApp()
   const invalidate = useInvalidateApi()
@@ -135,7 +136,7 @@ export function TermFormModal({ open, term, onClose }: TermFormModalProps) {
       description: values.description?.trim() || undefined,
     }
 
-    if (!isAdmin) {
+    if (!canSave) {
       requestTerm.mutate(
         {
           body: {
@@ -175,15 +176,15 @@ export function TermFormModal({ open, term, onClose }: TermFormModalProps) {
   return (
     <Modal
       open={open}
-      title={isAdmin ? `용어 ${action}` : `용어 ${action} 신청`}
-      okText={isAdmin ? '저장' : '신청'}
+      title={canSave ? `용어 ${action}` : `용어 ${action} 신청`}
+      okText={canSave ? '저장' : '신청'}
       confirmLoading={saving}
       onOk={() => form.submit()}
       onCancel={onClose}
       forceRender
       width={640}
     >
-      {!isAdmin && (
+      {!canSave && (
         <Alert type="info" showIcon className="form-notice" title="변경 신청으로 접수되며, 관리자가 승인하면 반영됩니다." />
       )}
       {isEdit && (
@@ -290,7 +291,7 @@ export function TermFormModal({ open, term, onClose }: TermFormModalProps) {
           <Input.TextArea rows={2} maxLength={1000} showCount />
         </Form.Item>
 
-        {!isAdmin && (
+        {!canSave && (
           <Form.Item name="reason" label="신청 사유" rules={[{ max: 1000, message: '1000자 이내로 입력하세요.' }]}>
             <Input.TextArea rows={2} maxLength={1000} showCount placeholder="관리자가 검토할 때 참고할 내용 (선택)" />
           </Form.Item>

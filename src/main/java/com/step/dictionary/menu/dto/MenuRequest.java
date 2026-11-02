@@ -18,7 +18,6 @@ import jakarta.validation.constraints.Size;
  * @param icon      아이콘 이름 (선택). 화면이 아는 이름이어야 아이콘이 보인다
  * @param sortOrder 같은 단계 안에서의 정렬 순서. 필수, 0 이상
  * @param used      사용 여부. 필수 (누락을 false로 오인하지 않도록 Boolean + @NotNull)
- * @param adminOnly 관리자 전용 여부. 필수
  */
 public record MenuRequest(
         Long parentId,
@@ -37,9 +36,6 @@ public record MenuRequest(
         Integer sortOrder,
 
         @NotNull
-        Boolean used,
-
-        @NotNull
-        Boolean adminOnly
+        Boolean used
 ) {
 }

@@ -1,18 +1,23 @@
 package com.step.dictionary.user;
 
 import com.step.dictionary.global.entity.BaseTimeEntity;
+import com.step.dictionary.role.Role;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Locale;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+import java.util.Set;
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.type.YesNoConverter;
 
 /**
@@ -26,6 +31,7 @@ import org.hibernate.type.YesNoConverter;
  *   <li>아이디는 소문자로 저장하며 생성 후 바꿀 수 없다. JWT subject로 쓰이기 때문이다.</li>
  *   <li>비밀번호는 해시만 저장한다. 엔티티는 해시된 값을 받기만 하고 인코딩은 서비스가 {@code PasswordEncoder}로 한다.</li>
  *   <li>삭제하지 않고 비활성화한다. 비활성 계정은 로그인할 수 없다.</li>
+ *   <li>역할은 여러 개 가질 수 있고(12단계), 권한은 역할들의 합집합이다.</li>
  * </ul>
  */
 @Entity
@@ -49,12 +55,16 @@ public class AppUser extends BaseTimeEntity {
     @Column(nullable = false, length = 100)
     private String name;
 
-    // MySQL 방언은 STRING enum을 ENUM 타입으로 보므로 VARCHAR 컬럼과 validate가 어긋나지 않게 지정한다.
-    /** 역할. */
-    @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(nullable = false, length = 20)
-    private Role role;
+    /**
+     * 부여된 역할 (V11의 {@code app_user_role}). 권한은 역할들의 합집합이다.
+     * 목록 조회에서 사용자마다 역할을 따로 조회하지 않도록 {@code @BatchSize}로 묶어 읽는다.
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "app_user_role",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id"))
+    @BatchSize(size = 50)
+    private Set<Role> roles = new LinkedHashSet<>();
 
     /** 활성 여부 ('Y'/'N'). false면 로그인할 수 없다. */
     @Convert(converter = YesNoConverter.class)
@@ -71,13 +81,13 @@ public class AppUser extends BaseTimeEntity {
      * @param username        아이디 (소문자로 정규화)
      * @param encodedPassword {@code PasswordEncoder}로 인코딩한 비밀번호
      * @param name            표시 이름
-     * @param role            역할
+     * @param roles           부여할 역할 (하나 이상, 검증은 서비스에서)
      */
-    public AppUser(String username, String encodedPassword, String name, Role role) {
+    public AppUser(String username, String encodedPassword, String name, Collection<Role> roles) {
         this.username = normalizeUsername(username);
         this.password = encodedPassword;
         this.name = name;
-        this.role = role;
+        this.roles = new LinkedHashSet<>(roles);
         this.enabled = true;
     }
 
@@ -88,11 +98,13 @@ public class AppUser extends BaseTimeEntity {
 
     /**
      * 이름, 역할, 활성 여부를 교체한다 (관리자 수정). 아이디와 비밀번호는 바꾸지 않는다.
-     * 마지막 활성 관리자 보호 규칙은 호출 전에 서비스에서 검사해야 한다.
+     * 마지막 전권 사용자 보호 규칙은 호출 전에 서비스에서 검사해야 한다.
+     * 역할 목록은 {@code clear()} 후 다시 담아 기존 연결을 정리한다.
      */
-    public void update(String name, Role role, boolean enabled) {
+    public void update(String name, Collection<Role> roles, boolean enabled) {
         this.name = name;
-        this.role = role;
+        this.roles.clear();
+        this.roles.addAll(roles);
         this.enabled = enabled;
     }
 
@@ -101,9 +113,9 @@ public class AppUser extends BaseTimeEntity {
         this.password = encodedPassword;
     }
 
-    /** 활성 상태의 관리자인지. 마지막 관리자 보호 규칙에서 쓴다. */
-    public boolean isActiveAdmin() {
-        return enabled && role == Role.ADMIN;
+    /** 전권 역할(사용 중인 것)을 가졌는지. 마지막 전권 사용자 보호 규칙에서 쓴다. */
+    public boolean hasSuperAdminRole() {
+        return roles.stream().anyMatch(role -> role.isSuperAdmin() && role.isUsed());
     }
 
     // ---- 조회용 getter ----
@@ -124,8 +136,9 @@ public class AppUser extends BaseTimeEntity {
         return name;
     }
 
-    public Role getRole() {
-        return role;
+    /** 부여된 역할. 변경은 {@link #update}로만 한다. */
+    public Set<Role> getRoles() {
+        return Set.copyOf(roles);
     }
 
     public boolean isEnabled() {

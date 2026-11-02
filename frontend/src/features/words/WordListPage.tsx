@@ -4,7 +4,7 @@ import { Alert, App, Button, Card, Input, Radio, Space, Table, Tag, Typography, 
 import { useState } from 'react'
 import { $api } from '@/api/client'
 import { errorMessage } from '@/api/errors'
-import { useAuth } from '@/auth/AuthContext'
+import { useMenus } from '@/layouts/MenuContext'
 import { ExcelActions } from '@/components/ExcelActions'
 import { PageHeader } from '@/components/PageHeader'
 import { ReasonModal } from '@/components/ReasonModal'
@@ -32,8 +32,11 @@ const CLASSIFIER_OPTIONS = [
  * 이 화면을 도메인·용어·테이블 화면의 기준 구조로 쓴다.
  */
 export function WordListPage() {
-  const { user } = useAuth()
-  const isAdmin = user?.isAdmin ?? false
+  const { can } = useMenus()
+  // 권한이 있으면 바로 반영하고, 없으면 같은 버튼이 변경 신청이 된다 (서버도 같은 권한으로 막는다).
+  const canCreate = can('/words', 'create')
+  const canUpdate = can('/words', 'update')
+  const canDelete = can('/words', 'delete')
   const { message, modal } = App.useApp()
   const invalidate = useInvalidateApi()
   const { filters, page, size, setFilters, setPaging } = useListSearchParams(FILTER_KEYS)
@@ -64,7 +67,7 @@ export function WordListPage() {
     if (word.id === undefined) {
       return
     }
-    if (!isAdmin) {
+    if (!canDelete) {
       setDeleteRequestTarget(word)
       return
     }
@@ -130,15 +133,15 @@ export function WordListPage() {
     {
       title: '작업',
       key: 'actions',
-      width: isAdmin ? 110 : 150,
+      width: canUpdate && canDelete ? 110 : 150,
       fixed: 'right',
       render: (_, word) => (
         <Space size={0}>
           <Button type="link" size="small" onClick={() => openEdit(word)}>
-            {isAdmin ? '수정' : '수정 신청'}
+            {canUpdate ? '수정' : '수정 신청'}
           </Button>
           <Button type="link" size="small" danger onClick={() => handleDelete(word)}>
-            {isAdmin ? '삭제' : '삭제 신청'}
+            {canDelete ? '삭제' : '삭제 신청'}
           </Button>
         </Space>
       ),
@@ -157,13 +160,13 @@ export function WordListPage() {
               onUploaded={(result) => (result.mode === 'APPLIED' ? refreshWords() : invalidate('/api/requests'))}
             />
             <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-              {isAdmin ? '단어 등록' : '등록 신청'}
+              {canCreate ? '단어 등록' : '등록 신청'}
             </Button>
           </Space>
         }
       />
 
-      {!isAdmin && (
+      {!(canCreate && canUpdate && canDelete) && (
         <Alert
           type="info"
           showIcon

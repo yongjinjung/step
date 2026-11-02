@@ -52,7 +52,6 @@ export function MenuFormModal({ open, menu, defaultParentId, defaultSortOrder, t
         icon: menu.icon,
         sortOrder: menu.sortOrder,
         used: menu.used,
-        adminOnly: menu.adminOnly,
       })
     } else {
       form.setFieldsValue({ parentId: defaultParentId, sortOrder: defaultSortOrder })
@@ -77,7 +76,6 @@ export function MenuFormModal({ open, menu, defaultParentId, defaultSortOrder, t
       icon: values.icon || undefined,
       sortOrder: values.sortOrder as number,
       used: values.used ?? true,
-      adminOnly: values.adminOnly ?? false,
     }
     const onSuccess = () => {
       message.success(isEdit ? '메뉴를 수정했습니다.' : '메뉴를 등록했습니다.')
@@ -108,7 +106,7 @@ export function MenuFormModal({ open, menu, defaultParentId, defaultSortOrder, t
       forceRender
       width={560}
     >
-      <Form form={form} layout="vertical" onFinish={handleFinish} initialValues={{ used: true, adminOnly: false }}>
+      <Form form={form} layout="vertical" onFinish={handleFinish} initialValues={{ used: true }}>
         <Form.Item
           name="parentId"
           label="상위 메뉴"
@@ -187,23 +185,14 @@ export function MenuFormModal({ open, menu, defaultParentId, defaultSortOrder, t
           </Col>
         </Row>
 
-        <Row gutter={12}>
-          <Col xs={12}>
-            <Form.Item name="used" label="사용 여부" valuePropName="checked" extra="미사용 메뉴는 화면에 나오지 않습니다.">
-              <Switch checkedChildren="사용" unCheckedChildren="미사용" />
-            </Form.Item>
-          </Col>
-          <Col xs={12}>
-            <Form.Item
-              name="adminOnly"
-              label="관리자 전용"
-              valuePropName="checked"
-              extra="관리자에게만 메뉴가 보입니다. 권한 검사는 서버가 합니다."
-            >
-              <Switch checkedChildren="관리자" unCheckedChildren="전체" />
-            </Form.Item>
-          </Col>
-        </Row>
+        <Form.Item
+          name="used"
+          label="사용 여부"
+          valuePropName="checked"
+          extra="미사용 메뉴는 화면에 나오지 않습니다. 누가 이 메뉴를 볼지는 역할 관리에서 정합니다."
+        >
+          <Switch checkedChildren="사용" unCheckedChildren="미사용" />
+        </Form.Item>
       </Form>
     </Modal>
   )

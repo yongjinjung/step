@@ -19,14 +19,14 @@ class AppUserApiIntegrationTest extends IntegrationTest {
     void create() {
         given()
                 .contentType(ContentType.JSON)
-                .body(createJson("Hong", "password1!", "USER"))
+                .body(createJson("Hong", "password1!", userRole.getId()))
         .when()
                 .post("/api/users")
         .then()
                 .statusCode(201)
                 .header("Location", matchesPattern(".*/api/users/\\d+"))
                 .body("username", equalTo("hong"))
-                .body("role", equalTo("USER"))
+                .body("roles.code", equalTo(List.of("USER")))
                 .body("enabled", equalTo(true))
                 .body("$", not(hasKey("password")));
 
@@ -45,7 +45,7 @@ class AppUserApiIntegrationTest extends IntegrationTest {
     void createDuplicate() {
         given()
                 .contentType(ContentType.JSON)
-                .body(createJson("ADMIN", "password1!", "ADMIN"))
+                .body(createJson("ADMIN", "password1!", adminRole.getId()))
         .when()
                 .post("/api/users")
         .then()
@@ -58,7 +58,7 @@ class AppUserApiIntegrationTest extends IntegrationTest {
     void createInvalidPassword() {
         given()
                 .contentType(ContentType.JSON)
-                .body(createJson("hong", "short", "USER"))
+                .body(createJson("hong", "short", userRole.getId()))
         .when()
                 .post("/api/users")
         .then()
@@ -70,10 +70,10 @@ class AppUserApiIntegrationTest extends IntegrationTest {
     @Test
     @DisplayName("키워드와 역할로 계정을 검색한다")
     void search() {
-        given().contentType(ContentType.JSON).body(createJson("hong", "password1!", "USER"))
+        given().contentType(ContentType.JSON).body(createJson("hong", "password1!", userRole.getId()))
         .when().post("/api/users").then().statusCode(201);
 
-        given().queryParam("role", "USER")
+        given().queryParam("roleId", userRole.getId())
         .when().get("/api/users")
         .then()
                 .statusCode(200)
@@ -91,20 +91,20 @@ class AppUserApiIntegrationTest extends IntegrationTest {
     void lastAdmin() {
         long adminId = findUserId(ADMIN_USERNAME);
 
-        given().contentType(ContentType.JSON).body(updateJson("관리자", "USER", true))
+        given().contentType(ContentType.JSON).body(updateJson("관리자", userRole.getId(), true))
         .when().put("/api/users/{id}", adminId)
         .then()
                 .statusCode(409)
                 .body("code", equalTo("LAST_ADMIN_REQUIRED"));
 
-        given().contentType(ContentType.JSON).body(createJson("admin2", "password1!", "ADMIN"))
+        given().contentType(ContentType.JSON).body(createJson("admin2", "password1!", adminRole.getId()))
         .when().post("/api/users").then().statusCode(201);
 
-        given().contentType(ContentType.JSON).body(updateJson("관리자", "USER", true))
+        given().contentType(ContentType.JSON).body(updateJson("관리자", userRole.getId(), true))
         .when().put("/api/users/{id}", adminId)
         .then()
                 .statusCode(200)
-                .body("role", equalTo("USER"));
+                .body("roles.code", equalTo(List.of("USER")));
     }
 
     @Test
@@ -159,15 +159,15 @@ class AppUserApiIntegrationTest extends IntegrationTest {
                 .extract().jsonPath().getLong("content.find { it.username == '%s' }.id".formatted(username));
     }
 
-    private static String createJson(String username, String password, String role) {
+    private static String createJson(String username, String password, Long roleId) {
         return """
-                {"username": "%s", "password": "%s", "name": "%s", "role": "%s"}
-                """.formatted(username, password, username, role);
+                {"username": "%s", "password": "%s", "name": "%s", "roleIds": [%d]}
+                """.formatted(username, password, username, roleId);
     }
 
-    private static String updateJson(String name, String role, boolean enabled) {
+    private static String updateJson(String name, Long roleId, boolean enabled) {
         return """
-                {"name": "%s", "role": "%s", "enabled": %s}
-                """.formatted(name, role, enabled);
+                {"name": "%s", "roleIds": [%d], "enabled": %s}
+                """.formatted(name, roleId, enabled);
     }
 }

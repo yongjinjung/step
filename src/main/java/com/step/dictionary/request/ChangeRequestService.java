@@ -9,6 +9,9 @@ import com.step.dictionary.request.dto.ApproveForm;
 import com.step.dictionary.request.dto.ChangeRequestForm;
 import com.step.dictionary.request.dto.ChangeRequestResponse;
 import com.step.dictionary.request.dto.ChangeRequestSearchCondition;
+import com.step.dictionary.role.MenuPaths;
+import com.step.dictionary.role.PermissionAction;
+import com.step.dictionary.role.PermissionService;
 import com.step.dictionary.request.dto.RejectForm;
 import com.step.dictionary.user.AppUser;
 import com.step.dictionary.user.AppUserRepository;
@@ -27,11 +30,11 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>로그인한 사용자는 누구나 단어/도메인/용어의 등록·수정·삭제를 신청할 수 있다 (ADMIN도 가능).</li>
  *   <li>신청 종류에 맞게 대상 ID와 신청 내용이 있어야 한다 ({@code INVALID_CHANGE_REQUEST}, {@link RequestType} 참고).</li>
  *   <li>수정/삭제 신청은 대상이 있어야 하고({@code *_NOT_FOUND}), 같은 대상에 대기 중인 신청이 없어야 한다({@code REQUEST_ALREADY_PENDING}).</li>
- *   <li>승인/반려는 ADMIN만 한다 (URL 규칙, {@code SecurityConfig}). 대기 중인 신청만 처리한다({@code REQUEST_NOT_PENDING}).</li>
+ *   <li>승인/반려는 신청 메뉴의 수정 권한이 있어야 한다 ({@code ApiPermissionRules}). 대기 중인 신청만 처리한다({@code REQUEST_NOT_PENDING}).</li>
  *   <li>수정/삭제 신청 이후 대상이 바뀌었거나 삭제됐으면 승인하지 않는다({@code REQUEST_TARGET_CHANGED}).</li>
  *   <li>승인은 대상 반영과 같은 트랜잭션이다. 반영 중 업무 규칙 위반이 나면 원래 오류로 응답하고 신청은 대기 상태로 남는다.</li>
  *   <li>취소는 신청자 본인만 한다({@code REQUEST_NOT_OWNED}).</li>
- *   <li>USER는 자기 신청만 조회한다. 남의 신청은 없는 것으로 본다({@code REQUEST_NOT_FOUND}). ADMIN은 모두 조회한다.</li>
+ *   <li>검토 권한이 없으면 자기 신청만 조회한다. 남의 신청은 없는 것으로 본다({@code REQUEST_NOT_FOUND}).</li>
  * </ul>
  */
 @Service
@@ -43,15 +46,26 @@ public class ChangeRequestService {
     private final AppUserRepository userRepository;
     /** 대상별 조회와 반영. */
     private final StandardDataApplier applier;
+    /** 신청을 검토(승인·반려)할 수 있는 사용자인지 확인용. */
+    private final PermissionService permissionService;
     /** 처리 일시 계산용 ({@code SecurityConfig}의 Clock 빈). */
     private final Clock clock;
 
     public ChangeRequestService(ChangeRequestRepository requestRepository, AppUserRepository userRepository,
-            StandardDataApplier applier, Clock clock) {
+            StandardDataApplier applier, PermissionService permissionService, Clock clock) {
         this.requestRepository = requestRepository;
         this.userRepository = userRepository;
         this.applier = applier;
+        this.permissionService = permissionService;
         this.clock = clock;
+    }
+
+    /**
+     * 신청을 검토할 수 있는 사용자인지 (신청 메뉴의 수정 권한).
+     * 검토 권한이 있으면 모든 신청을 보고, 없으면 자기 신청만 본다.
+     */
+    private boolean canReview(CurrentUser currentUser) {
+        return permissionService.of(currentUser.username()).can(MenuPaths.REQUESTS, PermissionAction.UPDATE);
     }
 
     /**
@@ -99,7 +113,7 @@ public class ChangeRequestService {
      */
     public PageResponse<ChangeRequestResponse> search(ChangeRequestSearchCondition condition, Pageable pageable,
             CurrentUser currentUser) {
-        ChangeRequestSearchCondition effective = currentUser.admin()
+        ChangeRequestSearchCondition effective = canReview(currentUser)
                 ? condition
                 : condition.withRequester(currentUser.username());
         return PageResponse.from(requestRepository.search(effective, pageable).map(this::toResponse));
@@ -193,10 +207,10 @@ public class ChangeRequestService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.REQUEST_NOT_FOUND));
     }
 
-    /** 현재 사용자가 볼 수 있는 신청만 돌려준다. ADMIN은 전부, USER는 자기 신청만. */
+    /** 현재 사용자가 볼 수 있는 신청만 돌려준다. 검토 권한이 있으면 전부, 없으면 자기 신청만. */
     private ChangeRequest getVisibleRequest(Long id, CurrentUser currentUser) {
         ChangeRequest request = getRequest(id);
-        if (!currentUser.admin() && !request.isRequestedBy(currentUser.username())) {
+        if (!canReview(currentUser) && !request.isRequestedBy(currentUser.username())) {
             throw new BusinessException(ErrorCode.REQUEST_NOT_FOUND);
         }
         return request;

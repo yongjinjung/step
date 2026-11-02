@@ -9,6 +9,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.step.dictionary.auth.CurrentUser;
+import com.step.dictionary.role.PermissionService;
+import com.step.dictionary.role.UserPermissions;
 import com.step.dictionary.global.error.BusinessException;
 import com.step.dictionary.global.error.ErrorCode;
 import com.step.dictionary.request.dto.ApproveForm;
@@ -17,11 +19,12 @@ import com.step.dictionary.request.dto.ChangeRequestSearchCondition;
 import com.step.dictionary.standard.word.dto.WordRequest;
 import com.step.dictionary.user.AppUser;
 import com.step.dictionary.user.AppUserRepository;
-import com.step.dictionary.user.Role;
+import com.step.dictionary.support.TestRoles;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -49,15 +52,18 @@ class ChangeRequestServiceTest {
     @Mock
     private StandardDataApplier applier;
 
+    @Mock
+    private PermissionService permissionService;
+
     private final Clock clock = Clock.fixed(Instant.parse("2026-09-15T01:00:00Z"), ZoneId.of("Asia/Seoul"));
-    private final AppUser user = new AppUser("user", "hash", "사용자", Role.USER);
-    private final AppUser admin = new AppUser("admin", "hash", "관리자", Role.ADMIN);
+    private final AppUser user = new AppUser("user", "hash", "사용자", TestRoles.userOnly());
+    private final AppUser admin = new AppUser("admin", "hash", "관리자", TestRoles.adminOnly());
 
     private ChangeRequestService service;
 
     @BeforeEach
     void setUp() {
-        service = new ChangeRequestService(requestRepository, userRepository, applier, clock);
+        service = new ChangeRequestService(requestRepository, userRepository, applier, permissionService, clock);
     }
 
     @Test
@@ -187,8 +193,10 @@ class ChangeRequestServiceTest {
     @DisplayName("관리자라도 남의 신청은 취소할 수 없다")
     void cancelNotOwned() {
         given(requestRepository.findWithUsersById(1L)).willReturn(Optional.of(updateRequest()));
+        // 검토 권한이 있어 신청을 볼 수는 있지만, 취소는 신청자 본인만 할 수 있다.
+        given(permissionService.of("admin")).willReturn(UserPermissions.all());
 
-        assertThatThrownBy(() -> service.cancel(1L, new CurrentUser("admin", true)))
+        assertThatThrownBy(() -> service.cancel(1L, new CurrentUser("admin", List.of("ADMIN"))))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.REQUEST_NOT_OWNED);
     }
@@ -199,8 +207,10 @@ class ChangeRequestServiceTest {
         ChangeRequest adminRequest = new ChangeRequest(TargetType.WORD, RequestType.DELETE, 5L, TARGET_UPDATED_AT,
                 null, null, admin);
         given(requestRepository.findWithUsersById(1L)).willReturn(Optional.of(adminRequest));
+        // 신청 검토 권한이 없는 사용자다 (검토 권한이 있으면 남의 신청도 보인다).
+        given(permissionService.of("user")).willReturn(UserPermissions.none());
 
-        assertThatThrownBy(() -> service.findById(1L, new CurrentUser("user", false)))
+        assertThatThrownBy(() -> service.findById(1L, new CurrentUser("user", List.of("USER"))))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.REQUEST_NOT_FOUND);
     }
@@ -210,9 +220,10 @@ class ChangeRequestServiceTest {
     void searchAsUser() {
         Pageable pageable = PageRequest.of(0, 20);
         given(requestRepository.search(any(), eq(pageable))).willReturn(Page.empty(pageable));
+        given(permissionService.of("user")).willReturn(UserPermissions.none());
 
         service.search(new ChangeRequestSearchCondition(null, null, null, "admin"), pageable,
-                new CurrentUser("user", false));
+                new CurrentUser("user", List.of("USER")));
 
         ArgumentCaptor<ChangeRequestSearchCondition> condition = ArgumentCaptor.forClass(ChangeRequestSearchCondition.class);
         verify(requestRepository).search(condition.capture(), eq(pageable));

@@ -23,12 +23,12 @@ public class AppUserRepositoryCustomImpl implements AppUserRepositoryCustom {
 
     @Override
     public Page<AppUser> search(UserSearchCondition condition, Pageable pageable) {
-        // 연관 엔티티가 없어 조인 없이 조회한다.
+        // 역할은 다대다라 조인하면 행이 늘어난다. 조건은 exists 서브쿼리로 걸어 페이징이 어긋나지 않게 한다.
         List<AppUser> content = queryFactory
                 .selectFrom(appUser)
                 .where(
                         keywordContains(condition.keyword()),
-                        roleEq(condition.role()),
+                        hasRole(condition.roleId()),
                         enabledEq(condition.enabled()))
                 .orderBy(appUser.username.asc())
                 .offset(pageable.getOffset())
@@ -40,7 +40,7 @@ public class AppUserRepositoryCustomImpl implements AppUserRepositoryCustom {
                 .from(appUser)
                 .where(
                         keywordContains(condition.keyword()),
-                        roleEq(condition.role()),
+                        hasRole(condition.roleId()),
                         enabledEq(condition.enabled()));
 
         // 필요한 경우에만 count 쿼리를 실행한다.
@@ -56,9 +56,9 @@ public class AppUserRepositoryCustomImpl implements AppUserRepositoryCustom {
         return appUser.username.containsIgnoreCase(trimmed).or(appUser.name.contains(trimmed));
     }
 
-    /** 역할 일치. null이면 전체. */
-    private BooleanExpression roleEq(Role role) {
-        return role == null ? null : appUser.role.eq(role);
+    /** 이 역할을 가진 사용자. null이면 전체. */
+    private BooleanExpression hasRole(Long roleId) {
+        return roleId == null ? null : appUser.roles.any().id.eq(roleId);
     }
 
     /** 활성 여부 일치. null이면 전체. */

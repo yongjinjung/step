@@ -4,7 +4,7 @@ import { Alert, App, Button, Card, Input, Space, Table, Typography, type TableCo
 import { useState } from 'react'
 import { $api } from '@/api/client'
 import { errorMessage } from '@/api/errors'
-import { useAuth } from '@/auth/AuthContext'
+import { useMenus } from '@/layouts/MenuContext'
 import { ClassifierWordSelect } from '@/components/ClassifierWordSelect'
 import { DataTypeSelect } from '@/components/DataTypeSelect'
 import { ExcelActions } from '@/components/ExcelActions'
@@ -36,8 +36,11 @@ function parseFilters(filters: Record<(typeof FILTER_KEYS)[number], string | und
  * 구조와 역할별 동작은 표준 단어 화면(features/words)과 같다.
  */
 export function DomainListPage() {
-  const { user } = useAuth()
-  const isAdmin = user?.isAdmin ?? false
+  const { can } = useMenus()
+  // 권한이 있으면 바로 반영하고, 없으면 같은 버튼이 변경 신청이 된다.
+  const canCreate = can('/domains', 'create')
+  const canUpdate = can('/domains', 'update')
+  const canDelete = can('/domains', 'delete')
   const { message, modal } = App.useApp()
   const invalidate = useInvalidateApi()
   const { filters, page, size, setFilters, setPaging } = useListSearchParams(FILTER_KEYS)
@@ -67,7 +70,7 @@ export function DomainListPage() {
     if (domain.id === undefined) {
       return
     }
-    if (!isAdmin) {
+    if (!canDelete) {
       setDeleteRequestTarget(domain)
       return
     }
@@ -130,15 +133,15 @@ export function DomainListPage() {
     {
       title: '작업',
       key: 'actions',
-      width: isAdmin ? 110 : 150,
+      width: canUpdate && canDelete ? 110 : 150,
       fixed: 'right',
       render: (_, domain) => (
         <Space size={0}>
           <Button type="link" size="small" onClick={() => openEdit(domain)}>
-            {isAdmin ? '수정' : '수정 신청'}
+            {canUpdate ? '수정' : '수정 신청'}
           </Button>
           <Button type="link" size="small" danger onClick={() => handleDelete(domain)}>
-            {isAdmin ? '삭제' : '삭제 신청'}
+            {canDelete ? '삭제' : '삭제 신청'}
           </Button>
         </Space>
       ),
@@ -157,13 +160,13 @@ export function DomainListPage() {
               onUploaded={(result) => (result.mode === 'APPLIED' ? refreshDomains() : invalidate('/api/requests'))}
             />
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setFormDomain({ open: true, domain: null })}>
-              {isAdmin ? '도메인 등록' : '등록 신청'}
+              {canCreate ? '도메인 등록' : '등록 신청'}
             </Button>
           </Space>
         }
       />
 
-      {!isAdmin && (
+      {!(canCreate && canUpdate && canDelete) && (
         <Alert
           type="info"
           showIcon

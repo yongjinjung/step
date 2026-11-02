@@ -12,6 +12,9 @@ export interface MenuMatch {
   top: MenuResponse
 }
 
+/** 메뉴에서 할 수 있는 동작 (백엔드 PermissionAction). */
+export type MenuAction = 'read' | 'create' | 'update' | 'delete'
+
 interface MenuContextValue {
   /** 상위(TOP) 메뉴 목록. 각 항목의 children이 왼쪽에 보일 하위 메뉴다 */
   topMenus: MenuResponse[]
@@ -23,6 +26,11 @@ interface MenuContextValue {
   homePath: string | undefined
   /** 주소에 해당하는 메뉴를 찾는다. 상세 화면(`/tables/3`)은 상위 경로(`/tables`)의 메뉴로 찾는다 */
   findByPath: (pathname: string) => MenuMatch | undefined
+  /**
+   * 그 화면에서 할 수 있는 동작인지 (역할의 메뉴 권한). 버튼을 보여줄지 정할 때 쓴다.
+   * 서버도 같은 권한으로 요청을 검사하므로, 이 값은 화면을 정리하는 용도다.
+   */
+  can: (path: string, action: MenuAction) => boolean
 }
 
 const MenuContext = createContext<MenuContextValue | null>(null)
@@ -65,12 +73,30 @@ export function MenuProvider({ children }: { children: ReactNode }) {
       return matched
     }
 
+    const can = (path: string, action: MenuAction): boolean => {
+      const menu = byPath.get(path)?.menu
+      if (!menu) {
+        return false
+      }
+      switch (action) {
+        case 'read':
+          return menu.canRead ?? false
+        case 'create':
+          return menu.canCreate ?? false
+        case 'update':
+          return menu.canUpdate ?? false
+        case 'delete':
+          return menu.canDelete ?? false
+      }
+    }
+
     return {
       topMenus,
       loading: menuQuery.isPending,
       failed: menuQuery.isError,
       homePath: topMenus.flatMap((top) => top.children ?? []).find((menu) => menu.path)?.path,
       findByPath,
+      can,
     }
   }, [topMenus, menuQuery.isPending, menuQuery.isError])
 

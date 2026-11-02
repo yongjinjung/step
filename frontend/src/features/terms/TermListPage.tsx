@@ -4,7 +4,7 @@ import { Alert, App, Button, Card, Input, Space, Table, Typography, type TableCo
 import { useState } from 'react'
 import { $api } from '@/api/client'
 import { errorMessage } from '@/api/errors'
-import { useAuth } from '@/auth/AuthContext'
+import { useMenus } from '@/layouts/MenuContext'
 import { DomainSelect } from '@/components/DomainSelect'
 import { ExcelActions } from '@/components/ExcelActions'
 import { PageHeader } from '@/components/PageHeader'
@@ -32,8 +32,11 @@ function parseId(value: string | undefined): number | undefined {
  * 구조와 역할별 동작은 표준 단어 화면(features/words)과 같다.
  */
 export function TermListPage() {
-  const { user } = useAuth()
-  const isAdmin = user?.isAdmin ?? false
+  const { can } = useMenus()
+  // 권한이 있으면 바로 반영하고, 없으면 같은 버튼이 변경 신청이 된다.
+  const canCreate = can('/terms', 'create')
+  const canUpdate = can('/terms', 'update')
+  const canDelete = can('/terms', 'delete')
   const { message, modal } = App.useApp()
   const invalidate = useInvalidateApi()
   const { filters, page, size, setFilters, setPaging } = useListSearchParams(FILTER_KEYS)
@@ -63,7 +66,7 @@ export function TermListPage() {
     if (term.id === undefined) {
       return
     }
-    if (!isAdmin) {
+    if (!canDelete) {
       setDeleteRequestTarget(term)
       return
     }
@@ -134,15 +137,15 @@ export function TermListPage() {
     {
       title: '작업',
       key: 'actions',
-      width: isAdmin ? 110 : 150,
+      width: canUpdate && canDelete ? 110 : 150,
       fixed: 'right',
       render: (_, term) => (
         <Space size={0}>
           <Button type="link" size="small" onClick={() => openEdit(term)}>
-            {isAdmin ? '수정' : '수정 신청'}
+            {canUpdate ? '수정' : '수정 신청'}
           </Button>
           <Button type="link" size="small" danger onClick={() => handleDelete(term)}>
-            {isAdmin ? '삭제' : '삭제 신청'}
+            {canDelete ? '삭제' : '삭제 신청'}
           </Button>
         </Space>
       ),
@@ -161,13 +164,13 @@ export function TermListPage() {
               onUploaded={(result) => (result.mode === 'APPLIED' ? refreshTerms() : invalidate('/api/requests'))}
             />
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setFormTerm({ open: true, term: null })}>
-              {isAdmin ? '용어 등록' : '등록 신청'}
+              {canCreate ? '용어 등록' : '등록 신청'}
             </Button>
           </Space>
         }
       />
 
-      {!isAdmin && (
+      {!(canCreate && canUpdate && canDelete) && (
         <Alert
           type="info"
           showIcon

@@ -8,7 +8,7 @@ import com.step.dictionary.auth.JwtTokenProvider;
 import com.step.dictionary.global.config.SecurityConfig;
 import com.step.dictionary.support.IntegrationTest;
 import com.step.dictionary.user.AppUser;
-import com.step.dictionary.user.Role;
+import com.step.dictionary.support.TestRoles;
 import io.restassured.http.ContentType;
 import java.time.Clock;
 import java.time.Duration;
@@ -57,7 +57,7 @@ class SecurityApiIntegrationTest extends IntegrationTest {
     void expiredToken() {
         Clock twoHoursAgo = Clock.offset(Clock.systemUTC(), Duration.ofHours(-2));
         JwtTokenProvider pastProvider = new JwtTokenProvider(jwtEncoder, jwtProperties, twoHoursAgo);
-        authenticate(pastProvider.issue(new AppUser(ADMIN_USERNAME, "hash", "관리자", Role.ADMIN)).accessToken());
+        authenticate(pastProvider.issue(new AppUser(ADMIN_USERNAME, "hash", "관리자", TestRoles.adminOnly())).accessToken());
 
         given()
         .when().get("/api/words")
@@ -73,7 +73,7 @@ class SecurityApiIntegrationTest extends IntegrationTest {
                 "attacker-jwt-secret-0123456789abcdefghij", jwtProperties.expiration(), jwtProperties.issuer());
         JwtTokenProvider forgedProvider =
                 new JwtTokenProvider(new SecurityConfig().jwtEncoder(other), other, Clock.systemUTC());
-        authenticate(forgedProvider.issue(new AppUser(ADMIN_USERNAME, "hash", "관리자", Role.ADMIN)).accessToken());
+        authenticate(forgedProvider.issue(new AppUser(ADMIN_USERNAME, "hash", "관리자", TestRoles.adminOnly())).accessToken());
 
         given()
         .when().get("/api/words")

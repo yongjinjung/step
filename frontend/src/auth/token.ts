@@ -9,7 +9,7 @@
 const STORAGE_KEY = 'dictionary.accessToken'
 
 /** 서버 역할. JWT roles 클레임 값과 같다. */
-export type Role = 'ADMIN' | 'USER'
+export type Role = string
 
 /** 토큰에서 읽은 로그인 사용자. */
 export interface AuthUser {
@@ -48,8 +48,9 @@ export function decodeToken(token: string): AuthUser | null {
     if (!claims.sub || typeof claims.exp !== 'number') {
       return null
     }
+    // 역할은 DB에서 관리하므로 코드가 정해져 있지 않다. 문자열이면 그대로 담는다.
     const roles = (Array.isArray(claims.roles) ? claims.roles : []).filter(
-      (role): role is Role => role === 'ADMIN' || role === 'USER',
+      (role): role is Role => typeof role === 'string',
     )
     return { username: claims.sub, roles, isAdmin: roles.includes('ADMIN'), expiresAt: claims.exp * 1000 }
   } catch {

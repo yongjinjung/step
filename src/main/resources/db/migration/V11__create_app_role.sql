@@ -1,0 +1,89 @@
+-- =====================================================================
+-- V11: 역할과 역할별 메뉴 권한 (app_role, app_role_menu, app_user_role)
+-- ---------------------------------------------------------------------
+-- 고정돼 있던 ADMIN/USER 역할을 DB에서 관리하는 역할로 바꾼다.
+--
+--   app_role       역할. 코드(ADMIN, USER, ...)와 전권 여부를 가진다.
+--   app_role_menu  역할이 메뉴마다 가지는 권한 (조회/등록/수정/삭제)
+--   app_user_role  사용자에게 부여한 역할 (여러 개 가능, 권한은 합집합)
+--
+-- 권한 검사는 서버가 한다. 요청 경로를 메뉴와 동작으로 바꿔(ApiPermissionRules)
+-- 그 사용자의 역할 권한과 맞춰 본다. 전권(all_permissions_yn='Y') 역할은 모두 통과한다.
+--
+-- 기존 데이터: app_user.role 값으로 app_user_role을 채운 뒤 컬럼을 지운다.
+-- 메뉴의 admin_only_yn도 역할 권한으로 대체되므로 지운다.
+-- =====================================================================
+CREATE TABLE app_role (
+    -- 역할 ID (자동 증가 기본키)
+    id                  BIGINT       NOT NULL AUTO_INCREMENT,
+    -- 역할 코드. 대문자로 정규화해 저장하며 전체에서 유일하다. JWT roles 클레임에 들어간다. 예) ADMIN
+    code                VARCHAR(50)  NOT NULL,
+    -- 역할명. 예) 관리자
+    name                VARCHAR(100) NOT NULL,
+    -- 설명 (선택)
+    description         VARCHAR(1000),
+    -- 전권 여부 'Y'/'N'. 'Y'면 메뉴 권한과 무관하게 모든 기능을 쓸 수 있다.
+    -- 권한 설정 실수로 아무도 시스템을 관리할 수 없게 되는 것을 막는 안전장치다.
+    all_permissions_yn  CHAR(1)      NOT NULL,
+    -- 사용 여부 'Y'/'N'. 미사용 역할의 권한은 무시된다.
+    used_yn             CHAR(1)      NOT NULL,
+    -- 기본 제공 역할 여부 'Y'/'N'. 'Y'면 삭제할 수 없고 코드와 전권 여부를 바꿀 수 없다.
+    built_in_yn         CHAR(1)      NOT NULL,
+    -- 생성 일시 (JPA 감사)
+    created_at          DATETIME(6)  NOT NULL,
+    -- 최종 수정 일시 (JPA 감사)
+    updated_at          DATETIME(6)  NOT NULL,
+    PRIMARY KEY (id),
+    -- 역할 코드 유일 제약 (409 DUPLICATE_ROLE_CODE)
+    CONSTRAINT uk_app_role_code UNIQUE (code)
+);
+
+CREATE TABLE app_role_menu (
+    -- 역할 메뉴 권한 ID (자동 증가 기본키)
+    id         BIGINT      NOT NULL AUTO_INCREMENT,
+    -- 역할 ID (app_role.id)
+    role_id    BIGINT      NOT NULL,
+    -- 메뉴 ID (app_menu.id). 하위(LEFT) 메뉴에 권한을 준다.
+    menu_id    BIGINT      NOT NULL,
+    -- 조회 권한 'Y'/'N'. 'N'이면 메뉴 자체가 보이지 않는다.
+    read_yn    CHAR(1)     NOT NULL,
+    -- 등록 권한 'Y'/'N'
+    create_yn  CHAR(1)     NOT NULL,
+    -- 수정 권한 'Y'/'N'
+    update_yn  CHAR(1)     NOT NULL,
+    -- 삭제 권한 'Y'/'N'
+    delete_yn  CHAR(1)     NOT NULL,
+    -- 생성 일시 (JPA 감사). 권한 행은 통째로 교체하므로 수정 일시는 두지 않는다.
+    created_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    -- 역할-메뉴 조합은 한 번만 (409 대신 서비스가 통째로 교체한다)
+    CONSTRAINT uk_app_role_menu UNIQUE (role_id, menu_id),
+    CONSTRAINT fk_app_role_menu_role FOREIGN KEY (role_id) REFERENCES app_role (id),
+    CONSTRAINT fk_app_role_menu_menu FOREIGN KEY (menu_id) REFERENCES app_menu (id)
+);
+
+CREATE TABLE app_user_role (
+    -- 사용자 ID (app_user.id)
+    user_id BIGINT NOT NULL,
+    -- 역할 ID (app_role.id)
+    role_id BIGINT NOT NULL,
+    PRIMARY KEY (user_id, role_id),
+    CONSTRAINT fk_app_user_role_user FOREIGN KEY (user_id) REFERENCES app_user (id),
+    CONSTRAINT fk_app_user_role_role FOREIGN KEY (role_id) REFERENCES app_role (id)
+);
+
+-- 기본 역할. 관리자는 전권이라 메뉴 권한을 따로 주지 않아도 모두 쓸 수 있다.
+-- 일반 사용자의 메뉴 권한은 메뉴가 만들어진 뒤에야 줄 수 있어 기동 시 RoleInitializer가 채운다.
+INSERT INTO app_role (code, name, description, all_permissions_yn, used_yn, built_in_yn, created_at, updated_at)
+VALUES ('ADMIN', '관리자', '모든 메뉴와 기능을 쓸 수 있는 기본 역할', 'Y', 'Y', 'Y', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+       ('USER', '일반 사용자', '조회와 테이블/컬럼 정의, 변경 신청을 할 수 있는 기본 역할', 'N', 'Y', 'Y', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+-- 기존 사용자의 역할을 그대로 옮긴다.
+INSERT INTO app_user_role (user_id, role_id)
+SELECT u.id, r.id FROM app_user u JOIN app_role r ON r.code = u.role;
+
+-- 역할은 이제 app_user_role이 가진다.
+ALTER TABLE app_user DROP COLUMN role;
+
+-- 메뉴가 보이는 기준도 역할 권한(read_yn)으로 바뀌어 관리자 전용 표시는 필요 없다.
+ALTER TABLE app_menu DROP COLUMN admin_only_yn;

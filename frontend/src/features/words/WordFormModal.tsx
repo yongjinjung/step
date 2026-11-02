@@ -2,7 +2,7 @@ import { Alert, App, Form, Input, Modal, Switch } from 'antd'
 import { useEffect } from 'react'
 import { $api } from '@/api/client'
 import { applyCodeError, applyFieldErrors, errorMessage } from '@/api/errors'
-import { useAuth } from '@/auth/AuthContext'
+import { useMenus } from '@/layouts/MenuContext'
 import { useInvalidateApi } from '@/hooks/useInvalidateApi'
 import { ABBREVIATION_PATTERN, WORD_ERROR_FIELDS, type WordRequest, type WordResponse } from './wordFields'
 
@@ -24,9 +24,10 @@ interface WordFormModalProps {
  * 서버 오류는 가능한 한 해당 필드 아래에 보여준다: 형식 오류(fieldErrors)와 중복 같은 업무 오류(코드 → 필드).
  */
 export function WordFormModal({ open, word, onClose }: WordFormModalProps) {
-  const { user } = useAuth()
-  const isAdmin = user?.isAdmin ?? false
+  const { can } = useMenus()
   const isEdit = word?.id !== undefined
+  // 등록·수정 권한이 있으면 바로 반영하고, 없으면 변경 신청으로 접수된다.
+  const canSave = can('/words', isEdit ? 'update' : 'create')
   const { message } = App.useApp()
   const invalidate = useInvalidateApi()
   const [form] = Form.useForm<WordFormValues>()
@@ -66,7 +67,7 @@ export function WordFormModal({ open, word, onClose }: WordFormModalProps) {
   const handleFinish = ({ reason, ...values }: WordFormValues) => {
     const body: WordRequest = { ...values, description: values.description?.trim() || undefined }
 
-    if (!isAdmin) {
+    if (!canSave) {
       requestWord.mutate(
         {
           body: {
@@ -105,15 +106,15 @@ export function WordFormModal({ open, word, onClose }: WordFormModalProps) {
   return (
     <Modal
       open={open}
-      title={isAdmin ? `단어 ${action}` : `단어 ${action} 신청`}
-      okText={isAdmin ? '저장' : '신청'}
+      title={canSave ? `단어 ${action}` : `단어 ${action} 신청`}
+      okText={canSave ? '저장' : '신청'}
       confirmLoading={saving}
       onOk={() => form.submit()}
       onCancel={onClose}
       forceRender
       width={560}
     >
-      {!isAdmin && (
+      {!canSave && (
         <Alert
           type="info"
           showIcon
@@ -167,7 +168,7 @@ export function WordFormModal({ open, word, onClose }: WordFormModalProps) {
         <Form.Item name="description" label="설명" rules={[{ max: 1000, message: '1000자 이내로 입력하세요.' }]}>
           <Input.TextArea rows={3} maxLength={1000} showCount />
         </Form.Item>
-        {!isAdmin && (
+        {!canSave && (
           <Form.Item name="reason" label="신청 사유" rules={[{ max: 1000, message: '1000자 이내로 입력하세요.' }]}>
             <Input.TextArea rows={2} maxLength={1000} showCount placeholder="관리자가 검토할 때 참고할 내용 (선택)" />
           </Form.Item>

@@ -112,13 +112,6 @@ export function MenuManagePage() {
       render: (used: boolean) => (used ? <Tag color="green">사용</Tag> : <Tag>미사용</Tag>),
     },
     {
-      title: '관리자 전용',
-      dataIndex: 'adminOnly',
-      width: 110,
-      align: 'center',
-      render: (adminOnly: boolean) => (adminOnly ? <Tag color="volcano">관리자</Tag> : <Typography.Text type="secondary">전체</Typography.Text>),
-    },
-    {
       title: '작업',
       key: 'actions',
       width: 190,

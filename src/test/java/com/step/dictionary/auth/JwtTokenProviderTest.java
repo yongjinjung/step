@@ -6,7 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.step.dictionary.auth.dto.TokenResponse;
 import com.step.dictionary.global.config.SecurityConfig;
 import com.step.dictionary.user.AppUser;
-import com.step.dictionary.user.Role;
+import com.step.dictionary.support.TestRoles;
 import java.time.Clock;
 import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;
@@ -23,7 +23,7 @@ class JwtTokenProviderTest {
 
     private final SecurityConfig securityConfig = new SecurityConfig();
     private final JwtDecoder decoder = securityConfig.jwtDecoder(PROPERTIES);
-    private final AppUser user = new AppUser("hong", "hash", "홍길동", Role.USER);
+    private final AppUser user = new AppUser("hong", "hash", "홍길동", TestRoles.userOnly());
 
     @Test
     @DisplayName("토큰에 아이디, 역할, 발급자, 만료 시각을 담고 같은 키로 검증할 수 있다")

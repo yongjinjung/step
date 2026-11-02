@@ -14,7 +14,7 @@ import com.step.dictionary.menu.dto.UserMenuPermissionRequest;
 import com.step.dictionary.menu.dto.UserMenuPermissionResponse;
 import com.step.dictionary.user.AppUser;
 import com.step.dictionary.user.AppUserRepository;
-import com.step.dictionary.user.Role;
+import com.step.dictionary.support.TestRoles;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -43,13 +43,13 @@ class MenuPermissionServiceTest {
     private final AppUser user = user();
 
     private static AppUser user() {
-        AppUser user = new AppUser("hong", "hash", "홍길동", Role.USER);
+        AppUser user = new AppUser("hong", "hash", "홍길동", TestRoles.userOnly());
         ReflectionTestUtils.setField(user, "id", 7L);
         return user;
     }
 
     private static Menu menu(long id, String name, String path) {
-        Menu menu = new Menu(null, name, path, null, 1, true, false);
+        Menu menu = new Menu(null, name, path, null, 1, true);
         ReflectionTestUtils.setField(menu, "id", id);
         return menu;
     }

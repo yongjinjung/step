@@ -151,6 +151,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/roles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 역할 단건 조회 */
+        get: operations["roleFindById"];
+        /** 역할 수정 */
+        put: operations["roleUpdate"];
+        post?: never;
+        /**
+         * 역할 삭제
+         * @description 기본 제공 역할은 삭제할 수 없고, 사용자에게 부여된 역할도 먼저 빼야 한다.
+         */
+        delete: operations["roleDelete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/roles/{id}/menus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 역할 메뉴 권한 조회
+         * @description 메뉴별 조회/등록/수정/삭제 권한. 권한이 없는 메뉴는 나오지 않는다.
+         */
+        get: operations["roleFindPermissions"];
+        /**
+         * 역할 메뉴 권한 저장
+         * @description 보낸 목록으로 권한을 통째로 바꾼다. 권한이 모두 false인 항목은 저장하지 않는다.
+         */
+        put: operations["roleReplacePermissions"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/menus/{id}": {
         parameters: {
             query?: never;
@@ -370,6 +416,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 역할 목록
+         * @description 역할 수가 많지 않아 페이징하지 않는다.
+         */
+        get: operations["roleFindAll"];
+        put?: never;
+        /**
+         * 역할 등록
+         * @description 코드는 대문자로 저장한다. 전권 역할은 메뉴 권한과 무관하게 모두 허용된다.
+         */
+        post: operations["roleCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/requests/{id}/reject": {
         parameters: {
             query?: never;
@@ -499,7 +569,7 @@ export interface paths {
         };
         /**
          * 메뉴 트리 조회
-         * @description 화면 표시용. 사용 중인 메뉴만, 관리자 전용은 ADMIN에게만, 하위가 없는 상위 메뉴는 제외한다. 사용자별 메뉴 권한이 지정돼 있으면 그 메뉴만 나온다.
+         * @description 화면 표시용. 사용 중이면서 조회 권한이 있는 메뉴만, 하위가 없는 상위 메뉴는 제외한다. 사용자별 메뉴 지정이 있으면 그중에서 더 좁힌다. 메뉴마다 그 사용자의 권한(canRead 등)이 함께 나온다.
          */
         get: operations["menuFindNavigation"];
         put?: never;
@@ -748,7 +818,7 @@ export interface paths {
         };
         /**
          * 전체 메뉴 트리 조회
-         * @description 메뉴 관리 화면용. 미사용 메뉴와 관리자 전용 메뉴도 모두 나온다.
+         * @description 메뉴 관리 화면용. 미사용 메뉴와 권한이 없는 메뉴도 모두 나온다.
          */
         get: operations["menuFindAll"];
         put?: never;
@@ -906,15 +976,12 @@ export interface components {
             userId?: number;
             username?: string;
             name?: string;
-            /** @enum {string} */
-            role?: "ADMIN" | "USER";
             useDefault?: boolean;
             menuIds?: number[];
         };
         UserUpdateRequest: {
             name: string;
-            /** @enum {string} */
-            role: "ADMIN" | "USER";
+            roleIds: number[];
             enabled: boolean;
         };
         UserResponse: {
@@ -922,13 +989,19 @@ export interface components {
             id?: number;
             username?: string;
             name?: string;
-            /** @enum {string} */
-            role?: "ADMIN" | "USER";
+            roles?: components["schemas"]["UserRole"][];
+            superAdmin?: boolean;
             enabled?: boolean;
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */
             updatedAt?: string;
+        };
+        UserRole: {
+            /** Format: int64 */
+            id?: number;
+            code?: string;
+            name?: string;
         };
         PasswordResetRequest: {
             password: string;
@@ -1042,6 +1115,41 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
+        RoleRequest: {
+            code: string;
+            name: string;
+            description?: string;
+            superAdmin: boolean;
+            used: boolean;
+        };
+        RoleResponse: {
+            /** Format: int64 */
+            id?: number;
+            code?: string;
+            name?: string;
+            description?: string;
+            superAdmin?: boolean;
+            used?: boolean;
+            builtIn?: boolean;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        RoleMenuPermission: {
+            /** Format: int64 */
+            menuId: number;
+            menuName?: string;
+            menuPath?: string;
+            canRead: boolean;
+            canCreate: boolean;
+            canUpdate: boolean;
+            canDelete: boolean;
+            empty?: boolean;
+        };
+        RoleMenuPermissionRequest: {
+            permissions: components["schemas"]["RoleMenuPermission"][];
+        };
         MenuRequest: {
             /** Format: int64 */
             parentId?: number;
@@ -1051,7 +1159,6 @@ export interface components {
             /** Format: int32 */
             sortOrder: number;
             used: boolean;
-            adminOnly: boolean;
         };
         MenuResponse: {
             /** Format: int64 */
@@ -1064,7 +1171,10 @@ export interface components {
             /** Format: int32 */
             sortOrder?: number;
             used?: boolean;
-            adminOnly?: boolean;
+            canRead?: boolean;
+            canCreate?: boolean;
+            canUpdate?: boolean;
+            canDelete?: boolean;
             children?: components["schemas"]["MenuResponse"][];
             /** Format: date-time */
             createdAt?: string;
@@ -1153,8 +1263,7 @@ export interface components {
             username: string;
             password: string;
             name: string;
-            /** @enum {string} */
-            role: "ADMIN" | "USER";
+            roleIds: number[];
         };
         RejectForm: {
             comment: string;
@@ -1190,26 +1299,26 @@ export interface components {
             null?: boolean;
             float?: boolean;
             number?: boolean;
-            missingNode?: boolean;
-            integralNumber?: boolean;
-            bigInteger?: boolean;
-            /** @enum {string} */
-            nodeType?: "ARRAY" | "BINARY" | "BOOLEAN" | "MISSING" | "NULL" | "NUMBER" | "OBJECT" | "POJO" | "STRING";
             valueNode?: boolean;
             container?: boolean;
+            integralNumber?: boolean;
+            bigInteger?: boolean;
             bigDecimal?: boolean;
+            /** @enum {string} */
+            nodeType?: "ARRAY" | "BINARY" | "BOOLEAN" | "MISSING" | "NULL" | "NUMBER" | "OBJECT" | "POJO" | "STRING";
+            missingNode?: boolean;
+            object?: boolean;
+            string?: boolean;
+            pojo?: boolean;
+            short?: boolean;
+            int?: boolean;
+            floatingPointNumber?: boolean;
+            long?: boolean;
+            binary?: boolean;
+            boolean?: boolean;
+            double?: boolean;
             /** @deprecated */
             textual?: boolean;
-            int?: boolean;
-            double?: boolean;
-            long?: boolean;
-            boolean?: boolean;
-            binary?: boolean;
-            object?: boolean;
-            pojo?: boolean;
-            string?: boolean;
-            short?: boolean;
-            floatingPointNumber?: boolean;
             embeddedValue?: boolean;
         };
         ApproveForm: {
@@ -1788,6 +1897,122 @@ export interface operations {
             };
         };
     };
+    roleFindById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleResponse"];
+                };
+            };
+        };
+    };
+    roleUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleResponse"];
+                };
+            };
+        };
+    };
+    roleDelete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    roleFindPermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleMenuPermission"][];
+                };
+            };
+        };
+    };
+    roleReplacePermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleMenuPermissionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleMenuPermission"][];
+                };
+            };
+        };
+    };
     menuFindById: {
         parameters: {
             query?: never;
@@ -2142,7 +2367,7 @@ export interface operations {
         parameters: {
             query?: {
                 keyword?: string;
-                role?: "ADMIN" | "USER";
+                roleId?: number;
                 enabled?: boolean;
                 /** @description Zero-based page index (0..N) */
                 page?: number;
@@ -2342,6 +2567,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MetaColumnResponse"];
+                };
+            };
+        };
+    };
+    roleFindAll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleResponse"][];
+                };
+            };
+        };
+    };
+    roleCreate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleResponse"];
                 };
             };
         };

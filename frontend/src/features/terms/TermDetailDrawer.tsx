@@ -2,7 +2,7 @@ import { DeleteOutlined, EditOutlined } from '@ant-design/icons'
 import { Alert, Button, Descriptions, Drawer, Skeleton, Space, Tag, Typography } from 'antd'
 import { $api } from '@/api/client'
 import { errorMessage } from '@/api/errors'
-import { useAuth } from '@/auth/AuthContext'
+import { useMenus } from '@/layouts/MenuContext'
 import { ChangeHistoryTimeline } from '@/components/ChangeHistoryTimeline'
 import { formatDataType } from '@/utils/dataType'
 import { formatDateTime } from '@/utils/format'
@@ -21,8 +21,9 @@ interface TermDetailDrawerProps {
  * 도메인 타입·길이는 저장값이 아니라 조회 시점의 도메인 값이다.
  */
 export function TermDetailDrawer({ termId, onClose, onEdit, onDelete }: TermDetailDrawerProps) {
-  const { user } = useAuth()
-  const isAdmin = user?.isAdmin ?? false
+  const { can } = useMenus()
+  const canUpdate = can('/terms', 'update')
+  const canDelete = can('/terms', 'delete')
   const open = termId !== null
 
   const termQuery = $api.useQuery('get', '/api/terms/{id}', { params: { path: { id: termId ?? 0 } } }, { enabled: open })
@@ -38,10 +39,10 @@ export function TermDetailDrawer({ termId, onClose, onEdit, onDelete }: TermDeta
         term && (
           <Space>
             <Button icon={<EditOutlined />} onClick={() => onEdit(term)}>
-              {isAdmin ? '수정' : '수정 신청'}
+              {canUpdate ? '수정' : '수정 신청'}
             </Button>
             <Button danger icon={<DeleteOutlined />} onClick={() => onDelete(term)}>
-              {isAdmin ? '삭제' : '삭제 신청'}
+              {canDelete ? '삭제' : '삭제 신청'}
             </Button>
           </Space>
         )

@@ -15,9 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>업무 규칙:
  * <ul>
- *   <li>권한 행이 없는 사용자는 기본 규칙대로 메뉴를 본다 (사용 중인 메뉴 + 역할에 맞는 메뉴).</li>
- *   <li>권한을 지정하면 그 메뉴만 본다. 지정했더라도 미사용 메뉴나 관리자 전용 메뉴 규칙은 그대로 적용되므로,
- *       권한 설정은 보이는 메뉴를 넓히는 것이 아니라 좁히는 쪽으로만 동작한다.</li>
+ *   <li>권한 행이 없는 사용자는 역할이 주는 메뉴를 그대로 본다.</li>
+ *   <li>권한을 지정하면 그중에서도 지정한 메뉴만 본다. 역할에 없는 메뉴를 지정해도 보이지 않으므로,
+ *       이 설정은 보이는 메뉴를 넓히는 것이 아니라 좁히는 쪽으로만 동작한다.</li>
  *   <li>권한은 통째로 교체한다 (PUT 의미). {@code useDefault}면 행을 모두 지워 기본 규칙으로 되돌린다.</li>
  *   <li>메뉴가 보이는지의 문제일 뿐, 기능 권한은 각 API가 그대로 검사한다.</li>
  * </ul>
@@ -77,7 +77,7 @@ public class MenuPermissionService {
     }
 
     private static UserMenuPermissionResponse response(AppUser user, List<Long> menuIds) {
-        return new UserMenuPermissionResponse(user.getId(), user.getUsername(), user.getName(), user.getRole(),
+        return new UserMenuPermissionResponse(user.getId(), user.getUsername(), user.getName(),
                 menuIds.isEmpty(), menuIds);
     }
 

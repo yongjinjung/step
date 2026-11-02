@@ -24,6 +24,10 @@
       "description": "코드 그룹에 속한 코드값 관리"
     },
     {
+      "name": "역할",
+      "description": "역할과 역할별 메뉴 권한 관리"
+    },
+    {
       "name": "공통 코드 그룹",
       "description": "공통 코드 그룹(코드ID) 관리와 매핑된 컬럼 조회"
     },
@@ -661,6 +665,182 @@
         }
       }
     },
+    "/api/roles/{id}": {
+      "get": {
+        "tags": [
+          "역할"
+        ],
+        "summary": "역할 단건 조회",
+        "operationId": "roleFindById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "역할"
+        ],
+        "summary": "역할 수정",
+        "operationId": "roleUpdate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "역할"
+        ],
+        "summary": "역할 삭제",
+        "description": "기본 제공 역할은 삭제할 수 없고, 사용자에게 부여된 역할도 먼저 빼야 한다.",
+        "operationId": "roleDelete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/roles/{id}/menus": {
+      "get": {
+        "tags": [
+          "역할"
+        ],
+        "summary": "역할 메뉴 권한 조회",
+        "description": "메뉴별 조회/등록/수정/삭제 권한. 권한이 없는 메뉴는 나오지 않는다.",
+        "operationId": "roleFindPermissions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoleMenuPermission"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "역할"
+        ],
+        "summary": "역할 메뉴 권한 저장",
+        "description": "보낸 목록으로 권한을 통째로 바꾼다. 권한이 모두 false인 항목은 저장하지 않는다.",
+        "operationId": "roleReplacePermissions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleMenuPermissionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoleMenuPermission"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/menus/{id}": {
       "get": {
         "tags": [
@@ -1216,15 +1396,12 @@
             }
           },
           {
-            "name": "role",
+            "name": "roleId",
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "enum": [
-                "ADMIN",
-                "USER"
-              ]
+              "type": "integer",
+              "format": "int64"
             }
           },
           {
@@ -1601,6 +1778,61 @@
         }
       }
     },
+    "/api/roles": {
+      "get": {
+        "tags": [
+          "역할"
+        ],
+        "summary": "역할 목록",
+        "description": "역할 수가 많지 않아 페이징하지 않는다.",
+        "operationId": "roleFindAll",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoleResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "역할"
+        ],
+        "summary": "역할 등록",
+        "description": "코드는 대문자로 저장한다. 전권 역할은 메뉴 권한과 무관하게 모두 허용된다.",
+        "operationId": "roleCreate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/requests/{id}/reject": {
       "post": {
         "tags": [
@@ -1821,7 +2053,7 @@
           "메뉴"
         ],
         "summary": "메뉴 트리 조회",
-        "description": "화면 표시용. 사용 중인 메뉴만, 관리자 전용은 ADMIN에게만, 하위가 없는 상위 메뉴는 제외한다. 사용자별 메뉴 권한이 지정돼 있으면 그 메뉴만 나온다.",
+        "description": "화면 표시용. 사용 중이면서 조회 권한이 있는 메뉴만, 하위가 없는 상위 메뉴는 제외한다. 사용자별 메뉴 지정이 있으면 그중에서 더 좁힌다. 메뉴마다 그 사용자의 권한(canRead 등)이 함께 나온다.",
         "operationId": "menuFindNavigation",
         "responses": {
           "200": {
@@ -2688,7 +2920,7 @@
           "메뉴"
         ],
         "summary": "전체 메뉴 트리 조회",
-        "description": "메뉴 관리 화면용. 미사용 메뉴와 관리자 전용 메뉴도 모두 나온다.",
+        "description": "메뉴 관리 화면용. 미사용 메뉴와 권한이 없는 메뉴도 모두 나온다.",
         "operationId": "menuFindAll",
         "responses": {
           "200": {
@@ -3143,13 +3375,6 @@
           "name": {
             "type": "string"
           },
-          "role": {
-            "type": "string",
-            "enum": [
-              "ADMIN",
-              "USER"
-            ]
-          },
           "useDefault": {
             "type": "boolean"
           },
@@ -3170,12 +3395,13 @@
             "maxLength": 100,
             "minLength": 0
           },
-          "role": {
-            "type": "string",
-            "enum": [
-              "ADMIN",
-              "USER"
-            ]
+          "roleIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "minItems": 1
           },
           "enabled": {
             "type": "boolean"
@@ -3184,7 +3410,7 @@
         "required": [
           "enabled",
           "name",
-          "role"
+          "roleIds"
         ]
       },
       "UserResponse": {
@@ -3200,12 +3426,14 @@
           "name": {
             "type": "string"
           },
-          "role": {
-            "type": "string",
-            "enum": [
-              "ADMIN",
-              "USER"
-            ]
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserRole"
+            }
+          },
+          "superAdmin": {
+            "type": "boolean"
           },
           "enabled": {
             "type": "boolean"
@@ -3217,6 +3445,21 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "UserRole": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
           }
         }
       },
@@ -3578,6 +3821,125 @@
           }
         }
       },
+      "RoleRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 0,
+            "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 0
+          },
+          "superAdmin": {
+            "type": "boolean"
+          },
+          "used": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "superAdmin",
+          "used"
+        ]
+      },
+      "RoleResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "superAdmin": {
+            "type": "boolean"
+          },
+          "used": {
+            "type": "boolean"
+          },
+          "builtIn": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RoleMenuPermission": {
+        "type": "object",
+        "properties": {
+          "menuId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "menuName": {
+            "type": "string"
+          },
+          "menuPath": {
+            "type": "string"
+          },
+          "canRead": {
+            "type": "boolean"
+          },
+          "canCreate": {
+            "type": "boolean"
+          },
+          "canUpdate": {
+            "type": "boolean"
+          },
+          "canDelete": {
+            "type": "boolean"
+          },
+          "empty": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "canCreate",
+          "canDelete",
+          "canRead",
+          "canUpdate",
+          "menuId"
+        ]
+      },
+      "RoleMenuPermissionRequest": {
+        "type": "object",
+        "properties": {
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleMenuPermission"
+            }
+          }
+        },
+        "required": [
+          "permissions"
+        ]
+      },
       "MenuRequest": {
         "type": "object",
         "properties": {
@@ -3608,13 +3970,9 @@
           },
           "used": {
             "type": "boolean"
-          },
-          "adminOnly": {
-            "type": "boolean"
           }
         },
         "required": [
-          "adminOnly",
           "name",
           "sortOrder",
           "used"
@@ -3647,7 +4005,16 @@
           "used": {
             "type": "boolean"
           },
-          "adminOnly": {
+          "canRead": {
+            "type": "boolean"
+          },
+          "canCreate": {
+            "type": "boolean"
+          },
+          "canUpdate": {
+            "type": "boolean"
+          },
+          "canDelete": {
             "type": "boolean"
           },
           "children": {
@@ -3938,18 +4305,19 @@
             "maxLength": 100,
             "minLength": 0
           },
-          "role": {
-            "type": "string",
-            "enum": [
-              "ADMIN",
-              "USER"
-            ]
+          "roleIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "minItems": 1
           }
         },
         "required": [
           "name",
           "password",
-          "role",
+          "roleIds",
           "username"
         ]
       },
@@ -4055,13 +4423,19 @@
           "number": {
             "type": "boolean"
           },
-          "missingNode": {
+          "valueNode": {
+            "type": "boolean"
+          },
+          "container": {
             "type": "boolean"
           },
           "integralNumber": {
             "type": "boolean"
           },
           "bigInteger": {
+            "type": "boolean"
+          },
+          "bigDecimal": {
             "type": "boolean"
           },
           "nodeType": {
@@ -4078,48 +4452,42 @@
               "STRING"
             ]
           },
-          "valueNode": {
-            "type": "boolean"
-          },
-          "container": {
-            "type": "boolean"
-          },
-          "bigDecimal": {
-            "type": "boolean"
-          },
-          "textual": {
-            "type": "boolean",
-            "deprecated": true
-          },
-          "int": {
-            "type": "boolean"
-          },
-          "double": {
-            "type": "boolean"
-          },
-          "long": {
-            "type": "boolean"
-          },
-          "boolean": {
-            "type": "boolean"
-          },
-          "binary": {
+          "missingNode": {
             "type": "boolean"
           },
           "object": {
             "type": "boolean"
           },
-          "pojo": {
+          "string": {
             "type": "boolean"
           },
-          "string": {
+          "pojo": {
             "type": "boolean"
           },
           "short": {
             "type": "boolean"
           },
+          "int": {
+            "type": "boolean"
+          },
           "floatingPointNumber": {
             "type": "boolean"
+          },
+          "long": {
+            "type": "boolean"
+          },
+          "binary": {
+            "type": "boolean"
+          },
+          "boolean": {
+            "type": "boolean"
+          },
+          "double": {
+            "type": "boolean"
+          },
+          "textual": {
+            "type": "boolean",
+            "deprecated": true
           },
           "embeddedValue": {
             "type": "boolean"

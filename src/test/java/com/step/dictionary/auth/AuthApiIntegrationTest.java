@@ -32,7 +32,7 @@ class AuthApiIntegrationTest extends IntegrationTest {
         .then()
                 .statusCode(200)
                 .body("username", equalTo(ADMIN_USERNAME))
-                .body("role", equalTo("ADMIN"))
+                .body("roles.code", equalTo(java.util.List.of("ADMIN")))
                 .body("$", not(hasKey("password")));
     }
 
@@ -55,8 +55,8 @@ class AuthApiIntegrationTest extends IntegrationTest {
         given()
                 .contentType(ContentType.JSON)
                 .body("""
-                        {"name": "user", "role": "USER", "enabled": false}
-                        """)
+                        {"name": "user", "roleIds": [%d], "enabled": false}
+                        """.formatted(userRole.getId()))
         .when().put("/api/users/{id}", userId)
         .then().statusCode(200);
 

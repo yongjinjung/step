@@ -87,7 +87,7 @@
   - 메뉴는 사용 여부와 관리자 전용 여부를 가진다. 화면 표시용 조회(`GET /api/menus`)는 사용 중인 메뉴만, 관리자 전용은 ADMIN에게만 돌려주고 보여줄 하위가 없는 상위 메뉴는 뺀다. 관리용 조회(`GET /api/menus/all`)는 전부 돌려준다.
   - 조회는 로그인한 사용자, 관리(전체 조회 포함)는 ADMIN이다. 메뉴의 관리자 전용 여부는 화면에 보이는지의 문제이고, 실제 권한 검사는 각 API가 그대로 한다.
   - 아이콘은 이름만 저장하고(`book`, `table` 등) 화면이 실제 아이콘으로 바꾼다. 경로가 화면으로 등록되지 않았으면 메뉴는 만들어지되 "준비 중" 화면이 나온다.
-  - 메뉴가 하나도 없으면 기동 시 기본 메뉴(상위 4개·하위 10개)를 만든다. 이미 있으면 건드리지 않아 관리자가 고친 메뉴가 유지된다.
+  - 메뉴가 하나도 없으면 기동 시 기본 메뉴(상위 5개·하위 20개, 초급 개발자 온보딩용 "샘플" 묶음 포함)를 만든다. 이미 있으면 건드리지 않아 관리자가 고친 메뉴가 유지된다.
   - 메뉴는 화면 구성이라 변경 이력을 남기지 않는다.
 - 사용자별 메뉴 권한 **(11단계 구현됨)**: 관리자가 사용자마다 보여줄 메뉴를 지정한다(`app_user_menu`).
   - 지정이 없는 사용자는 기본 규칙(사용 중 + 역할)대로 본다. 지정하면 그 메뉴만 본다.
@@ -95,6 +95,18 @@
   - 지정은 하위(LEFT) 메뉴 단위다. 상위 메뉴는 보여줄 하위가 남아 있으면 자동으로 보인다.
   - 관리자에게도 똑같이 적용된다. 메뉴가 사라져도 주소로는 들어갈 수 있고, 기능 권한은 각 API가 그대로 검사한다.
   - 권한은 통째로 교체한다. 메뉴를 삭제하면 그 메뉴에 걸린 권한도 함께 지운다.
+- 역할과 권한 **(12단계 구현됨)**: 고정돼 있던 ADMIN/USER 역할을 DB에서 관리하는 역할로 바꿨다. 한 사용자는 역할을 여러 개 가지며 권한은 합집합이다.
+  - `app_role`(코드·이름·전권 여부·사용 여부·기본 제공 여부), `app_role_menu`(역할×메뉴 = 조회/등록/수정/삭제), `app_user_role`(사용자×역할).
+  - **권한 단위는 메뉴별 조회/등록/수정/삭제**다. 조회 권한이 없으면 메뉴가 보이지 않고, 나머지는 화면의 버튼과 서버 검사에 함께 쓰인다.
+  - **서버도 같은 권한으로 요청을 검사한다.** 요청 경로를 메뉴와 동작으로 옮기는 표(`ApiPermissionRules`)를 두고, 규칙이 없는 경로는 막는다. 메서드가 곧 동작이다(GET=조회, POST=등록, PUT/PATCH=수정, DELETE=삭제). 예외는 표 위쪽에 따로 적는다(신청 승인=수정, 신청 취소=조회+본인 검사, 엑셀=대상 메뉴 기준).
+  - 로그인·내 정보·비밀번호 변경과 화면 메뉴 조회(`GET /api/menus`)는 로그인만 하면 된다.
+  - **전권 역할**(`all_permissions_yn`)은 메뉴 권한과 무관하게 모두 통과한다. 권한 설정 실수로 아무도 관리할 수 없게 되는 것을 막는 장치이며 기본 제공 ADMIN 역할이 이에 해당한다.
+  - 기본 제공 역할(ADMIN, USER)은 삭제·코드 변경·전권 변경이 막힌다(`BUILT_IN_ROLE`). 사용자에게 부여된 역할은 삭제할 수 없다(`ROLE_IN_USE`).
+  - 사용자에게는 역할이 하나 이상 있어야 하고(`USER_ROLE_REQUIRED`), 전권 역할을 가진 활성 사용자가 한 명도 남지 않는 변경은 막는다(`LAST_ADMIN_REQUIRED`).
+  - 표준 데이터는 그 메뉴의 등록·수정·삭제 권한이 있으면 직접 반영하고, 없으면 기존처럼 변경 신청이 된다(화면과 엑셀 업로드 모두).
+  - 권한은 요청마다 DB에서 다시 계산하므로 역할·권한 변경이 바로 반영된다(토큰 재발급 불필요). 토큰의 `roles`는 표시용이다.
+  - 마이그레이션(V11)은 기존 `app_user.role` 값을 `app_user_role`로 옮기고 컬럼을 지운다. 메뉴의 관리자 전용 표시(`admin_only_yn`)도 역할 권한으로 대체돼 사라졌다.
+  - 사용자별 메뉴 지정(11단계)은 그대로 남아 역할 권한을 더 좁히는 설정으로 동작한다.
 
 ## ERD (전체 계획)
 
@@ -106,6 +118,10 @@ erDiagram
     std_domain ||--o{ std_term : "도메인"
     meta_table ||--|{ meta_column : "포함"
     std_term |o--o{ meta_column : "매핑"
+    app_user ||--o{ app_user_role : "역할 부여"
+    app_role ||--o{ app_user_role : "부여"
+    app_role ||--o{ app_role_menu : "권한"
+    app_menu ||--o{ app_role_menu : "권한 대상"
     app_user ||--o{ std_request : "신청/검토"
     app_user ||--o{ change_history : "변경자"
     std_request |o--o{ change_history : "승인 반영"
@@ -166,7 +182,6 @@ erDiagram
         varchar username UK "소문자, 변경 불가"
         varchar password "BCrypt 해시"
         varchar name "표시 이름"
-        varchar role "ADMIN / USER"
         char enabled "활성 여부 Y/N"
     }
     std_request {
@@ -200,6 +215,28 @@ erDiagram
         varchar code_name "코드명"
         varchar description
         char used_yn "사용 여부 Y/N"
+    }
+    app_role {
+        bigint id PK
+        varchar code UK "역할 코드, 대문자 (예: ADMIN)"
+        varchar name "역할명"
+        varchar description
+        char all_permissions_yn "전권 여부 Y/N"
+        char used_yn "사용 여부 Y/N"
+        char built_in_yn "기본 제공 역할 Y/N"
+    }
+    app_role_menu {
+        bigint id PK
+        bigint role_id FK
+        bigint menu_id FK
+        char read_yn "조회 권한 Y/N"
+        char create_yn "등록 권한 Y/N"
+        char update_yn "수정 권한 Y/N"
+        char delete_yn "삭제 권한 Y/N"
+    }
+    app_user_role {
+        bigint user_id PK, FK
+        bigint role_id PK, FK
     }
     app_menu {
         bigint id PK
@@ -239,6 +276,7 @@ erDiagram
 | 9 | 공통 코드 (코드 그룹·코드값, 컬럼 코드 그룹 매핑) + 화면 | 완료 (H2 테스트 + 로컬 MySQL 8.4 실행 검증) |
 | 10 | 화면 메뉴 관리 (TOP/LEFT 2단 메뉴, 메뉴 관리 화면) | 완료 (H2 테스트 + 로컬 MySQL 8.4 실행 검증) |
 | 11 | 사용자별 메뉴 권한 (메뉴 권한 화면) | 완료 (H2 테스트 + 로컬 MySQL 8.4 실행 검증) |
+| 12 | 역할 관리 (메뉴별 조회/등록/수정/삭제 권한, 서버 검사, 역할 관리 화면) | 완료 (H2 테스트 + 로컬 MySQL 8.4 실행 검증) |
 
 ## API (1단계)
 
@@ -412,5 +450,25 @@ erDiagram
 응답: `{userId, username, name, role, useDefault, menuIds}`
 
 `GET /api/menus`는 이 지정을 반영해 그 사용자에게 보여줄 메뉴만 돌려준다.
+
+## API (12단계)
+
+| Method | Path | 권한 | 설명 |
+|---|---|---|---|
+| GET | `/api/roles` | 역할 관리 조회 | 역할 목록 (코드 오름차순, 페이징 없음) |
+| GET | `/api/roles/{id}` | 역할 관리 조회 | 단건 조회 |
+| POST | `/api/roles` | 역할 관리 등록 | 역할 등록 (201 + Location) |
+| PUT | `/api/roles/{id}` | 역할 관리 수정 | 수정. 기본 제공 역할은 코드·전권을 바꿀 수 없다 |
+| DELETE | `/api/roles/{id}` | 역할 관리 삭제 | 삭제 (204). 기본 제공이거나 부여된 역할이면 거부 |
+| GET | `/api/roles/{id}/menus` | 역할 관리 조회 | 역할의 메뉴 권한 목록 |
+| PUT | `/api/roles/{id}/menus` | 역할 관리 수정 | 역할의 메뉴 권한 통째로 교체 |
+
+역할 요청: `{"code", "name", "description", "superAdmin", "used"}`
+
+권한 저장 요청: `{"permissions": [{"menuId", "canRead", "canCreate", "canUpdate", "canDelete"}]}` (네 권한이 모두 false면 저장하지 않는다)
+
+사용자 API 변경: 생성·수정 요청이 `role` 대신 `roleIds`(하나 이상)를 받고, 응답에 `roles[]`와 `superAdmin`이 들어간다. 검색 조건도 `role` 대신 `roleId`다.
+
+메뉴 조회 변경: `GET /api/menus`, `GET /api/menus/all`의 각 메뉴에 그 사용자의 권한(`canRead`, `canCreate`, `canUpdate`, `canDelete`)이 함께 담긴다.
 
 오류 응답 형식: `{"code": "ErrorCode 이름", "message": "...", "fieldErrors": [{"field", "reason"}]}`

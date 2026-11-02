@@ -2,6 +2,7 @@ import { SaveOutlined } from '@ant-design/icons'
 import { keepPreviousData } from '@tanstack/react-query'
 import { Alert, App, Button, Card, Col, Empty, Input, Row, Space, Switch, Table, Tag, Tree, Typography, type TableColumnsType } from 'antd'
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { $api } from '@/api/client'
 import { errorMessage } from '@/api/errors'
 import type { components } from '@/api/schema'
@@ -15,16 +16,22 @@ type UserResponse = components['schemas']['UserResponse']
 /**
  * 메뉴 권한 화면 (관리자 전용): 사용자마다 볼 수 있는 메뉴를 지정한다.
  *
- * - 지정하지 않은 사용자는 기본 규칙(사용 중인 메뉴 + 역할)대로 본다. "기본 권한 사용"을 끄면 고른 메뉴만 보인다.
- * - 지정은 좁히는 쪽으로만 동작한다. 미사용 메뉴나 관리자 전용 메뉴는 골라도 일반 사용자에게 보이지 않는다.
+ * - 지정하지 않은 사용자는 역할이 주는 메뉴를 그대로 본다. "기본 권한 사용"을 끄면 고른 메뉴만 보인다.
+ * - 지정은 좁히는 쪽으로만 동작한다. 역할에 권한이 없는 메뉴나 미사용 메뉴는 골라도 보이지 않는다.
  * - 메뉴가 보이는지의 문제일 뿐, 기능 권한은 서버가 API마다 그대로 검사한다.
  */
 export function MenuPermissionPage() {
   const { message } = App.useApp()
   const invalidate = useInvalidateApi()
 
+  // 사용자 관리 화면에서 "메뉴 권한"으로 넘어오면 ?userId=로 대상을 지정한다.
+  const [searchParams] = useSearchParams()
+  const requestedUserId = Number(searchParams.get('userId'))
+
   const [keyword, setKeyword] = useState<string | undefined>(undefined)
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(
+    Number.isInteger(requestedUserId) && requestedUserId > 0 ? requestedUserId : null,
+  )
   const [useDefault, setUseDefault] = useState(true)
   const [checkedKeys, setCheckedKeys] = useState<string[]>([])
 
@@ -45,7 +52,15 @@ export function MenuPermissionPage() {
 
   const users = usersQuery.data?.content ?? []
   const topMenus = menusQuery.data ?? []
-  const selectedUser = users.find((user) => user.id === selectedUserId)
+  const listedUser = users.find((user) => user.id === selectedUserId)
+  // 다른 화면에서 넘어왔거나 검색 결과에 없는 사용자는 단건 조회로 이름을 채운다.
+  const selectedUserQuery = $api.useQuery(
+    'get',
+    '/api/users/{id}',
+    { params: { path: { id: selectedUserId ?? 0 } } },
+    { enabled: selectedUserId !== null && listedUser === undefined },
+  )
+  const selectedUser = listedUser ?? selectedUserQuery.data
   const permission = permissionQuery.data
 
   // 사용자를 고르거나 저장된 권한이 도착하면 편집 상태를 그 값으로 맞춘다.
@@ -90,10 +105,15 @@ export function MenuPermissionPage() {
     { title: '이름', dataIndex: 'name' },
     {
       title: '역할',
-      dataIndex: 'role',
-      width: 90,
-      align: 'center',
-      render: (role: string) => (role === 'ADMIN' ? <Tag color="volcano">관리자</Tag> : <Tag color="blue">사용자</Tag>),
+      dataIndex: 'roles',
+      width: 160,
+      render: (roles: { id?: number; name?: string }[] = []) => (
+        <Space size={[0, 4]} wrap>
+          {roles.map((role) => (
+            <Tag key={role.id}>{role.name}</Tag>
+          ))}
+        </Space>
+      ),
     },
     {
       title: '활성',
@@ -113,7 +133,7 @@ export function MenuPermissionPage() {
         showIcon
         className="page-notice"
         title="사용자마다 볼 수 있는 메뉴를 지정합니다."
-        description="지정하지 않으면 역할 기준으로 봅니다. 지정하면 고른 메뉴만 보이며, 미사용·관리자 전용 메뉴는 골라도 보이지 않습니다. 화면에 보이는지의 문제이고 기능 권한은 서버가 따로 검사합니다."
+        description="지정하지 않으면 역할이 주는 메뉴를 그대로 봅니다. 지정하면 그중에서 고른 메뉴만 보입니다. 역할에 없는 권한은 여기서 줄 수 없으며, 기능 권한은 서버가 역할 기준으로 검사합니다."
       />
 
       <Row gutter={16}>
@@ -170,12 +190,12 @@ export function MenuPermissionPage() {
                   </Typography.Text>
                 </Space>
 
-                {selectedUser.role === 'ADMIN' && (
+                {selectedUser.superAdmin && (
                   <Alert
                     type="warning"
                     showIcon
                     className="page-notice"
-                    title="관리자도 지정한 메뉴만 보게 됩니다. 메뉴가 사라져도 주소로는 들어갈 수 있습니다."
+                    title="전권 역할을 가진 사용자도 지정한 메뉴만 보게 됩니다. 메뉴가 사라져도 주소로는 들어갈 수 있습니다."
                   />
                 )}
 
@@ -209,7 +229,6 @@ function menuTitle(menu: MenuResponse) {
       <span>{menu.name}</span>
       {menu.path && <Typography.Text type="secondary" className="mono option-hint">{menu.path}</Typography.Text>}
       {!menu.used && <Tag>미사용</Tag>}
-      {menu.adminOnly && <Tag color="volcano">관리자</Tag>}
     </Space>
   )
 }

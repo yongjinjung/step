@@ -212,7 +212,8 @@ class ExcelApiIntegrationTest extends IntegrationTest {
                 .extract().asByteArray();
         assertThat(readSheet(bytes)).containsExactly(ExcelSheet.TERM.getHeaders());
 
-        given().when().get("/api/excel/{target}/template", "unknown").then().statusCode(400);
+        // 권한은 요청 경로를 메뉴로 옮겨 검사하므로(ApiPermissionRules), 규칙에 없는 대상은 컨트롤러에 닿기 전에 막힌다.
+        given().when().get("/api/excel/{target}/template", "unknown").then().statusCode(403);
     }
 
     @Test

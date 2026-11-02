@@ -58,7 +58,14 @@ export function MyPage() {
               <Descriptions.Item label="아이디">{me?.username}</Descriptions.Item>
               <Descriptions.Item label="이름">{me?.name}</Descriptions.Item>
               <Descriptions.Item label="역할">
-                <Tag color={me?.role === 'ADMIN' ? 'volcano' : 'blue'}>{me?.role === 'ADMIN' ? '관리자' : '사용자'}</Tag>
+                <Space size={[0, 4]} wrap>
+                  {(me?.roles ?? []).map((role) => (
+                    <Tag key={role.id} color={me?.superAdmin && role.code === 'ADMIN' ? 'volcano' : 'blue'}>
+                      {role.name}
+                    </Tag>
+                  ))}
+                  {(me?.roles ?? []).length === 0 && <Tag>역할 없음</Tag>}
+                </Space>
               </Descriptions.Item>
               <Descriptions.Item label="상태">
                 {me?.enabled ? <Tag color="green">활성</Tag> : <Tag>비활성</Tag>}

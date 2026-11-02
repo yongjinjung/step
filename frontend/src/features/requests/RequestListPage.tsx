@@ -4,7 +4,7 @@ import { Alert, Button, Card, Input, Radio, Select, Table, Tag, Typography, type
 import { useState } from 'react'
 import { $api } from '@/api/client'
 import { errorMessage } from '@/api/errors'
-import { useAuth } from '@/auth/AuthContext'
+import { useMenus } from '@/layouts/MenuContext'
 import { PageHeader } from '@/components/PageHeader'
 import { useListSearchParams } from '@/hooks/useListSearchParams'
 import { formatDateTime } from '@/utils/format'
@@ -47,12 +47,13 @@ function parseFilters(filters: Record<(typeof FILTER_KEYS)[number], string | und
  * - 상태 버튼에는 다른 조건을 적용한 상태별 건수를 붙인다 (size=1 조회의 totalElements).
  */
 export function RequestListPage() {
-  const { user } = useAuth()
-  const isAdmin = user?.isAdmin ?? false
+  const { can } = useMenus()
+  // 신청 메뉴의 수정 권한이 곧 검토(승인·반려) 권한이다. 없으면 자기 신청만 보인다(서버도 그렇게 거른다).
+  const canReview = can('/requests', 'update')
   const { filters, page, size, setFilters, setPaging } = useListSearchParams(FILTER_KEYS)
   const query = parseFilters(filters)
   // USER의 신청자 조건은 서버가 무시하므로 보내지 않는다.
-  const baseQuery = { ...query, requester: isAdmin ? query.requester : undefined }
+  const baseQuery = { ...query, requester: canReview ? query.requester : undefined }
 
   const listQuery = $api.useQuery(
     'get',
@@ -103,7 +104,7 @@ export function RequestListPage() {
       render: (type: RequestType) => <Tag color={REQUEST_TYPES[type].color}>{REQUEST_TYPES[type].label}</Tag>,
     },
     { title: '내용', key: 'summary', width: 200, ellipsis: true, render: (_, request) => summarizeTarget(request) },
-    ...(isAdmin
+    ...(canReview
       ? [
           {
             title: '신청자',
@@ -129,14 +130,14 @@ export function RequestListPage() {
 
   return (
     <>
-      <PageHeader title={isAdmin ? '신청/승인' : '내 신청'} />
+      <PageHeader title={canReview ? '신청/승인' : '내 신청'} />
 
       <Alert
         type="info"
         showIcon
         className="page-notice"
         title={
-          isAdmin
+          canReview
             ? '대기 중인 신청을 열어 현재 값과 신청 값을 비교한 뒤 승인하거나 반려하세요. 승인하면 바로 반영됩니다.'
             : '내가 올린 신청만 보입니다. 대기 중인 신청은 상세에서 취소할 수 있습니다.'
         }
@@ -166,7 +167,7 @@ export function RequestListPage() {
             className="filter-select-narrow"
             onChange={(value?: string) => updateFilter({ requestType: value })}
           />
-          {isAdmin && (
+          {canReview && (
             <Input.Search
               key={filters.requester ?? ''}
               defaultValue={filters.requester}

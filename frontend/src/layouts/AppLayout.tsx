@@ -81,7 +81,8 @@ function AppLayoutFrame() {
           onClick={({ key }) => openTopMenu(key)}
         />
         <div className="app-header-user">
-          <Tag color={user?.isAdmin ? 'volcano' : 'blue'}>{user?.isAdmin ? '관리자' : '사용자'}</Tag>
+          {/* 토큰에 담긴 역할 코드. 실제 기능 권한은 서버가 역할의 메뉴 권한으로 검사한다. */}
+          <Tag color={user?.isAdmin ? 'volcano' : 'blue'}>{user?.roles.join(', ') || '역할 없음'}</Tag>
           <Dropdown menu={userMenu} placement="bottomRight">
             <Button type="text" className="app-user-button" icon={<UserOutlined />}>
               {user?.username}

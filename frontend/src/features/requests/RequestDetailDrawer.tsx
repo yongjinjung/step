@@ -5,6 +5,7 @@ import { Link } from 'react-router'
 import { $api } from '@/api/client'
 import { errorMessage } from '@/api/errors'
 import { useAuth } from '@/auth/AuthContext'
+import { useMenus } from '@/layouts/MenuContext'
 import { ReasonModal } from '@/components/ReasonModal'
 import { useInvalidateApi } from '@/hooks/useInvalidateApi'
 import { formatDateTime } from '@/utils/format'
@@ -33,7 +34,9 @@ interface RequestDetailDrawerProps {
  */
 export function RequestDetailDrawer({ requestId, onClose }: RequestDetailDrawerProps) {
   const { user } = useAuth()
-  const isAdmin = user?.isAdmin ?? false
+  const { can } = useMenus()
+  // 신청 메뉴의 수정 권한이 곧 검토(승인·반려) 권한이다. 취소는 신청자 본인만 할 수 있어 아이디도 본다.
+  const canReview = can('/requests', 'update')
   const { message, modal } = App.useApp()
   const invalidate = useInvalidateApi()
   const open = requestId !== null
@@ -143,7 +146,7 @@ export function RequestDetailDrawer({ requestId, onClose }: RequestDetailDrawerP
                 신청 취소
               </Button>
             )}
-            {isAdmin && (
+            {canReview && (
               <>
                 <Button danger icon={<CloseOutlined />} onClick={() => setDialog('reject')}>
                   반려
@@ -164,7 +167,7 @@ export function RequestDetailDrawer({ requestId, onClose }: RequestDetailDrawerP
       ) : (
         request && (
           <>
-            {isAdmin && isPending && request.requestType !== 'CREATE' && (
+            {canReview && isPending && request.requestType !== 'CREATE' && (
               <Alert
                 type="info"
                 showIcon

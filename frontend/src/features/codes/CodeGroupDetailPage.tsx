@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { $api } from '@/api/client'
 import { errorMessage } from '@/api/errors'
-import { useAuth } from '@/auth/AuthContext'
+import { useMenus } from '@/layouts/MenuContext'
 import { ChangeHistoryTimeline } from '@/components/ChangeHistoryTimeline'
 import { PageHeader } from '@/components/PageHeader'
 import { useInvalidateApi } from '@/hooks/useInvalidateApi'
@@ -29,15 +29,17 @@ function parseId(value: string | undefined): number | undefined {
 /**
  * 공통 코드 그룹 상세: 그룹 정보 · 코드값 목록(추가/수정/삭제) · 이 그룹에 매핑된 컬럼 · 변경 이력.
  *
- * 쓰기 버튼은 ADMIN에게만 보인다. 매핑된 컬럼이 있으면 그룹을 삭제할 수 없으므로(서버 CODE_GROUP_IN_USE)
+ * 쓰기 버튼은 공통 코드 메뉴의 권한이 있을 때만 보인다. 매핑된 컬럼이 있으면 그룹을 삭제할 수 없으므로(서버 CODE_GROUP_IN_USE)
  * 삭제 버튼 옆에 매핑 수를 알려주고, 컬럼 이름을 누르면 해당 테이블 상세로 이동한다.
  */
 export function CodeGroupDetailPage() {
   const params = useParams()
   const groupId = parseId(params.id)
   const navigate = useNavigate()
-  const { user } = useAuth()
-  const isAdmin = user?.isAdmin ?? false
+  const { can } = useMenus()
+  const canCreate = can('/codes', 'create')
+  const canUpdate = can('/codes', 'update')
+  const canDelete = can('/codes', 'delete')
   const { message, modal } = App.useApp()
   const invalidate = useInvalidateApi()
   const confirmDeleteGroup = useDeleteCodeGroup()
@@ -100,11 +102,11 @@ export function CodeGroupDetailPage() {
     {
       title: '작업',
       key: 'actions',
-      width: isAdmin ? 150 : 70,
+      width: canUpdate && canDelete ? 150 : 70,
       fixed: 'right',
       render: (_, value) => (
         <Space size={0}>
-          {isAdmin && (
+          {canUpdate && (
             <Button type="link" size="small" onClick={() => setFormValue({ open: true, value })}>
               수정
             </Button>
@@ -112,7 +114,7 @@ export function CodeGroupDetailPage() {
           <Button type="link" size="small" onClick={() => setHistoryValue(value)}>
             이력
           </Button>
-          {isAdmin && (
+          {canDelete && (
             <Button type="link" size="small" danger onClick={() => handleDeleteValue(value)}>
               삭제
             </Button>
@@ -162,13 +164,16 @@ export function CodeGroupDetailPage() {
         onBack={backToList}
         extra={
           group &&
-          isAdmin && (
+          (canUpdate || canDelete || canCreate) && (
             <Space wrap>
-              <Button icon={<EditOutlined />} onClick={() => setEditingGroup(true)}>
-                그룹 수정
-              </Button>
+              {canUpdate && (
+                <Button icon={<EditOutlined />} onClick={() => setEditingGroup(true)}>
+                  그룹 수정
+                </Button>
+              )}
               <Button
                 danger
+                hidden={!canDelete}
                 icon={<DeleteOutlined />}
                 disabled={mappedColumns.length > 0}
                 title={mappedColumns.length > 0 ? '컬럼에 매핑된 코드 그룹은 삭제할 수 없습니다.' : undefined}
@@ -176,9 +181,11 @@ export function CodeGroupDetailPage() {
               >
                 그룹 삭제
               </Button>
-              <Button type="primary" icon={<PlusOutlined />} onClick={() => setFormValue({ open: true, value: null })}>
-                코드값 추가
-              </Button>
+              {canCreate && (
+                <Button type="primary" icon={<PlusOutlined />} onClick={() => setFormValue({ open: true, value: null })}>
+                  코드값 추가
+                </Button>
+              )}
             </Space>
           )
         }
@@ -228,7 +235,7 @@ export function CodeGroupDetailPage() {
           scroll={{ x: 800 }}
           // 그룹 하나의 코드값 전체를 한 번에 받으므로 나누지 않는다.
           pagination={false}
-          locale={{ emptyText: isAdmin ? '코드값이 없습니다. 코드값 추가로 등록하세요.' : '코드값이 없습니다' }}
+          locale={{ emptyText: canCreate ? '코드값이 없습니다. 코드값 추가로 등록하세요.' : '코드값이 없습니다' }}
         />
       </Card>
 

@@ -3,7 +3,7 @@ import { Alert, Button, Descriptions, Drawer, Skeleton, Space, Tag, Typography }
 import { Link } from 'react-router'
 import { $api } from '@/api/client'
 import { errorMessage } from '@/api/errors'
-import { useAuth } from '@/auth/AuthContext'
+import { useMenus } from '@/layouts/MenuContext'
 import { ChangeHistoryTimeline } from '@/components/ChangeHistoryTimeline'
 import { formatDataType } from '@/utils/dataType'
 import { formatDateTime } from '@/utils/format'
@@ -25,8 +25,9 @@ interface DomainDetailDrawerProps {
  * 사용 중인 용어가 있으면 삭제할 수 없으므로(DOMAIN_IN_USE) 삭제 전에 여기서 확인할 수 있게 한다.
  */
 export function DomainDetailDrawer({ domainId, onClose, onEdit, onDelete }: DomainDetailDrawerProps) {
-  const { user } = useAuth()
-  const isAdmin = user?.isAdmin ?? false
+  const { can } = useMenus()
+  const canUpdate = can('/domains', 'update')
+  const canDelete = can('/domains', 'delete')
   const open = domainId !== null
 
   const domainQuery = $api.useQuery('get', '/api/domains/{id}', { params: { path: { id: domainId ?? 0 } } }, { enabled: open })
@@ -50,10 +51,10 @@ export function DomainDetailDrawer({ domainId, onClose, onEdit, onDelete }: Doma
         domain && (
           <Space>
             <Button icon={<EditOutlined />} onClick={() => onEdit(domain)}>
-              {isAdmin ? '수정' : '수정 신청'}
+              {canUpdate ? '수정' : '수정 신청'}
             </Button>
             <Button danger icon={<DeleteOutlined />} onClick={() => onDelete(domain)}>
-              {isAdmin ? '삭제' : '삭제 신청'}
+              {canDelete ? '삭제' : '삭제 신청'}
             </Button>
           </Space>
         )

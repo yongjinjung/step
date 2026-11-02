@@ -1,10 +1,10 @@
 package com.step.dictionary.auth;
 
 import com.step.dictionary.auth.dto.TokenResponse;
+import com.step.dictionary.role.Role;
 import com.step.dictionary.user.AppUser;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.List;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -51,7 +51,8 @@ public class JwtTokenProvider {
                 .subject(user.getUsername())
                 .issuedAt(now)
                 .expiresAt(now.plus(properties.expiration()))
-                .claim(ROLES_CLAIM, List.of(user.getRole().name()))
+                // 역할 코드 목록. 기능 권한은 요청마다 DB에서 다시 계산하므로 이 값은 표시·참고용이다.
+                .claim(ROLES_CLAIM, user.getRoles().stream().map(Role::getCode).sorted().toList())
                 .build();
         // 헤더에 알고리즘을 명시해야 Nimbus가 HMAC 키로 서명한다 (기본값은 RS256).
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();

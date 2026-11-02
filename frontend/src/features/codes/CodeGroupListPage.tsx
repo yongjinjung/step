@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { $api } from '@/api/client'
 import { errorMessage } from '@/api/errors'
-import { useAuth } from '@/auth/AuthContext'
+import { useMenus } from '@/layouts/MenuContext'
 import { PageHeader } from '@/components/PageHeader'
 import { useListSearchParams } from '@/hooks/useListSearchParams'
 import { formatDateTime } from '@/utils/format'
@@ -26,11 +26,13 @@ const USED_OPTIONS = [
  * 공통 코드 그룹 목록: 검색(코드ID·코드명·사용 여부) · 등록/수정 · 삭제.
  *
  * 코드값과 매핑된 컬럼은 상세 화면(/codes/:id)에서 다룬다. 등록하면 바로 상세 화면으로 이동해 코드값을 추가한다.
- * 공통 코드는 신청 대상이 아니라 ADMIN만 바꾼다. USER에게는 조회만 보여준다(권한 검사는 서버가 한다).
+ * 공통 코드는 신청 대상이 아니라 권한이 있는 사람만 바꾼다. 권한이 없으면 조회만 보여준다(권한 검사는 서버가 한다).
  */
 export function CodeGroupListPage() {
-  const { user } = useAuth()
-  const isAdmin = user?.isAdmin ?? false
+  const { can } = useMenus()
+  const canCreate = can('/codes', 'create')
+  const canUpdate = can('/codes', 'update')
+  const canDelete = can('/codes', 'delete')
   const navigate = useNavigate()
   const confirmDelete = useDeleteCodeGroup()
   const { filters, page, size, setFilters, setPaging } = useListSearchParams(FILTER_KEYS)
@@ -66,7 +68,7 @@ export function CodeGroupListPage() {
     },
     { title: '설명', dataIndex: 'description', ellipsis: true },
     { title: '수정 일시', dataIndex: 'updatedAt', width: 170, render: (value: string) => formatDateTime(value) },
-    ...(isAdmin
+    ...(canUpdate || canDelete
       ? ([
           {
             title: '작업',
@@ -93,7 +95,7 @@ export function CodeGroupListPage() {
       <PageHeader
         title="공통 코드"
         extra={
-          isAdmin && (
+          canCreate && (
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setFormGroup({ open: true, group: null })}>
               코드 그룹 등록
             </Button>
@@ -101,8 +103,8 @@ export function CodeGroupListPage() {
         }
       />
 
-      {!isAdmin && (
-        <Alert type="info" showIcon className="page-notice" title="공통 코드는 관리자만 등록·수정·삭제할 수 있습니다." />
+      {!(canCreate && canUpdate && canDelete) && (
+        <Alert type="info" showIcon className="page-notice" title="공통 코드를 바꾸려면 공통 코드 메뉴의 등록·수정·삭제 권한이 필요합니다." />
       )}
 
       <Card>

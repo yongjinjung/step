@@ -38,19 +38,18 @@ public class MenuController {
 
     /** 화면에 그릴 메뉴 트리. 로그인한 사용자의 역할에 맞는 메뉴만 나온다. */
     @Operation(summary = "메뉴 트리 조회",
-            description = "화면 표시용. 사용 중인 메뉴만, 관리자 전용은 ADMIN에게만, 하위가 없는 상위 메뉴는 제외한다. "
-                    + "사용자별 메뉴 권한이 지정돼 있으면 그 메뉴만 나온다.")
+            description = "화면 표시용. 사용 중이면서 조회 권한이 있는 메뉴만, 하위가 없는 상위 메뉴는 제외한다. "
+                    + "사용자별 메뉴 지정이 있으면 그중에서 더 좁힌다. 메뉴마다 그 사용자의 권한(canRead 등)이 함께 나온다.")
     @GetMapping
     public List<MenuResponse> findNavigation(@AuthenticationPrincipal Jwt jwt) {
-        CurrentUser currentUser = CurrentUser.from(jwt);
-        return menuService.findNavigation(currentUser.username(), currentUser.admin());
+        return menuService.findNavigation(CurrentUser.from(jwt).username());
     }
 
-    /** 관리 화면용 전체 메뉴 트리 (미사용·관리자 전용 포함). */
-    @Operation(summary = "전체 메뉴 트리 조회", description = "메뉴 관리 화면용. 미사용 메뉴와 관리자 전용 메뉴도 모두 나온다.")
+    /** 관리 화면용 전체 메뉴 트리 (미사용 메뉴 포함). */
+    @Operation(summary = "전체 메뉴 트리 조회", description = "메뉴 관리 화면용. 미사용 메뉴와 권한이 없는 메뉴도 모두 나온다.")
     @GetMapping("/all")
-    public List<MenuResponse> findAll() {
-        return menuService.findAll();
+    public List<MenuResponse> findAll(@AuthenticationPrincipal Jwt jwt) {
+        return menuService.findAll(CurrentUser.from(jwt).username());
     }
 
     /** 메뉴 단건 조회. 하위 메뉴는 담기지 않는다. */

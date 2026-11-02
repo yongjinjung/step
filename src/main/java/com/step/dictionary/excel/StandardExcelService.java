@@ -14,6 +14,9 @@ import com.step.dictionary.request.ChangeRequestService;
 import com.step.dictionary.request.RequestType;
 import com.step.dictionary.request.TargetType;
 import com.step.dictionary.request.dto.ChangeRequestForm;
+import com.step.dictionary.role.MenuPaths;
+import com.step.dictionary.role.PermissionAction;
+import com.step.dictionary.role.PermissionService;
 import com.step.dictionary.standard.domain.DataType;
 import com.step.dictionary.standard.domain.Domain;
 import com.step.dictionary.standard.domain.DomainRepository;
@@ -53,7 +56,8 @@ import org.springframework.web.multipart.MultipartFile;
  *       그래서 업무 규칙과 변경 이력은 직접 API와 똑같다.</li>
  *   <li>참조 대상은 이름으로 지정한다 (도메인의 분류어 단어명, 용어의 구성 단어명과 도메인명). 이미 등록돼 있어야 한다.</li>
  *   <li>전부 반영하거나 전혀 반영하지 않는다. 모든 행을 끝까지 처리해 오류를 모은 뒤 하나라도 있으면 전체를 롤백한다.</li>
- *   <li>ADMIN은 바로 반영하고, USER는 행마다 등록 신청을 만든다. 신청은 형식 검증만 하므로 이름 중복 같은 문제는 승인할 때 드러난다.</li>
+ *   <li>그 데이터의 등록 권한이 있으면 바로 반영하고, 없으면 행마다 등록 신청을 만든다(신청 등록 권한은 있어야 한다).
+ *       신청은 형식 검증만 하므로 이름 중복 같은 문제는 승인할 때 드러난다.</li>
  * </ul>
  */
 @Service
@@ -98,14 +102,17 @@ public class StandardExcelService {
     private final WordService wordService;
     private final DomainService domainService;
     private final TermService termService;
-    /** USER 업로드를 신청으로 만들 때 쓴다. */
+    /** 등록 권한이 없는 사용자의 업로드를 신청으로 만들 때 쓴다. */
     private final ChangeRequestService requestService;
+    /** 업로드한 사람이 그 데이터를 직접 등록할 수 있는지 확인용. */
+    private final PermissionService permissionService;
     /** 행별 요청 DTO 검증. 컨트롤러의 {@code @Valid}와 같은 검증기다. */
     private final Validator validator;
 
     public StandardExcelService(WordRepository wordRepository, DomainRepository domainRepository,
             TermRepository termRepository, WordService wordService, DomainService domainService,
-            TermService termService, ChangeRequestService requestService, Validator validator) {
+            TermService termService, ChangeRequestService requestService, PermissionService permissionService,
+            Validator validator) {
         this.wordRepository = wordRepository;
         this.domainRepository = domainRepository;
         this.termRepository = termRepository;
@@ -113,7 +120,25 @@ public class StandardExcelService {
         this.domainService = domainService;
         this.termService = termService;
         this.requestService = requestService;
+        this.permissionService = permissionService;
         this.validator = validator;
+    }
+
+    /**
+     * 업로드한 사람이 그 표준 데이터를 직접 등록할 수 있는지 (해당 메뉴의 등록 권한).
+     * 권한이 없으면 행마다 등록 신청을 만든다.
+     */
+    private boolean canCreateDirectly(CurrentUser user, TargetType targetType) {
+        return permissionService.of(user.username()).can(menuPathOf(targetType), PermissionAction.CREATE);
+    }
+
+    /** 신청 대상 종류에 해당하는 메뉴 경로 (권한의 기준). */
+    private static String menuPathOf(TargetType targetType) {
+        return switch (targetType) {
+            case WORD -> MenuPaths.WORDS;
+            case DOMAIN -> MenuPaths.DOMAINS;
+            case TERM -> MenuPaths.TERMS;
+        };
     }
 
     // ================= 다운로드 =================
@@ -162,16 +187,17 @@ public class StandardExcelService {
         ExcelErrors errors = new ExcelErrors();
         List<ExcelRow> rows = ExcelReader.read(file, ExcelSheet.WORD, errors);
         List<Long> ids = new ArrayList<>();
+        boolean direct = canCreateDirectly(user, TargetType.WORD);
         for (ExcelRow row : rows) {
             WordRequest request = new WordRequest(row.text(WORD_NAME), row.text(WORD_ABBREVIATION),
                     row.text(WORD_ENGLISH_NAME), row.text(WORD_DESCRIPTION), row.yesNo(WORD_CLASSIFIER));
             if (row.validate(validator, request, WORD_FIELDS)) {
-                apply(row, user, file, TargetType.WORD, request, () -> wordService.create(request).id())
+                apply(row, user, direct, file, TargetType.WORD, request, () -> wordService.create(request).id())
                         .ifPresent(ids::add);
             }
         }
         errors.throwIfAny();
-        return ExcelUploadResponse.forStandardData(user, rows.size(), ids);
+        return ExcelUploadResponse.forStandardData(direct, rows.size(), ids);
     }
 
     /**
@@ -184,17 +210,18 @@ public class StandardExcelService {
         ExcelErrors errors = new ExcelErrors();
         List<ExcelRow> rows = ExcelReader.read(file, ExcelSheet.DOMAIN, errors);
         List<Long> ids = new ArrayList<>();
+        boolean direct = canCreateDirectly(user, TargetType.DOMAIN);
         for (ExcelRow row : rows) {
             DomainRequest request = new DomainRequest(row.text(DOMAIN_NAME), findWordId(row, DOMAIN_CLASSIFIER_WORD),
                     row.enumValue(DOMAIN_DATA_TYPE, DataType.class), row.integer(DOMAIN_DATA_LENGTH),
                     row.integer(DOMAIN_DATA_SCALE), row.text(DOMAIN_DESCRIPTION));
             if (row.validate(validator, request, DOMAIN_FIELDS)) {
-                apply(row, user, file, TargetType.DOMAIN, request, () -> domainService.create(request).id())
+                apply(row, user, direct, file, TargetType.DOMAIN, request, () -> domainService.create(request).id())
                         .ifPresent(ids::add);
             }
         }
         errors.throwIfAny();
-        return ExcelUploadResponse.forStandardData(user, rows.size(), ids);
+        return ExcelUploadResponse.forStandardData(direct, rows.size(), ids);
     }
 
     /**
@@ -207,19 +234,20 @@ public class StandardExcelService {
         ExcelErrors errors = new ExcelErrors();
         List<ExcelRow> rows = ExcelReader.read(file, ExcelSheet.TERM, errors);
         List<Long> ids = new ArrayList<>();
+        boolean direct = canCreateDirectly(user, TargetType.TERM);
         for (ExcelRow row : rows) {
             TermRequest request = new TermRequest(findWordIds(row), findDomainId(row), row.text(TERM_DESCRIPTION));
             if (row.validate(validator, request, TERM_FIELDS)) {
-                apply(row, user, file, TargetType.TERM, request, () -> termService.create(request).id())
+                apply(row, user, direct, file, TargetType.TERM, request, () -> termService.create(request).id())
                         .ifPresent(ids::add);
             }
         }
         errors.throwIfAny();
-        return ExcelUploadResponse.forStandardData(user, rows.size(), ids);
+        return ExcelUploadResponse.forStandardData(direct, rows.size(), ids);
     }
 
     /**
-     * 행 하나를 반영한다. ADMIN은 기존 서비스로 등록, USER는 등록 신청을 만든다.
+     * 행 하나를 반영한다. 등록 권한이 있으면 기존 서비스로 등록하고, 없으면 등록 신청을 만든다.
      *
      * <p>업무 규칙 예외는 잡아서 행 오류로 남기고 다음 행을 계속 처리한다. 예외가 기존 서비스의 트랜잭션 경계를 지나며
      * 트랜잭션이 롤백 전용으로 표시되지만, 오류가 있으면 결국 {@link ExcelErrors#throwIfAny()}로 예외를 던져 롤백하므로
@@ -227,10 +255,10 @@ public class StandardExcelService {
      *
      * @return 만들어진 대상 ID 또는 신청 ID. 실패하면 빈 값
      */
-    private Optional<Long> apply(ExcelRow row, CurrentUser user, MultipartFile file, TargetType targetType,
-            Object payload, Supplier<Long> directCreate) {
+    private Optional<Long> apply(ExcelRow row, CurrentUser user, boolean direct, MultipartFile file,
+            TargetType targetType, Object payload, Supplier<Long> directCreate) {
         try {
-            if (user.admin()) {
+            if (direct) {
                 return Optional.of(directCreate.get());
             }
             ChangeRequestForm<Object> form = new ChangeRequestForm<>(

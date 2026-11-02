@@ -331,3 +331,169 @@ body {
 .login-alert {
   margin-bottom: 16px;
 }
+
+/* ---- 개발 참고용 샘플 화면 ---- */
+.sample-section .ant-card-head-title {
+  font-weight: 600;
+}
+
+.sample-summary.ant-typography {
+  margin-bottom: 8px;
+}
+
+.sample-points {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.sample-points li {
+  margin-bottom: 4px;
+}
+
+.sample-points code,
+.sample-summary code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: #f1f3f7;
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  font-size: 0.92em;
+}
+
+.sample-demo {
+  margin-bottom: 12px;
+  border: 1px solid #e3e6ec;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.sample-demo-label {
+  padding: 4px 12px;
+  background: #f7f9fc;
+  border-bottom: 1px solid #e3e6ec;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.sample-demo-body {
+  padding: 16px;
+}
+
+/* 코드 블록: 강조 없이 그대로 보여 주고 복사만 지원한다 */
+.sample-code {
+  border: 1px solid #e3e6ec;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.sample-code-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 8px 2px 12px;
+  background: #f7f9fc;
+  border-bottom: 1px solid #e3e6ec;
+}
+
+.sample-code-title.ant-typography {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.sample-code-body {
+  margin: 0;
+  padding: 12px 16px;
+  max-height: 460px;
+  overflow: auto;
+  background: #fbfcfe;
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre;
+  tab-size: 2;
+}
+
+/* 데모 안에서 쓰는 작은 요소들 */
+.sample-preview {
+  padding: 12px;
+  border: 1px dashed #d6dae2;
+  border-radius: 6px;
+  background: #fcfcfd;
+}
+
+.sample-preview-dark {
+  background: #1f2430;
+  border-color: #1f2430;
+  color: #f0f2f5;
+}
+
+.sample-preview-dark .ant-typography {
+  color: #f0f2f5;
+}
+
+.sample-number {
+  min-width: 32px;
+  text-align: center;
+  font-size: 16px;
+}
+
+.sample-input {
+  width: 240px;
+}
+
+.sample-input-row {
+  width: 320px;
+  max-width: 100%;
+}
+
+.sample-todo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  max-width: 320px;
+  padding: 2px 0;
+}
+
+.sample-todo-done {
+  color: rgba(0, 0, 0, 0.45);
+  text-decoration: line-through;
+}
+
+.sample-empty {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.sample-form-result.ant-typography {
+  margin-top: 12px;
+  margin-bottom: 0;
+}
+
+.sample-todo-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sample-number-input {
+  width: 90px;
+}
+
+.sample-formlist-row {
+  margin-bottom: 4px;
+}
+
+.sample-formlist-item {
+  margin-bottom: 0;
+  width: 260px;
+  max-width: 60vw;
+}
+
+.sample-word-picker .ant-tag-checkable {
+  cursor: pointer;
+}
+
+.sample-form-gap-top {
+  margin-top: 12px;
+}

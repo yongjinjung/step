@@ -2,6 +2,8 @@ package com.step.dictionary.user;
 
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 /**
  * 사용자 리포지토리.
@@ -16,9 +18,12 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long>, AppUser
     boolean existsByUsername(String username);
 
     /**
-     * 역할과 활성 여부로 계정 수를 센다.
-     * {@code countByRoleAndEnabled(ADMIN, true)}로 활성 관리자 수를 구해 마지막 관리자 보호에 쓴다.
-     * boolean 파라미터에도 엔티티의 YesNoConverter가 적용되어 'Y'/'N'으로 비교된다.
+     * 전권 역할(사용 중인 것)을 가진 사용자인지. 요청마다 권한을 계산할 때 가장 먼저 확인한다
+     * ({@code PermissionService}). 전권이면 메뉴 권한을 보지 않는다.
      */
-    long countByRoleAndEnabled(Role role, boolean enabled);
+    @Query("""
+            select count(u) > 0 from AppUser u join u.roles r
+            where u.username = :username and r.superAdmin = true and r.used = true
+            """)
+    boolean hasSuperAdminRole(@Param("username") String username);
 }

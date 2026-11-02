@@ -4,9 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트
 
-데이터 표준 용어사전 관리 백엔드. 표준 단어, 도메인, 용어와 테이블/컬럼 정의를 관리하고 비표준 컬럼을 검출한다. 공통 코드(코드 그룹·코드값)와 코드성 컬럼 매핑, 신청/승인, 변경 이력, 엑셀 업·다운로드, 로그인/권한도 포함한다.
+데이터 표준 용어사전 관리 백엔드. 표준 단어, 도메인, 용어와 테이블/컬럼 정의를 관리하고 비표준 컬럼을 검출한다. 공통 코드(코드 그룹·코드값)와 코드성 컬럼 매핑, 신청/승인, 변경 이력, 엑셀 업·다운로드, 로그인과 역할 기반 권한(메뉴별 조회·등록·수정·삭제)도 포함한다.
 
 **설계와 단계별 진행 상황은 `docs/design.md`에 있다** (개념, 업무 규칙, 전체 ERD, 구현 단계 표). 기능을 구현하기 전에 읽고, 단계를 마치면 상태 표와 규칙을 갱신한다.
+
+## 언어
+
+이 프로젝트의 작업 언어는 한국어다. 답변, 설명, 커밋 메시지, 문서(`docs/`, 이 파일), 코드 주석, 테스트 `@DisplayName`, 화면 문구와 오류 메시지는 한국어로 쓴다. 클래스·메서드·변수 이름 같은 식별자는 영어로 쓴다.
 
 ## 기술 스택 (검증된 버전)
 
@@ -55,8 +59,10 @@ com.step.dictionary
 ├── history/           변경 이력(ChangeHistory) 기록(ChangeHistoryRecorder)·조회 API, snapshot/(대상별 스냅샷 record) (7단계)
 ├── excel/             엑셀 다운로드/업로드 API, ExcelSheet(시트 양식), 서비스(Standard/Meta), support/(Reader·Writer·Row·Errors) (8단계)
 ├── code/              공통 코드: group/(코드 그룹 CodeGroup, 매핑 컬럼 조회), value/(코드값 CodeValue, 그룹 하위 리소스) (9단계)
-└── menu/              화면 메뉴(Menu): TOP/LEFT 2단 메뉴 조회·관리 API, 기본 메뉴 생성(MenuInitializer) (10단계),
-                       사용자별 메뉴 권한(UserMenu, MenuPermissionService) (11단계)
+├── menu/              화면 메뉴(Menu): TOP/LEFT 2단 메뉴 조회·관리 API, 기본 메뉴 생성(MenuInitializer) (10단계),
+│                      사용자별 메뉴 지정(UserMenu, MenuPermissionService) (11단계)
+└── role/              역할(Role)과 역할별 메뉴 권한(RoleMenu), 권한 계산(PermissionService, UserPermissions),
+                       메뉴 경로 상수(MenuPaths), 기본 권한 생성(RoleInitializer) (12단계)
 ```
 
 - **기능 단위 패키지:** 한 기능 패키지 안에 Entity, `XxxRepository`, `XxxRepositoryCustom`/`XxxRepositoryCustomImpl`(Querydsl), `XxxService`, `XxxController`, `dto/`(record)를 둔다. 새 기능은 `standard/word`를 따라 만든다.
@@ -73,11 +79,13 @@ com.step.dictionary
 - **비표준 검출 규칙은 두 곳에 있다:** 엔티티의 `MetaColumn.inspect()`(응답의 issues)와 `MetaColumnRepositoryCustomImpl`의 Querydsl 조건(비표준 검색)이다. 프론트엔드 컬럼 폼의 미리보기(`frontend/src/features/tables/tableFields.ts`의 `inspectColumn`)도 같은 규칙을 따른다. 규칙을 바꾸면 모두 고치고 `MetaColumnRepositoryTest.searchAgreesWithInspect`로 일치를 확인한다. nullable 컬럼 비교는 SQL `<>`가 NULL에서 참이 되지 않으므로 NULL 안전 비교를 쓴다.
 - **참조 삭제 차단:** 다른 엔티티가 참조하는 대상은 서비스에서 `existsBy...` 로 먼저 검사해 `XXX_IN_USE`(409)를 던진다. DB FK 위반(500)에 맡기지 않는다.
 - **중복 검사 순서:** 값을 정규화(예: 영문약어 대문자화)한 뒤 검사한다. 수정 시에는 엔티티를 **변경하기 전에** 검사한다. 변경 후 exists 쿼리를 날리면 auto flush 때문에 unique 제약 위반이 먼저 발생한다.
-- **권한 규칙은 `SecurityConfig`의 URL 규칙 한 곳에 있다.** 새 API를 추가하면 공개/로그인/ADMIN 중 어디에 속하는지 확인하고, 필요하면 규칙과 `SecurityApiIntegrationTest`를 함께 고친다. 메서드 보안(`@PreAuthorize`)은 쓰지 않는다.
+- **권한 검사(12단계):** 기능 권한은 DB의 역할별 메뉴 권한이다. `SecurityConfig`는 공개(로그인·문서)와 로그인만 필요한 경로(`/api/auth/**`, `GET /api/menus`)만 정하고, 나머지는 `MenuAuthorizationManager`가 검사한다. 요청 경로를 메뉴+동작으로 옮기는 표는 `global/security/ApiPermissionRules`에 있고 **규칙이 없는 경로는 막힌다**. 새 API를 추가하면 이 표에 규칙을 더하고 `SecurityApiIntegrationTest`·`RoleApiIntegrationTest`로 확인한다. 메서드 보안(`@PreAuthorize`)은 쓰지 않는다.
+- **역할:** 사용자는 역할을 여러 개 가지고 권한은 합집합이다(`PermissionService.of(username)` → `UserPermissions`). 전권 역할(`superAdmin`)은 모든 검사를 통과한다(권한 설정 실수로 잠기는 것을 막는 장치). 기본 제공 역할(ADMIN, USER)은 삭제·코드·전권 변경이 막히고, 부여된 역할은 삭제할 수 없다. 서비스에서 "관리자인가" 대신 권한을 묻는다(예: 신청 검토는 `can(MenuPaths.REQUESTS, UPDATE)`, 엑셀 직접 등록은 `can(대상 메뉴, CREATE)`). 권한은 요청마다 DB에서 계산하므로 역할 변경이 바로 반영된다(토큰의 `roles`는 표시용).
+- **메뉴 경로는 권한의 이름이기도 하다** (`MenuPaths`). 이미 쓰는 메뉴의 화면 경로를 바꾸면 그 메뉴에 걸린 권한이 API 규칙과 이어지지 않아 전권 역할만 쓸 수 있게 된다.
 - **인증 오류 응답:** 401/403은 보안 필터에서 나므로 `GlobalExceptionHandler`가 아니라 `SecurityErrorHandler`가 `ErrorResponse` 형식으로 쓴다. JSON 직렬화는 Boot가 등록한 Jackson 3 `tools.jackson.databind.json.JsonMapper` 빈을 주입받는다.
 - **로그인한 사용자:** 컨트롤러에서 `@AuthenticationPrincipal Jwt jwt`로 받고 `jwt.getSubject()`(소문자 아이디)를 쓴다. 역할은 JWT `roles` 클레임이 `ROLE_*` 권한으로 바뀐 것이다.
 - **신청 승인 반영:** 승인은 `StandardDataApplier`가 신청 내용 JSON을 원래 요청 DTO로 되돌려 기존 서비스(`WordService` 등)를 호출한다. 반영 로직을 따로 만들지 않으므로 표준 데이터 업무 규칙은 서비스 한 곳만 고치면 직접 API와 승인 양쪽에 적용된다. 신청 대상을 늘리면 `TargetType`과 `StandardDataApplier`의 switch를 함께 늘린다. 서비스에서 로그인 사용자의 역할이 필요하면 `CurrentUser.from(jwt)`로 넘긴다.
-- **화면 메뉴:** 메뉴는 DB(`app_menu`)에서 관리하고 화면 구성이 서버에서 온다. 상위(TOP)-하위(LEFT) 2단 고정이며, 상위는 경로가 없고 하위만 경로를 가진다(`MenuService.validate`). 조회는 두 가지다: 화면 표시용(`GET /api/menus`, 사용 중 + 역할 필터 + 빈 상위 제외)과 관리용(`GET /api/menus/all`). 메뉴가 없으면 기동 시 `MenuInitializer`가 기본 메뉴를 만든다(이미 있으면 건드리지 않는다). 메뉴는 변경 이력을 남기지 않는다.
+- **화면 메뉴:** 메뉴는 DB(`app_menu`)에서 관리하고 화면 구성이 서버에서 온다. 상위(TOP)-하위(LEFT) 2단 고정이며, 상위는 경로가 없고 하위만 경로를 가진다(`MenuService.validate`). 조회는 두 가지다: 화면 표시용(`GET /api/menus`, 사용 중 + 조회 권한 + 빈 상위 제외)과 관리용(`GET /api/menus/all`). 두 응답 모두 메뉴마다 그 사용자의 권한(`canRead` 등)을 담아 화면이 버튼을 정할 수 있다. 메뉴가 없으면 기동 시 `MenuInitializer`가 기본 메뉴를 만든다(이미 있으면 건드리지 않는다). 기본 메뉴에는 초급 개발자 온보딩용 "샘플" 묶음(`features/samples`로 이어짐)도 포함되고, `RoleInitializer`의 USER 기본 권한에도 조회로 열려 있다. 메뉴는 변경 이력을 남기지 않는다.
 - **사용자별 메뉴 권한:** `app_user_menu`에 행이 있으면 그 메뉴만, 없으면 기본 규칙대로 보여준다(`MenuService.findNavigation`이 `UserMenuRepository`로 조회). 지정은 좁히기만 하므로 미사용·관리자 전용 규칙은 그대로 살아 있고, 기능 권한은 API가 따로 검사한다. 권한 저장은 통째로 교체하는데, Hibernate가 insert를 delete보다 먼저 실행하므로 삭제 후 `flush()`를 해야 unique 제약에 걸리지 않는다(`MenuPermissionService.replace`). 메뉴 삭제 시 걸린 권한을 먼저 지운다(`MenuService.delete`).
 - **공통 코드 매핑:** 컬럼의 코드 그룹 매핑(`MetaColumn.codeGroup`)은 비표준 검출과 무관해 생성자·`update()`가 아니라 `mapCodeGroup()`으로 바꾼다. 서비스의 `getCodeGroup(요청 ID, 현재 그룹)`이 새로 매핑하는 그룹만 사용 여부를 검사하므로(`CODE_GROUP_NOT_USED`), 이미 매핑된 미사용 그룹은 PUT에서 그대로 유지된다. 컬럼 응답에 코드ID·코드명이 들어가므로 컬럼 목록 조회(`@EntityGraph`, 비표준 검색 fetch join)에 `codeGroup`을 함께 가져온다. 코드값 엔티티 필드는 H2·HQL 예약어 `value`를 피해 `codeValue`/`valueName`으로 둔다.
 - **변경 이력:** 단어/도메인/용어/테이블/컬럼/코드 그룹/코드값을 바꾸는 서비스 메서드는 이력을 직접 남긴다. 수정은 엔티티를 바꾸기 **전에** `XxxSnapshot.from(entity)`로 떠 두고, 변경·flush 후 `historyRecorder.recordUpdate(before, XxxSnapshot.from(entity))`를 호출한다. 등록은 save 후 `recordCreate`, 삭제는 delete 전에 `recordDelete`. 변경자와 신청 ID는 기록기가 보안 컨텍스트와 `HistoryRequestContext`에서 알아서 채운다. 이력 대상을 늘리면 `HistoryTargetType`과 `history/snapshot`의 sealed record를 함께 늘린다. 스냅샷에는 수정 일시 같은 자동 값을 넣지 않는다(넣으면 모든 수정이 변경으로 보인다).
@@ -100,7 +108,7 @@ com.step.dictionary
 - 이미 적용된 파일은 수정하지 않고 새 버전 파일을 추가한다.
 - 긴 문자열 컬럼에 `TEXT`를 쓰지 않는다. MySQL과 H2가 서로 다른 JDBC 타입으로 보고해 `ddl-auto=validate`가 어긋날 수 있다. `VARCHAR(n)`을 쓴다(`std_request.payload`는 4000).
 - 엔티티를 바꾸면 같은 작업 안에서 마이그레이션도 만든다.
-- **예시 데이터는 마이그레이션에 넣지 않는다.** 공통 코드 샘플(코드 그룹 19개·코드값 100개)은 `src/main/resources/db/seed/common_code_seed.sql`에 있고, Flyway 기본 경로(`db/migration`)가 아니라 자동 실행되지 않는다. 자동 실행되면 테스트용 H2에도 들어가 검색 결과를 기대하는 테스트가 깨진다. 넣으려면 파일 머리말의 명령을 쓴다(한 번만 실행, SQL 직접 삽입이라 변경 이력은 남지 않는다).
+- **예시 데이터는 마이그레이션에 넣지 않는다.** 공통 코드 샘플(코드 그룹 19개·코드값 100개)은 `src/main/resources/db/seed/common_code_seed.sql`, 표준 단어·도메인·용어 샘플(단어 105개·도메인 17개·용어 1000개)은 `standard_term_seed.sql`, 병원 약제(처방·조제·검수·불출·반납) 단어 3000개는 `pharmacy_word_seed.sql`(용어 샘플 다음에 실행), 약제 용어 5000개와 약제 분류어 도메인 10개는 `pharmacy_term_seed.sql`(약제 단어 다음에 실행)에 있고, Flyway 기본 경로(`db/migration`)가 아니라 자동 실행되지 않는다. 자동 실행되면 테스트용 H2에도 들어가 검색 결과를 기대하는 테스트가 깨진다. 넣으려면 파일 머리말의 명령을 쓴다(한 번만 실행, SQL 직접 삽입이라 변경 이력은 남지 않는다).
 
 ## 테스트
 
@@ -112,7 +120,7 @@ com.step.dictionary
 
 - `@DataJpaTest`에서 `replace = NONE`을 빼면 MySQL 모드가 아닌 임베디드 H2로 바뀐다. `JpaConfig`를 import하지 않으면 감사 필드(`created_at` NOT NULL)가 비어 insert가 실패한다.
 - 통합 테스트 요청은 서버 스레드에서 처리되어 롤백되지 않는다. `IntegrationTest`가 매 테스트 전후에 `DatabaseCleaner`로 모든 테이블을 TRUNCATE한다. H2 메모리 DB(`DB_CLOSE_DELAY=-1`)는 모든 테스트 컨텍스트가 공유하므로, 뒤이어 실행되는 `@DataJpaTest`가 남은 데이터와 충돌하지 않게 끝날 때도 비운다.
-- **통합 테스트 인증:** `IntegrationTest`가 매 테스트 전에 `admin`(ADMIN), `user`(USER) 계정(비밀번호 `PASSWORD`)을 만들고 토큰(`adminToken`, `userToken`)을 발급해, 기본으로 모든 요청에 관리자 토큰을 붙인다. 다른 권한은 `authenticate(userToken)`, 토큰 없음은 `authenticate(null)`로 바꾼다. `RequestSpecBuilder`는 생성 시 현재 `RestAssured.requestSpecification`을 복사하므로 새 스펙을 만들기 전에 반드시 null로 비운다(`authenticate` 참고).
+- **통합 테스트 인증·권한:** 테이블을 모두 비우면 역할·메뉴·권한도 사라지므로, `IntegrationTest`가 매 테스트 전에 기본 역할(ADMIN 전권, USER)을 만들고 운영과 같은 초기화 코드(`MenuInitializer`, `RoleInitializer`)로 기본 메뉴와 일반 사용자 권한을 채운다("설치 직후" 상태). 그 뒤 `admin`(ADMIN 역할), `user`(USER 역할) 계정(비밀번호 `PASSWORD`)을 만들고 토큰(`adminToken`, `userToken`)을 발급해, 기본으로 모든 요청에 관리자 토큰을 붙인다. 역할 ID가 필요하면 `adminRole`·`userRole`을 쓴다. 단위 테스트는 `support.TestRoles`로 역할 객체를 만든다. 다른 권한은 `authenticate(userToken)`, 토큰 없음은 `authenticate(null)`로 바꾼다. `RequestSpecBuilder`는 생성 시 현재 `RestAssured.requestSpecification`을 복사하므로 새 스펙을 만들기 전에 반드시 null로 비운다(`authenticate` 참고).
 - 엑셀 업로드 통합 테스트는 `ExcelWriter.write(ExcelSheet.X, rows)`로 파일을 만들고 `given().multiPart("file", "upload.xlsx", bytes, XLSX_MIME)`으로 올린다. 행에 null을 넣으려면 `List.of` 대신 `Arrays.asList`를 쓴다.
 - 이력을 남기는 서비스의 단위 테스트는 `@Mock ChangeHistoryRecorder`를 선언해야 한다. 빠뜨리면 `@InjectMocks`가 생성자에 null을 넣어 NPE가 난다.
 - REST Assured는 본문 없는 POST에 `application/x-www-form-urlencoded` Content-Type을 붙인다. `@RequestBody(required = false)` 엔드포인트(예: 신청 승인)는 이때 415를 주므로 `contentType(ContentType.JSON)`을 명시한다.
@@ -157,7 +165,16 @@ frontend/src
 │               requests/(RequestListPage·RequestDetailDrawer·RequestPayloadCompare(현재 값↔신청 값)·requestFields),
 │               histories/(HistoryListPage·HistoryChangeDetail(펼친 행의 변경 내용)·historyFields),
 │               codes/(CodeGroupListPage·CodeGroupDetailPage(/codes/:id)·CodeGroupFormModal·CodeValueFormModal·useDeleteCodeGroup·codeFields),
-│               menus/(MenuManagePage·MenuFormModal·MenuPermissionPage(사용자별 메뉴 권한)·menuFields — 관리자 전용)
+│               menus/(MenuManagePage·MenuFormModal·MenuPermissionPage(사용자별 메뉴 권한)·menuFields — 관리자 전용),
+│               users/(UserListPage·UserFormModal(역할 다중 선택)·PasswordResetModal·userFields),
+│               roles/(RoleListPage(역할 목록 + 메뉴 권한 매트릭스)·RoleFormModal·roleFields),
+│               samples/(개발 참고용 샘플 화면 — 초급 개발자 온보딩 자료: ReactSamplePage(/react)·TypeScriptSamplePage(/typescript)·
+│               ViteSamplePage(/vite)·AntdSamplePage(/antdesign)·RouterSamplePage(/router, RouterParamDemoPage는
+│               router-demo/:id 전용 useParams 데모)·DataFetchingSamplePage(/data-fetching, 조회 데모는 실제 백엔드를 호출)·
+│               FormsSamplePage(/forms)·BackendGuideSamplePage(/backend-guide, Spring Boot 계층 구조·오류 처리·
+│               Querydsl·테스트, standard/word 기준 예시. 조회·오류 데모는 실제 백엔드를 호출)·
+│               SampleSection(설명→실행 결과→코드)·SampleCode(복사 가능한 코드)·
+│               dynamicSample(동적 import 데모 전용, 정적 import 금지))
 ├── utils/      format(일시, 이력 스냅샷 값), dataType(타입별 길이 규칙·표기·도메인명 추천. 백엔드 DataType과 같게 유지)
 ├── pages/      LoginPage, MyPage, PlaceholderPage(준비 중), NotFoundPage
 ├── components/ PageHeader, ExcelActions(엑셀 다운로드·양식·업로드), ChangeHistoryTimeline, ReasonModal,
@@ -185,7 +202,8 @@ frontend/src
   - 검색 조건·페이지는 `useListSearchParams(FILTER_KEYS)`로 URL에 둔다. `FILTER_KEYS`는 컴포넌트 밖 상수로 선언하고, URL의 `page`는 1부터이므로 API에는 `page - 1`을 넘긴다.
   - 목록 조회에는 `placeholderData: keepPreviousData`를 준다.
   - 등록·수정·삭제 뒤에는 `useInvalidateApi()('/api/words', '/api/words/{id}', '/api/histories')`처럼 관련 경로를 무효화한다.
-- **역할별 동작:** 표준 데이터(단어·도메인·용어) 화면은 같은 버튼이 ADMIN이면 직접 API, USER면 `/api/requests/{words|domains|terms}` 신청이 된다. 신청 API의 필드 오류 경로는 `payload.name`이므로 `applyFieldErrors(form, error, { stripPrefix: 'payload.' })`를 쓴다. 중복 같은 업무 오류는 `applyCodeError(form, error, 코드→필드)`로 필드 아래에 보여준다.
+- **권한으로 화면 제어:** `useMenus().can('/words', 'create')`처럼 메뉴 권한을 물어 버튼을 보여줄지 정한다(권한 값은 `/api/menus` 응답에서 온다). 화면 자체는 `layouts/screens.tsx`의 `RequireMenu`가 그 메뉴의 조회 권한으로 막는다. `useAuth().user.isAdmin`은 상단 역할 표시에만 쓰고 기능 분기에는 쓰지 않는다(권한 검사는 서버가 한다).
+- **역할별 동작:** 표준 데이터(단어·도메인·용어) 화면은 같은 버튼이 권한이 있으면 직접 API, 없으면 `/api/requests/{words|domains|terms}` 신청이 된다. 신청 API의 필드 오류 경로는 `payload.name`이므로 `applyFieldErrors(form, error, { stripPrefix: 'payload.' })`를 쓴다. 중복 같은 업무 오류는 `applyCodeError(form, error, 코드→필드)`로 필드 아래에 보여준다.
 - **Ant Design 6 이름 변경:**
   - 확인된 새 이름: `Alert`의 `title`(`message` 대신), `Space`의 `orientation`(`direction` 대신), `Modal`의 `destroyOnHidden`, `Timeline` 항목의 `content`.
   - 모달 안 폼은 `forceRender`로 미리 렌더링해 form 인스턴스를 연결한다.
@@ -195,6 +213,8 @@ frontend/src
 - **신청/승인 화면:** 신청 응답의 `payload`는 생성 타입이 `JsonNode`로 잘못 나오므로 `requestFields.payloadOf`로 일반 객체로 꺼내 대상별 요청 DTO 타입으로 다룬다. 응답에 대상 이름이 없어 상세의 `RequestPayloadCompare`가 대기 중인 수정·삭제 신청의 현재 대상을 단건 조회해 비교하고, 참조 ID(구성 단어·도메인·분류어)는 단건 조회로 이름을 채운다. 처리가 끝난 신청은 신청 내용만 보여준다. 승인 성공 시 `TARGET_QUERY_PATHS[targetType]`로 대상 화면 조회를 무효화하고, 승인 실패(업무 오류·`REQUEST_TARGET_CHANGED`)는 신청이 대기로 남으므로 `modal.error`로 사유를 보여준다. 사유·의견 입력은 `ReasonModal`(`label`·`required`·`danger`)을 쓴다.
 - **변경 이력 화면:** 이력의 `before`/`after`도 생성 타입이 `JsonNode`라 `historyFields.snapshotOf`로 꺼낸다. 대상 이름은 조회하지 않고 스냅샷에서 꺼내(삭제된 대상도 보이게) `summarizeHistoryTarget`으로 만든다. 필드 표시 이름은 기능별 `*_FIELD_LABELS`를 `HISTORY_FIELD_LABELS`로 모아 쓰므로, 스냅샷 필드를 늘리면 해당 기능의 라벨에 추가한다. 다른 화면은 `/histories?targetType=&targetId=`, `/histories?requestId=`로 연결한다. 기간 필터는 `dayjs`가 없어 `<Input type="date">`(`yyyy-MM-dd`)를 쓴다.
 - **공통 코드 화면:** 공통 코드는 신청 대상이 아니라 쓰기 버튼을 ADMIN에게만 보인다(USER는 조회만). 코드값·매핑 컬럼이 주 내용이라 상세는 별도 라우트(`/codes/:id`)다. 컬럼 폼의 `CodeGroupSelect`는 `used=true`로 검색해 미사용 그룹을 새로 고르지 못하게 하고, 이미 매핑된 미사용 그룹은 단건 조회로 "미사용" 표시와 함께 보여준다. 컬럼을 저장·삭제하면 `/api/code-groups/{id}/columns`를, 코드 그룹을 수정하면 컬럼 응답의 코드ID가 바뀌므로 `/api/tables/{tableId}/columns`를 무효화한다.
+- **사용자 관리 화면:** 계정은 삭제하지 않으므로 목록에 삭제 버튼이 없다(비활성으로 둔다). 아이디는 등록할 때만 입력하고 수정에서는 잠근다. 비밀번호는 초기화 모달로만 바꾸며, 규칙(8~64자 공백 없는 ASCII)은 `userFields.PASSWORD_RULES`에 두고 내 정보 화면과 같은 규칙을 쓴다. `LAST_ADMIN_REQUIRED`는 강등인지 비활성화인지에 따라 역할·활성 필드 중 맞는 자리에 보여준다. 목록의 "메뉴 권한"은 `/menu-permissions?userId=`로 열고, 그 화면은 목록에 없는 사용자면 단건 조회로 이름을 채운다.
 - **데이터 타입 입력:** 길이·소수점 입력은 `utils/dataType`의 `usesLength`/`usesScale`로 켜고 끄고, 타입을 바꾸면 쓸 수 없는 값을 비운다. 규칙을 바꾸면 백엔드 `DataType.isValidSpec`과 함께 고친다.
 - **엑셀 업로드**는 `ExcelActions`가 `apiClient.POST` + `bodySerializer`(FormData)로 보낸다. 오류 행은 표로 보여주고, 결과 `mode`가 REQUESTED면 신청 목록을 무효화한다.
+- **샘플 화면(`features/samples`):** 초급 개발자 온보딩용 참고 화면이다(메뉴 "샘플" 아래 `/react`, `/typescript`, `/vite`, `/antdesign`, `/router`, `/data-fetching`, `/forms`, `/backend-guide`). 섹션은 `SampleSection`으로 "설명 → 실행 결과(동작하는 데모) → 복사 가능한 코드" 순서를 지킨다. 데모는 되도록 실제로 동작하게 만들되, 업무 데이터를 바꾸는 동작(등록·수정·삭제)은 실제 API를 부르지 않고 흉내만 낸다(예: `DataFetchingSamplePage`의 조회 데모는 실제 백엔드를 부르지만 저장 데모는 흉내다; `BackendGuideSamplePage`는 GET만 실제로 호출해 응답·오류 JSON을 그대로 보여준다). 역할 권한상 USER·SYSTEM 역할에도 조회 권한을 열어 뒀다(`app_role_menu`, 업무 데이터가 없는 화면이라 전 역할에 공개). 기본 메뉴 목록(`MenuInitializer`)과 USER 기본 권한(`RoleInitializer`)에도 샘플 화면 전체가 등록돼 있어 새 설치·테스트 환경에서도 같은 구성이 만들어진다. **여기 적힌 규칙은 이 문서·실제 코드와 같아야 한다.** Ant Design 6 이름 변경, 생성 타입 사용법, 목록 화면 골격, 탭·라우팅 구조, 백엔드 계층 구조 같은 규칙을 바꾸면 해당 샘플 화면의 설명과 코드도 같이 고친다.
 - **버전 제약(Node 22.16):** orval은 Node 22.18+, react-router 8은 Node 22.22+가 필요해 쓰지 않았다. openapi-typescript가 `typescript ^5`를 요구해 TypeScript 7로 올리지 않는다. 의존성은 `--save-exact`로 고정한다.

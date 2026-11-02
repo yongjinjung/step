@@ -6,7 +6,7 @@ import com.step.dictionary.global.config.JpaConfig;
 import com.step.dictionary.history.dto.ChangeHistorySearchCondition;
 import com.step.dictionary.user.AppUser;
 import com.step.dictionary.user.AppUserRepository;
-import com.step.dictionary.user.Role;
+import com.step.dictionary.support.TestRoles;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -50,8 +50,8 @@ class ChangeHistoryRepositoryTest {
      */
     @BeforeEach
     void setUp() {
-        AppUser admin = userRepository.save(new AppUser("admin", "hash", "관리자", Role.ADMIN));
-        AppUser user = userRepository.save(new AppUser("user", "hash", "사용자", Role.USER));
+        AppUser admin = userRepository.save(new AppUser("admin", "hash", "관리자", java.util.List.of()));
+        AppUser user = userRepository.save(new AppUser("user", "hash", "사용자", java.util.List.of()));
 
         wordCreate = historyRepository.save(new ChangeHistory(
                 HistoryTargetType.WORD, 1L, ChangeType.CREATE, null, "{}", admin, null, DAY1));

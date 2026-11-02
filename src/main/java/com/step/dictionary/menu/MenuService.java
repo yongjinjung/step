@@ -4,6 +4,9 @@ import com.step.dictionary.global.error.BusinessException;
 import com.step.dictionary.global.error.ErrorCode;
 import com.step.dictionary.menu.dto.MenuRequest;
 import com.step.dictionary.menu.dto.MenuResponse;
+import com.step.dictionary.role.PermissionService;
+import com.step.dictionary.role.RoleMenuRepository;
+import com.step.dictionary.role.UserPermissions;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,9 +24,14 @@ import org.springframework.transaction.annotation.Transactional;
  *       ({@code INVALID_MENU_PARENT}).</li>
  *   <li>상위 메뉴는 묶음이라 경로가 없고, 하위 메뉴는 경로가 필요하다 ({@code INVALID_MENU_PATH}). 경로는 전체에서 유일하다
  *       ({@code DUPLICATE_MENU_PATH}).</li>
- *   <li>하위 메뉴가 있는 메뉴는 삭제할 수 없다 ({@code MENU_HAS_CHILDREN}).</li>
- *   <li>화면 표시용 조회는 사용 중인 메뉴만, 관리자 전용은 관리자에게만 돌려주고, 보여줄 하위가 없는 상위 메뉴는 뺀다.</li>
+ *   <li>하위 메뉴가 있는 메뉴는 삭제할 수 없다 ({@code MENU_HAS_CHILDREN}). 삭제하면 그 메뉴에 걸린 역할 권한과
+ *       사용자 메뉴 지정도 함께 지운다.</li>
+ *   <li>화면 표시용 조회는 사용 중이면서 <b>조회 권한이 있는</b> 메뉴만 돌려주고, 보여줄 하위가 없는 상위 메뉴는 뺀다.
+ *       사용자에게 메뉴 지정({@code app_user_menu})이 있으면 그중에서 더 좁힌다.</li>
  * </ul>
+ *
+ * <p>메뉴의 화면 경로는 권한의 기준이기도 하다 ({@code MenuPaths}). 경로를 바꾸면 그 메뉴에 걸린 권한이
+ * API와 이어지지 않으므로, 이미 쓰고 있는 메뉴의 경로는 바꾸지 않는 것이 좋다.
  *
  * <p>메뉴는 화면 구성이라 변경 이력({@code change_history})을 남기지 않는다.
  */
@@ -32,30 +40,40 @@ import org.springframework.transaction.annotation.Transactional;
 public class MenuService {
 
     private final MenuRepository menuRepository;
-    /** 사용자별 메뉴 권한 조회와, 메뉴 삭제 시 권한 정리용. */
+    /** 사용자별 메뉴 지정(좁히기) 조회와, 메뉴 삭제 시 정리용. */
     private final UserMenuRepository userMenuRepository;
+    /** 메뉴 삭제 시 역할 권한 정리용. */
+    private final RoleMenuRepository roleMenuRepository;
+    /** 로그인한 사용자의 실제 권한 계산용. */
+    private final PermissionService permissionService;
 
-    public MenuService(MenuRepository menuRepository, UserMenuRepository userMenuRepository) {
+    public MenuService(MenuRepository menuRepository, UserMenuRepository userMenuRepository,
+            RoleMenuRepository roleMenuRepository, PermissionService permissionService) {
         this.menuRepository = menuRepository;
         this.userMenuRepository = userMenuRepository;
+        this.roleMenuRepository = roleMenuRepository;
+        this.permissionService = permissionService;
     }
 
     /**
      * 화면에 그릴 메뉴 트리 (위쪽 상위 메뉴 + 각 상위의 하위 메뉴).
+     * 메뉴마다 그 사용자가 할 수 있는 동작(조회/등록/수정/삭제)이 함께 담겨 화면이 버튼을 정할 수 있다.
      *
-     * <p>사용자별 메뉴 권한이 지정돼 있으면 그 메뉴만 남긴다. 지정이 없으면 기본 규칙(사용 중 + 역할)대로 본다.
-     *
-     * @param username 로그인한 사용자 아이디 (메뉴 권한 조회용)
-     * @param admin    관리자 여부. 관리자 전용 메뉴를 포함할지 정한다
+     * @param username 로그인한 사용자 아이디
      */
-    public List<MenuResponse> findNavigation(String username, boolean admin) {
-        List<Long> allowed = userMenuRepository.findMenuIdsByUsername(username);
-        return tree(false, admin, allowed.isEmpty() ? null : Set.copyOf(allowed));
+    public List<MenuResponse> findNavigation(String username) {
+        UserPermissions permissions = permissionService.of(username);
+        List<Long> narrowed = userMenuRepository.findMenuIdsByUsername(username);
+        return tree(false, permissions, narrowed.isEmpty() ? null : Set.copyOf(narrowed));
     }
 
-    /** 관리 화면용 전체 메뉴 트리. 미사용·관리자 전용 메뉴도 모두 담는다. */
-    public List<MenuResponse> findAll() {
-        return tree(true, true, null);
+    /**
+     * 관리 화면용 전체 메뉴 트리. 미사용 메뉴와 권한 없는 메뉴도 모두 담는다.
+     *
+     * @param username 로그인한 사용자 아이디 (메뉴별 권한 표시용)
+     */
+    public List<MenuResponse> findAll(String username) {
+        return tree(true, permissionService.of(username), null);
     }
 
     /**
@@ -79,7 +97,7 @@ public class MenuService {
         validate(request, parent, null);
 
         Menu menu = menuRepository.save(new Menu(parent, request.name(), request.path(), request.icon(),
-                request.sortOrder(), request.used(), request.adminOnly()));
+                request.sortOrder(), request.used()));
         return MenuResponse.from(menu);
     }
 
@@ -96,8 +114,7 @@ public class MenuService {
         // 엔티티를 바꾸기 전에 검사한다. 변경 후 exists 쿼리를 날리면 auto flush로 unique 제약 위반이 먼저 터진다.
         validate(request, parent, id);
 
-        menu.update(parent, request.name(), request.path(), request.icon(), request.sortOrder(), request.used(),
-                request.adminOnly());
+        menu.update(parent, request.name(), request.path(), request.icon(), request.sortOrder(), request.used());
         // 즉시 update를 실행해 갱신된 updatedAt으로 응답한다.
         menuRepository.flush();
         return MenuResponse.from(menu);
@@ -105,6 +122,7 @@ public class MenuService {
 
     /**
      * 메뉴를 삭제한다. 하위 메뉴는 함께 지우지 않고 막는다 (실수로 묶음을 통째로 지우지 않도록).
+     * 메뉴에 걸린 역할 권한과 사용자 메뉴 지정은 함께 지운다.
      *
      * @throws BusinessException MENU_NOT_FOUND (404), MENU_HAS_CHILDREN (409)
      */
@@ -115,8 +133,10 @@ public class MenuService {
         if (menuRepository.existsByParentId(id)) {
             throw new BusinessException(ErrorCode.MENU_HAS_CHILDREN);
         }
-        // 이 메뉴를 가리키는 사용자 권한을 먼저 지운다 (FK 위반 방지).
+        // 이 메뉴를 가리키는 권한 행을 먼저 지운다 (FK 위반 방지).
+        roleMenuRepository.deleteAllByMenuId(id);
         userMenuRepository.deleteAllByMenuId(id);
+        roleMenuRepository.flush();
         userMenuRepository.flush();
         menuRepository.delete(menu);
     }
@@ -124,12 +144,11 @@ public class MenuService {
     /**
      * 전체 메뉴를 읽어 상위-하위 트리로 묶는다.
      *
-     * @param includeHidden true면 미사용·관리자 전용도 모두 담는다 (관리 화면)
-     * @param admin         관리자 여부 (화면 표시용 조회에서 관리자 전용 메뉴를 담을지)
-     * @param allowedIds    사용자에게 지정된 메뉴 ID. null이면 지정이 없어 기본 규칙대로 본다.
-     *                      지정은 하위 메뉴에만 적용하고, 상위 메뉴는 보여줄 하위가 있으면 남는다
+     * @param includeHidden true면 미사용·권한 없는 메뉴도 모두 담는다 (관리 화면)
+     * @param permissions   요청한 사용자의 실제 권한
+     * @param narrowedIds   사용자에게 지정된 메뉴 ID. null이면 지정이 없어 역할 권한 그대로 본다
      */
-    private List<MenuResponse> tree(boolean includeHidden, boolean admin, Set<Long> allowedIds) {
+    private List<MenuResponse> tree(boolean includeHidden, UserPermissions permissions, Set<Long> narrowedIds) {
         List<Menu> all = menuRepository.findAllByOrderBySortOrderAscIdAsc();
         // 하위 메뉴를 상위 메뉴 ID로 묶는다. 상위 메뉴는 이미 영속성 컨텍스트에 있어 프록시라도 조회가 더 나가지 않는다.
         Map<Long, List<Menu>> childrenByParent = all.stream()
@@ -139,20 +158,21 @@ public class MenuService {
 
         return all.stream()
                 .filter(Menu::isTop)
-                .filter(top -> visible(top, includeHidden, admin))
+                .filter(top -> includeHidden || top.isUsed())
                 .map(top -> MenuResponse.of(top, childrenByParent.getOrDefault(top.getId(), List.of()).stream()
-                        .filter(child -> visible(child, includeHidden, admin))
-                        .filter(child -> allowedIds == null || allowedIds.contains(child.getId()))
-                        .map(MenuResponse::from)
-                        .toList()))
+                        .filter(child -> includeHidden || visible(child, permissions, narrowedIds))
+                        .map(child -> MenuResponse.of(child, List.of(), permissions.actionsOf(child.getId())))
+                        .toList(), permissions.actionsOf(top.getId())))
                 // 화면에 그릴 때 하위가 하나도 없는 상위 메뉴는 누를 것이 없어 뺀다.
                 .filter(top -> includeHidden || !top.children().isEmpty())
                 .toList();
     }
 
-    /** 화면에 보일 메뉴인지. 관리 화면(includeHidden)에서는 모두 보인다. */
-    private static boolean visible(Menu menu, boolean includeHidden, boolean admin) {
-        return includeHidden || (menu.isUsed() && (!menu.isAdminOnly() || admin));
+    /** 화면에 보일 메뉴인지: 사용 중 + 조회 권한 + (사용자 지정이 있으면) 지정된 메뉴. */
+    private static boolean visible(Menu menu, UserPermissions permissions, Set<Long> narrowedIds) {
+        return menu.isUsed()
+                && permissions.canReadMenu(menu.getId())
+                && (narrowedIds == null || narrowedIds.contains(menu.getId()));
     }
 
     /**

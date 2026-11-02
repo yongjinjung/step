@@ -2,7 +2,7 @@ import { DeleteOutlined, EditOutlined } from '@ant-design/icons'
 import { Alert, Button, Descriptions, Drawer, Skeleton, Space, Tag, Typography } from 'antd'
 import { $api } from '@/api/client'
 import { errorMessage } from '@/api/errors'
-import { useAuth } from '@/auth/AuthContext'
+import { useMenus } from '@/layouts/MenuContext'
 import { ChangeHistoryTimeline } from '@/components/ChangeHistoryTimeline'
 import { formatDateTime } from '@/utils/format'
 import { WORD_FIELD_LABELS, type WordResponse } from './wordFields'
@@ -17,8 +17,9 @@ interface WordDetailDrawerProps {
 
 /** 단어 상세와 변경 이력. 목록의 행 데이터 대신 단건 API로 최신 값을 불러온다. */
 export function WordDetailDrawer({ wordId, onClose, onEdit, onDelete }: WordDetailDrawerProps) {
-  const { user } = useAuth()
-  const isAdmin = user?.isAdmin ?? false
+  const { can } = useMenus()
+  const canUpdate = can('/words', 'update')
+  const canDelete = can('/words', 'delete')
   const open = wordId !== null
 
   const wordQuery = $api.useQuery(
@@ -39,10 +40,10 @@ export function WordDetailDrawer({ wordId, onClose, onEdit, onDelete }: WordDeta
         word && (
           <Space>
             <Button icon={<EditOutlined />} onClick={() => onEdit(word)}>
-              {isAdmin ? '수정' : '수정 신청'}
+              {canUpdate ? '수정' : '수정 신청'}
             </Button>
             <Button danger icon={<DeleteOutlined />} onClick={() => onDelete(word)}>
-              {isAdmin ? '삭제' : '삭제 신청'}
+              {canDelete ? '삭제' : '삭제 신청'}
             </Button>
           </Space>
         )

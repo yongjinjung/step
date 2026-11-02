@@ -3,15 +3,15 @@ package com.step.dictionary.request;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.step.dictionary.user.AppUser;
-import com.step.dictionary.user.Role;
+import com.step.dictionary.support.TestRoles;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class ChangeRequestTest {
 
-    private final AppUser user = new AppUser("user", "hash", "사용자", Role.USER);
-    private final AppUser admin = new AppUser("admin", "hash", "관리자", Role.ADMIN);
+    private final AppUser user = new AppUser("user", "hash", "사용자", TestRoles.userOnly());
+    private final AppUser admin = new AppUser("admin", "hash", "관리자", TestRoles.adminOnly());
     private final LocalDateTime now = LocalDateTime.of(2026, 9, 15, 10, 0);
 
     @Test

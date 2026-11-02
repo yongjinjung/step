@@ -23,6 +23,9 @@ import org.springframework.util.StringUtils;
  *   <li>하위 메뉴: 상위 메뉴에 속하며 경로({@code path})가 실제 화면을 가리킨다. 경로는 전체에서 유일하다.</li>
  * </ul>
  * 3단 이상은 두지 않는다. 규칙 검사는 {@link MenuService}에서 한다.
+ *
+ * <p>누가 이 메뉴를 볼 수 있고 무엇을 할 수 있는지는 역할의 메뉴 권한({@code RoleMenu})이 정한다 (12단계).
+ * 화면 경로는 주소이면서 권한의 기준이기도 해서({@code MenuPaths}), 쓰고 있는 메뉴의 경로는 바꾸지 않는 것이 좋다.
  */
 @Entity
 @Table(name = "app_menu")
@@ -59,11 +62,6 @@ public class Menu extends BaseTimeEntity {
     @Column(name = "used_yn", nullable = false, length = 1)
     private boolean used;
 
-    /** 관리자 전용 여부 ('Y'/'N'). 화면에 보이는지의 문제이고, 실제 권한 검사는 각 API가 한다. */
-    @Convert(converter = YesNoConverter.class)
-    @Column(name = "admin_only_yn", nullable = false, length = 1)
-    private boolean adminOnly;
-
     /** JPA 전용 기본 생성자. */
     protected Menu() {
     }
@@ -77,10 +75,9 @@ public class Menu extends BaseTimeEntity {
      * @param icon      아이콘 이름 (null 가능)
      * @param sortOrder 정렬 순서
      * @param used      사용 여부
-     * @param adminOnly 관리자 전용 여부
      */
-    public Menu(Menu parent, String name, String path, String icon, int sortOrder, boolean used, boolean adminOnly) {
-        update(parent, name, path, icon, sortOrder, used, adminOnly);
+    public Menu(Menu parent, String name, String path, String icon, int sortOrder, boolean used) {
+        update(parent, name, path, icon, sortOrder, used);
     }
 
     /**
@@ -96,15 +93,13 @@ public class Menu extends BaseTimeEntity {
     }
 
     /** 모든 값을 교체한다 (PUT 의미). 상위 메뉴도 바꿀 수 있다(다른 묶음으로 옮기기). */
-    public void update(Menu parent, String name, String path, String icon, int sortOrder, boolean used,
-            boolean adminOnly) {
+    public void update(Menu parent, String name, String path, String icon, int sortOrder, boolean used) {
         this.parent = parent;
         this.name = name;
         this.path = normalizePath(path);
         this.icon = StringUtils.hasText(icon) ? icon.trim() : null;
         this.sortOrder = sortOrder;
         this.used = used;
-        this.adminOnly = adminOnly;
     }
 
     /** 상위(TOP) 메뉴인지. 지연 로딩 프록시여도 null 여부는 조회 없이 알 수 있다. */
@@ -140,9 +135,5 @@ public class Menu extends BaseTimeEntity {
 
     public boolean isUsed() {
         return used;
-    }
-
-    public boolean isAdminOnly() {
-        return adminOnly;
     }
 }

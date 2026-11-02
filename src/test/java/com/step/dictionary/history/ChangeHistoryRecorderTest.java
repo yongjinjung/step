@@ -10,7 +10,7 @@ import com.step.dictionary.history.snapshot.TermSnapshot;
 import com.step.dictionary.history.snapshot.WordSnapshot;
 import com.step.dictionary.user.AppUser;
 import com.step.dictionary.user.AppUserRepository;
-import com.step.dictionary.user.Role;
+import com.step.dictionary.support.TestRoles;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -57,7 +57,7 @@ class ChangeHistoryRecorderTest {
     @Test
     @DisplayName("등록 이력에 스냅샷 JSON, 로그인 사용자, 변경 일시를 남긴다 (대상 종류는 JSON에 넣지 않는다)")
     void recordCreate() {
-        AppUser admin = new AppUser("admin", "hash", "관리자", Role.ADMIN);
+        AppUser admin = new AppUser("admin", "hash", "관리자", TestRoles.adminOnly());
         loginAs("admin");
         given(userRepository.findByUsername("admin")).willReturn(Optional.of(admin));
 
