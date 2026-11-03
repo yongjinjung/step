@@ -8,10 +8,15 @@ spring:
     username: dictionary
     password: dictionary
 
+# SQL 로그: 실제 실행 SQL에 파라미터 값을 채워 정렬해 보여준다 (P6Spy, 형식은 P6SpySqlFormatter).
+decorator:
+  datasource:
+    enabled: true
+
 logging:
   level:
-    # 매퍼 SQL 로그 (실행 SQL과 파라미터)
-    com.step.dictionary: debug
+    # P6Spy가 남기는 SQL 로그 (INFO)
+    p6spy: info
 
 app:
   jwt:

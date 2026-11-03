@@ -23,6 +23,11 @@ mybatis:
     # null 파라미터를 JDBC NULL로 보낸다 (MySQL·H2 공통).
     jdbc-type-for-null: "NULL"
 
+# SQL 로그 (P6Spy, spy.properties). 기본은 끈다: 운영·테스트에서는 로그가 너무 많다. local 프로파일에서만 켠다.
+decorator:
+  datasource:
+    enabled: false
+
 # API 문서 (springdoc)
 springdoc:
   # 컨트롤러에 produces를 적지 않은 응답을 */* 대신 application/json으로 문서화한다.

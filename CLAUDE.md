@@ -18,6 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - MyBatis 3.5 (`mybatis-spring-boot-starter` 4.1.0, Spring Boot 4.1 기준) + Spring Data Commons(`Pageable`/`Page`만, `spring-boot-data-commons`)
 - MySQL 8.4 (로컬, `compose.yaml`) / H2 (`testRuntimeOnly`, 테스트 전용)
 - Flyway, springdoc-openapi 3.1.1
+- SQL 로그: P6Spy (`p6spy-spring-boot-starter` 2.0.1, Spring Boot 4 기준) + `sql-formatter` 2.0.5 (local 프로파일에서만 켬)
 - Spring Security 7.1 + OAuth2 Resource Server (JWT HS256, Nimbus JOSE 10.9)
 - Apache POI `poi-ooxml` 5.5.1 (엑셀 .xlsx, Boot BOM이 관리하지 않아 버전 명시)
 - 프론트엔드(`frontend/`): React 19 + TypeScript 5.9 + Vite 8, Ant Design 6, TanStack Query 5, React Router 7, openapi-typescript + openapi-fetch + openapi-react-query (Node 22.16 기준으로 검증)
@@ -113,6 +114,7 @@ com.step.dictionary
 - `application.yml`의 기본 프로파일은 `local`(MySQL)이다. **스프링 컨텍스트를 띄우는 모든 테스트는 `@ActiveProfiles("test")`가 필요하다.** 없으면 MySQL 접속을 시도하다 실패한다.
 - `test` 프로파일은 H2 in-memory(`MODE=MySQL;DATABASE_TO_LOWER=TRUE`)를 쓰고, 테스트에서도 Flyway 마이그레이션이 실행된다. 마이그레이션 SQL은 MySQL과 H2 양쪽에서 동작해야 한다. `ENGINE=`, 테이블/컬럼 `COMMENT` 같은 MySQL 전용 구문은 쓰지 않는다.
 - 스키마는 Flyway만 관리한다. MyBatis는 스키마를 검사하지 않으므로, 컬럼을 바꾸면 매퍼 XML의 SQL도 함께 고치고 테스트로 확인한다.
+- **SQL 로그:** `decorator.datasource.enabled`(기본 `false`, local만 `true`)로 켠다. P6Spy가 실제 실행 SQL에 파라미터 값을 채우고 `global/logging/P6SpySqlFormatter`가 줄바꿈·들여쓰기해 `p6spy` 로거(INFO)로 남긴다. 형식 지정은 `src/main/resources/spy.properties`(`logMessageFormat`)에 있다. 값이 그대로 찍히므로(비밀번호 해시 포함) 운영에서는 켜지 않는다.
 - `app.jwt.secret`(32바이트 이상)이 없으면 기동에 실패한다. 기본 `application.yml`은 환경변수 `JWT_SECRET`을 쓰고, `local`/`test` 프로파일 yml에 개발용 키가 있다. `@ConfigurationProperties` record는 `@ConfigurationPropertiesScan`으로 등록된다.
 - 최초 관리자: 사용자 테이블이 비어 있으면 기동 시 `app.initial-admin.*`로 ADMIN을 만든다. `test` 프로파일은 비밀번호를 두지 않아 만들지 않는다.
 - **`application-local.yml`은 git에 올리지 않는다**(`.gitignore`). DB 비밀번호, JWT 키, 초기 관리자 비밀번호가 들어가기 때문이다. 새로 받은 저장소에서는 `src/main/resources/application-local.yml.example`을 같은 폴더에 `application-local.yml`로 복사해 값을 채운 뒤 `bootRun`한다. 로컬 설정 항목을 추가하면 예시 파일에도 반영한다.

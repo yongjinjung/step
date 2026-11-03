@@ -19,6 +19,8 @@ repositories {
 }
 
 val mybatisVersion = "4.1.0" // mybatis-spring-boot-starter (Spring Boot 4.1 기준)
+val p6spyStarterVersion = "2.0.1" // Boot BOM이 관리하지 않음 (Spring Boot 4 기준 빌드)
+val sqlFormatterVersion = "2.0.5"
 val springdocVersion = "3.1.1"
 val restAssuredVersion = "6.0.1" // Boot 4 BOM이 관리하지 않음
 val poiVersion = "5.5.1" // Boot 4 BOM이 관리하지 않음
@@ -29,6 +31,9 @@ dependencies {
     implementation("org.mybatis.spring.boot:mybatis-spring-boot-starter:$mybatisVersion")
     // Pageable/Page와 웹 요청 파라미터(page, size, sort) 변환. JPA 없이 Spring Data 공통 모듈만 쓴다.
     implementation("org.springframework.boot:spring-boot-data-commons")
+    // SQL 로그: 실제 실행 SQL에 파라미터 값을 채워 정렬해 보여준다. local 프로파일에서만 켠다 (decorator.datasource.enabled).
+    implementation("com.github.gavlyukovskiy:p6spy-spring-boot-starter:$p6spyStarterVersion")
+    implementation("com.github.vertical-blank:sql-formatter:$sqlFormatterVersion")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     // 인증/권한: Spring Security + JWT(Bearer) 검증. Nimbus JOSE가 포함되어 별도 JWT 라이브러리가 필요 없다.
     implementation("org.springframework.boot:spring-boot-starter-security")
