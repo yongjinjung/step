@@ -1,30 +1,43 @@
 package com.step.dictionary.menu;
 
+import java.util.Collection;
 import java.util.List;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 
 /**
- * 사용자별 메뉴 권한 리포지토리.
- * 권한은 사용자 한 명 단위로 통째로 읽고 교체하므로 메뉴 ID 목록만 다룬다.
+ * 사용자별 메뉴 지정 리포지토리 ({@link UserMenuMapper} 사용).
+ * 지정은 수정하지 않고 사용자 단위로 지운 뒤 다시 넣는다({@code MenuPermissionService.replace}).
  */
-public interface UserMenuRepository extends JpaRepository<UserMenu, Long> {
+@Repository
+public class UserMenuRepository {
 
-    /** 관리 화면에서 보여줄, 그 사용자에게 지정된 메뉴 ID 목록. 비어 있으면 기본 규칙을 쓰는 사용자다. */
-    @Query("select um.menu.id from UserMenu um where um.user.id = :userId order by um.menu.id")
-    List<Long> findMenuIdsByUserId(@Param("userId") Long userId);
+    private final UserMenuMapper mapper;
 
-    /**
-     * 로그인한 사용자(아이디)에게 지정된 메뉴 ID 목록. 메뉴 트리를 거를 때 쓴다.
-     * 사용자 테이블을 따로 읽지 않도록 아이디로 바로 조회한다.
-     */
-    @Query("select um.menu.id from UserMenu um where um.user.username = :username")
-    List<Long> findMenuIdsByUsername(@Param("username") String username);
+    public UserMenuRepository(UserMenuMapper mapper) {
+        this.mapper = mapper;
+    }
 
-    /** 사용자의 권한을 모두 지운다 (권한 교체, 기본 규칙으로 되돌리기). */
-    void deleteAllByUserId(Long userId);
+    /** 사용자에게 지정된 메뉴 ID (오름차순). 비어 있으면 기본 규칙대로 보여준다. */
+    public List<Long> findMenuIdsByUserId(Long userId) {
+        return mapper.findMenuIdsByUserId(userId);
+    }
 
-    /** 메뉴에 걸린 권한을 모두 지운다. 메뉴 삭제 전에 호출해 FK 위반을 막는다. */
-    void deleteAllByMenuId(Long menuId);
+    /** 로그인 아이디로 지정된 메뉴 ID. 화면 메뉴 조회({@code MenuService.findNavigation})에 쓴다. */
+    public List<Long> findMenuIdsByUsername(String username) {
+        return mapper.findMenuIdsByUsername(username);
+    }
+
+    /** 한 건씩 insert한다. 같은 (사용자, 메뉴)가 이미 있으면 unique 제약 위반이므로 먼저 지워야 한다. */
+    public List<UserMenu> saveAll(Collection<UserMenu> userMenus) {
+        userMenus.forEach(mapper::insert);
+        return List.copyOf(userMenus);
+    }
+
+    public void deleteAllByUserId(Long userId) {
+        mapper.deleteByUserId(userId);
+    }
+
+    public void deleteAllByMenuId(Long menuId) {
+        mapper.deleteByMenuId(menuId);
+    }
 }

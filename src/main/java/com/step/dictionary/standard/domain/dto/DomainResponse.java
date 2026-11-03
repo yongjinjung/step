@@ -33,7 +33,7 @@ public record DomainResponse(
 
     /**
      * 엔티티를 응답으로 변환한다.
-     * 분류어 단어명을 읽으므로 트랜잭션 안에서 호출하거나 단어를 fetch join해 둬야 한다 (open-in-view가 꺼져 있다).
+     * 분류어 단어는 조회 쿼리에서 조인해 채워 둔다.
      */
     public static DomainResponse from(Domain domain) {
         return new DomainResponse(

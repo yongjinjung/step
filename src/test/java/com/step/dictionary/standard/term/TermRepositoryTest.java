@@ -2,29 +2,29 @@ package com.step.dictionary.standard.term;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.step.dictionary.global.config.JpaConfig;
+import com.step.dictionary.global.config.MyBatisConfig;
 import com.step.dictionary.standard.domain.DataType;
 import com.step.dictionary.standard.domain.Domain;
 import com.step.dictionary.standard.domain.DomainRepository;
 import com.step.dictionary.standard.term.dto.TermSearchCondition;
 import com.step.dictionary.standard.word.Word;
 import com.step.dictionary.standard.word.WordRepository;
-import jakarta.persistence.EntityManager;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mybatis.spring.boot.test.autoconfigure.MybatisTest;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
-@DataJpaTest
+@MybatisTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
-@Import(JpaConfig.class)
+@Import({MyBatisConfig.class, TermRepository.class, WordRepository.class, DomainRepository.class})
 class TermRepositoryTest {
 
     @Autowired
@@ -37,7 +37,7 @@ class TermRepositoryTest {
     private DomainRepository domainRepository;
 
     @Autowired
-    private EntityManager entityManager;
+    private JdbcTemplate jdbcTemplate;
 
     private Word customer;
     private Word account;
@@ -90,16 +90,14 @@ class TermRepositoryTest {
         Long id = customerNumber.getId();
 
         customerNumber.update(List.of(customer, account, number), numberDomain, null);
-        flushAndClear();
+        termRepository.save(customerNumber);
         assertThat(wordNames(id)).containsExactly("고객", "계좌", "번호");
         assertThat(seqs(id)).containsExactly(1, 2, 3);
 
-        termRepository.findById(id).orElseThrow().update(List.of(account, customer, number), numberDomain, null);
-        flushAndClear();
+        updateWords(id, List.of(account, customer, number));
         assertThat(wordNames(id)).containsExactly("계좌", "고객", "번호");
 
-        termRepository.findById(id).orElseThrow().update(List.of(customer, number), numberDomain, null);
-        flushAndClear();
+        updateWords(id, List.of(customer, number));
         assertThat(wordNames(id)).containsExactly("고객", "번호");
         assertThat(seqs(id)).containsExactly(1, 2);
     }
@@ -111,9 +109,11 @@ class TermRepositoryTest {
                 .getContent();
     }
 
-    private void flushAndClear() {
-        entityManager.flush();
-        entityManager.clear();
+    /** 저장된 용어를 다시 읽어 구성 단어를 바꾸고 저장한다. */
+    private void updateWords(Long termId, List<Word> words) {
+        Term term = termRepository.findById(termId).orElseThrow();
+        term.update(words, term.getDomain(), null);
+        termRepository.save(term);
     }
 
     private List<String> wordNames(Long termId) {
@@ -121,10 +121,7 @@ class TermRepositoryTest {
     }
 
     private List<Integer> seqs(Long termId) {
-        List<?> rows = entityManager
-                .createNativeQuery("SELECT seq FROM std_term_word WHERE term_id = :termId ORDER BY seq")
-                .setParameter("termId", termId)
-                .getResultList();
-        return rows.stream().map(seq -> ((Number) seq).intValue()).toList();
+        return jdbcTemplate.queryForList("SELECT seq FROM std_term_word WHERE term_id = ? ORDER BY seq",
+                Integer.class, termId);
     }
 }

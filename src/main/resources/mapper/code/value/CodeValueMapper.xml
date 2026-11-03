@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 공통 코드값 (com_code_value). 소속 그룹(com_code_group)을 조인해 group 필드에 채운다. -->
+<mapper namespace="com.step.dictionary.code.value.CodeValueMapper">
+
+    <resultMap id="codeValue" type="com.step.dictionary.code.value.CodeValue" autoMapping="true">
+        <id property="id" column="id"/>
+        <result property="used" column="used_yn"/>
+        <association property="group" columnPrefix="g_"
+                     resultMap="com.step.dictionary.code.group.CodeGroupMapper.codeGroup"/>
+    </resultMap>
+
+    <sql id="columns">
+        v.id, v.code_value, v.value_name, v.description, v.sort_order, v.used_yn, v.created_at, v.updated_at,
+        g.id AS g_id, g.code_id AS g_code_id, g.code_name AS g_code_name, g.description AS g_description,
+        g.used_yn AS g_used_yn, g.created_at AS g_created_at, g.updated_at AS g_updated_at
+    </sql>
+
+    <sql id="from">
+        FROM com_code_value v
+        JOIN com_code_group g ON g.id = v.group_id
+    </sql>
+
+    <select id="findAllByGroupId" resultMap="codeValue">
+        SELECT <include refid="columns"/> <include refid="from"/>
+        WHERE v.group_id = #{groupId}
+        ORDER BY v.sort_order ASC, v.id ASC
+    </select>
+
+    <select id="findByIdAndGroupId" resultMap="codeValue">
+        SELECT <include refid="columns"/> <include refid="from"/>
+        WHERE v.id = #{id} AND v.group_id = #{groupId}
+    </select>
+
+    <select id="countByGroupIdAndCodeValue" resultType="long">
+        SELECT COUNT(*) FROM com_code_value
+        WHERE group_id = #{groupId} AND code_value = #{codeValue}
+        <if test="excludeId != null">AND id &lt;&gt; #{excludeId}</if>
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO com_code_value (group_id, code_value, value_name, description, sort_order, used_yn,
+                                    created_at, updated_at)
+        VALUES (#{group.id}, #{codeValue}, #{valueName}, #{description}, #{sortOrder}, #{used},
+                #{createdAt}, #{updatedAt})
+    </insert>
+
+    <!-- 소속 그룹은 바뀌지 않는다. -->
+    <update id="update">
+        UPDATE com_code_value
+        SET code_value = #{codeValue}, value_name = #{valueName}, description = #{description},
+            sort_order = #{sortOrder}, used_yn = #{used}, updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM com_code_value WHERE id = #{id}
+    </delete>
+</mapper>

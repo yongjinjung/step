@@ -55,8 +55,7 @@ public record TermResponse(
 
     /**
      * 엔티티를 응답으로 변환한다.
-     * 지연 로딩인 구성 단어와 도메인을 읽으므로 트랜잭션 안에서 호출해야 한다 (open-in-view가 꺼져 있다).
-     * 목록 조회에서는 도메인은 fetch join, 단어는 @BatchSize로 한꺼번에 가져온다.
+     * 도메인은 조회 쿼리에서 조인하고, 구성 단어는 리포지토리가 IN 쿼리 한 번으로 채워 둔다.
      */
     public static TermResponse from(Term term) {
         Domain domain = term.getDomain();

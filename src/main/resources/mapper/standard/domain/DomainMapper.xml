@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  표준 도메인 (std_domain). 분류어 단어(std_word)를 조인해 association으로 채운다.
+  다대일 조인이라 행 수가 늘지 않아 LIMIT 페이징이 그대로 동작한다.
+-->
+<mapper namespace="com.step.dictionary.standard.domain.DomainMapper">
+
+    <!-- 다른 매퍼(용어, 컬럼)도 refid로 쓰는 공통 결과 매핑. 분류어 컬럼은 cw_ 접두사로 받는다. -->
+    <resultMap id="domain" type="com.step.dictionary.standard.domain.Domain" autoMapping="true">
+        <id property="id" column="id"/>
+        <association property="classifierWord" columnPrefix="cw_"
+                     resultMap="com.step.dictionary.standard.word.WordMapper.word"/>
+    </resultMap>
+
+    <sql id="columns">
+        d.id, d.name, d.data_type, d.data_length, d.data_scale, d.description, d.created_at, d.updated_at,
+        cw.id AS cw_id, cw.name AS cw_name, cw.abbreviation AS cw_abbreviation, cw.english_name AS cw_english_name,
+        cw.description AS cw_description, cw.classifier AS cw_classifier,
+        cw.created_at AS cw_created_at, cw.updated_at AS cw_updated_at
+    </sql>
+
+    <sql id="from">
+        FROM std_domain d
+        JOIN std_word cw ON cw.id = d.classifier_word_id
+    </sql>
+
+    <select id="findById" resultMap="domain">
+        SELECT <include refid="columns"/> <include refid="from"/> WHERE d.id = #{id}
+    </select>
+
+    <select id="findByName" resultMap="domain">
+        SELECT <include refid="columns"/> <include refid="from"/> WHERE d.name = #{name}
+    </select>
+
+    <select id="countByName" resultType="long">
+        SELECT COUNT(*) FROM std_domain
+        WHERE name = #{name}
+        <if test="excludeId != null">AND id &lt;&gt; #{excludeId}</if>
+    </select>
+
+    <select id="countByClassifierWordId" resultType="long">
+        SELECT COUNT(*) FROM std_domain WHERE classifier_word_id = #{wordId}
+    </select>
+
+    <sql id="searchWhere">
+        <bind name="keyword" value="@com.step.dictionary.global.mybatis.Likes@contains(c.keyword)"/>
+        <where>
+            <if test="keyword != null">AND LOWER(d.name) LIKE LOWER(#{keyword}) ESCAPE '!'</if>
+            <if test="c.classifierWordId != null">AND d.classifier_word_id = #{c.classifierWordId}</if>
+            <if test="c.dataType != null">AND d.data_type = #{c.dataType}</if>
+        </where>
+    </sql>
+
+    <select id="search" resultMap="domain">
+        SELECT <include refid="columns"/> <include refid="from"/>
+        <include refid="searchWhere"/>
+        ORDER BY d.name ASC
+        LIMIT #{p.pageSize} OFFSET #{p.offset}
+    </select>
+
+    <!-- 건수는 분류어 컬럼이 필요 없어 조인하지 않는다 (classifier_word_id가 NOT NULL FK라 건수가 같다). -->
+    <select id="count" resultType="long">
+        SELECT COUNT(*) FROM std_domain d
+        <include refid="searchWhere"/>
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO std_domain (name, classifier_word_id, data_type, data_length, data_scale, description,
+                                created_at, updated_at)
+        VALUES (#{name}, #{classifierWord.id}, #{dataType}, #{dataLength}, #{dataScale}, #{description},
+                #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="update">
+        UPDATE std_domain
+        SET name = #{name}, classifier_word_id = #{classifierWord.id}, data_type = #{dataType},
+            data_length = #{dataLength}, data_scale = #{dataScale}, description = #{description},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM std_domain WHERE id = #{id}
+    </delete>
+</mapper>

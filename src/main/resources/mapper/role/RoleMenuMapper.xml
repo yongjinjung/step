@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 역할별 메뉴 권한 (app_role_menu). 메뉴를 조인해 menu에 채운다(m_ 접두사). -->
+<mapper namespace="com.step.dictionary.role.RoleMenuMapper">
+
+    <resultMap id="roleMenu" type="com.step.dictionary.role.RoleMenu" autoMapping="true">
+        <id property="id" column="id"/>
+        <result property="canRead" column="read_yn"/>
+        <result property="canCreate" column="create_yn"/>
+        <result property="canUpdate" column="update_yn"/>
+        <result property="canDelete" column="delete_yn"/>
+        <association property="menu" columnPrefix="m_" resultMap="com.step.dictionary.menu.MenuMapper.menuRow"/>
+    </resultMap>
+
+    <sql id="columns">
+        rm.id, rm.read_yn, rm.create_yn, rm.update_yn, rm.delete_yn, rm.created_at,
+        m.id AS m_id, m.name AS m_name, m.path AS m_path, m.icon AS m_icon, m.sort_order AS m_sort_order,
+        m.used_yn AS m_used_yn, m.created_at AS m_created_at, m.updated_at AS m_updated_at
+    </sql>
+
+    <select id="findAllByRoleId" resultMap="roleMenu">
+        SELECT <include refid="columns"/>
+        FROM app_role_menu rm
+        JOIN app_menu m ON m.id = rm.menu_id
+        WHERE rm.role_id = #{roleId}
+        ORDER BY m.id ASC
+    </select>
+
+    <select id="findAllByUsername" resultMap="roleMenu">
+        SELECT <include refid="columns"/>
+        FROM app_role_menu rm
+        JOIN app_menu m ON m.id = rm.menu_id
+        JOIN app_role r ON r.id = rm.role_id
+        WHERE r.used_yn = 'Y'
+          AND rm.role_id IN (SELECT ur.role_id
+                             FROM app_user_role ur
+                             JOIN app_user u ON u.id = ur.user_id
+                             WHERE u.username = #{username})
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*) FROM app_role_menu
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO app_role_menu (role_id, menu_id, read_yn, create_yn, update_yn, delete_yn, created_at)
+        VALUES (#{role.id}, #{menu.id}, #{canRead}, #{canCreate}, #{canUpdate}, #{canDelete}, #{createdAt})
+    </insert>
+
+    <delete id="deleteByRoleId">
+        DELETE FROM app_role_menu WHERE role_id = #{roleId}
+    </delete>
+
+    <delete id="deleteByMenuId">
+        DELETE FROM app_role_menu WHERE menu_id = #{menuId}
+    </delete>
+</mapper>

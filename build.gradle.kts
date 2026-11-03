@@ -18,14 +18,17 @@ repositories {
     mavenCentral()
 }
 
-val querydslVersion = "7.6"
+val mybatisVersion = "4.1.0" // mybatis-spring-boot-starter (Spring Boot 4.1 기준)
 val springdocVersion = "3.1.1"
 val restAssuredVersion = "6.0.1" // Boot 4 BOM이 관리하지 않음
 val poiVersion = "5.5.1" // Boot 4 BOM이 관리하지 않음
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
-    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    // 데이터 접근: MyBatis (SQL은 src/main/resources/mapper/**/*.xml). JDBC 스타터와 트랜잭션 관리자를 함께 가져온다.
+    implementation("org.mybatis.spring.boot:mybatis-spring-boot-starter:$mybatisVersion")
+    // Pageable/Page와 웹 요청 파라미터(page, size, sort) 변환. JPA 없이 Spring Data 공통 모듈만 쓴다.
+    implementation("org.springframework.boot:spring-boot-data-commons")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     // 인증/권한: Spring Security + JWT(Bearer) 검증. Nimbus JOSE가 포함되어 별도 JWT 라이브러리가 필요 없다.
     implementation("org.springframework.boot:spring-boot-starter-security")
@@ -36,15 +39,11 @@ dependencies {
     // 엑셀(.xlsx) 업로드/다운로드 (8단계)
     implementation("org.apache.poi:poi-ooxml:$poiVersion")
 
-    // Querydsl: 유지보수 중인 OpenFeign 포크 (Hibernate 7 / Jakarta 지원)
-    implementation("io.github.openfeign.querydsl:querydsl-jpa:$querydslVersion")
-    annotationProcessor("io.github.openfeign.querydsl:querydsl-apt:$querydslVersion:jpa")
-    annotationProcessor("jakarta.persistence:jakarta.persistence-api")
-
     runtimeOnly("com.mysql:mysql-connector-j")
     testRuntimeOnly("com.h2database:h2")
 
-    testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
+    testImplementation("org.mybatis.spring.boot:mybatis-spring-boot-starter-test:$mybatisVersion")
+    testImplementation("org.springframework.boot:spring-boot-starter-jdbc-test")
     testImplementation("org.springframework.boot:spring-boot-starter-flyway-test")
     testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
@@ -53,7 +52,6 @@ dependencies {
 }
 
 val jacocoExcludes = listOf(
-    "**/Q*.class",
     "**/*Application.class",
     "**/global/config/**",
 )

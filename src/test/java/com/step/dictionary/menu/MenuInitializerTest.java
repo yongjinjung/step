@@ -25,7 +25,7 @@ class MenuInitializerTest {
     private MenuInitializer initializer;
 
     @Test
-    @DisplayName("메뉴가 하나도 없으면 기본 메뉴(상위 5개, 하위 20개)를 만든다")
+    @DisplayName("메뉴가 하나도 없으면 기본 메뉴(상위 6개, 하위 25개)를 만든다")
     void createWhenEmpty() {
         given(menuRepository.count()).willReturn(0L);
         given(menuRepository.save(any(Menu.class))).willAnswer(invocation -> invocation.getArgument(0));
@@ -33,7 +33,7 @@ class MenuInitializerTest {
         initializer.run(null);
 
         ArgumentCaptor<Menu> saved = ArgumentCaptor.forClass(Menu.class);
-        verify(menuRepository, times(25)).save(saved.capture());
+        verify(menuRepository, times(31)).save(saved.capture());
         Menu first = saved.getAllValues().get(0);
         assertThat(first.getName()).isEqualTo("표준 사전");
         assertThat(first.isTop()).isTrue();

@@ -88,14 +88,14 @@ public class RoleService {
         if (role.isBuiltIn() && (!role.getCode().equals(code) || role.isSuperAdmin() != request.superAdmin())) {
             throw new BusinessException(ErrorCode.BUILT_IN_ROLE);
         }
-        // 엔티티를 바꾸기 전에 검사한다. 변경 후 조회하면 auto flush로 unique 제약 위반이 먼저 터진다.
+        // 엔티티를 바꾸기 전에 검사해 중복이면 저장하지 않고 409로 끝낸다.
         if (roleRepository.existsByCodeAndIdNot(code, id)) {
             throw new BusinessException(ErrorCode.DUPLICATE_ROLE_CODE);
         }
 
         role.update(code, request.name(), request.description(), request.superAdmin(), request.used());
-        // 즉시 update를 실행해 갱신된 updatedAt으로 응답한다.
-        roleRepository.flush();
+        // MyBatis는 변경 감지가 없으므로 직접 update한다. updatedAt도 함께 갱신되어 응답에 쓰인다.
+        roleRepository.save(role);
         return RoleResponse.from(role);
     }
 
@@ -115,7 +115,6 @@ public class RoleService {
             throw new BusinessException(ErrorCode.ROLE_IN_USE);
         }
         roleMenuRepository.deleteAllByRoleId(id);
-        roleMenuRepository.flush();
         roleRepository.delete(role);
     }
 
@@ -150,10 +149,8 @@ public class RoleService {
             throw new BusinessException(ErrorCode.MENU_NOT_FOUND);
         }
 
+        // 통째로 교체한다. 삭제가 먼저 실행되므로 같은 (역할, 메뉴) 조합을 다시 넣어도 unique 제약에 걸리지 않는다.
         roleMenuRepository.deleteAllByRoleId(roleId);
-        // Hibernate는 insert를 delete보다 먼저 실행하므로, 삭제를 먼저 내보내지 않으면
-        // 같은 (역할, 메뉴) 조합을 다시 넣을 때 unique 제약(uk_app_role_menu)에 걸린다.
-        roleMenuRepository.flush();
         roleMenuRepository.saveAll(requested.stream()
                 .map(permission -> new RoleMenu(role, menus.get(permission.menuId()), permission.canRead(),
                         permission.canCreate(), permission.canUpdate(), permission.canDelete()))

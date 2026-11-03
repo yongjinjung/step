@@ -72,7 +72,7 @@ public class DomainService {
     }
 
     /**
-     * 도메인을 단건 조회한다. 응답에 분류어 단어명이 들어가며, 지연 로딩된 단어는 트랜잭션 안에서 초기화된다.
+     * 도메인을 단건 조회한다. 응답에 분류어 단어명이 들어간다.
      *
      * @throws BusinessException DOMAIN_NOT_FOUND (404)
      */
@@ -96,7 +96,7 @@ public class DomainService {
         Domain domain = getDomain(id);
         // 변경 이력용으로 수정 전 값을 떠 둔다.
         DomainSnapshot before = DomainSnapshot.from(domain);
-        // 엔티티를 변경하기 전에 검사해야 한다. 변경 후 조회하면 auto flush로 unique 제약 위반이 먼저 터진다.
+        // 엔티티를 변경하기 전에 검사해 중복이면 저장하지 않고 409로 끝낸다.
         validateSpec(request);
         if (domainRepository.existsByNameAndIdNot(request.name(), id)) {
             throw new BusinessException(ErrorCode.DUPLICATE_DOMAIN_NAME);
@@ -111,8 +111,8 @@ public class DomainService {
 
         domain.update(request.name(), classifierWord, request.dataType(),
                 request.dataLength(), request.dataScale(), request.description());
-        // 즉시 update를 실행해 갱신된 updatedAt으로 응답한다.
-        domainRepository.flush();
+        // MyBatis는 변경 감지가 없으므로 직접 update한다. updatedAt도 함께 갱신되어 응답에 쓰인다.
+        domainRepository.save(domain);
         historyRecorder.recordUpdate(before, DomainSnapshot.from(domain));
         return DomainResponse.from(domain);
     }

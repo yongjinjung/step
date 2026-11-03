@@ -107,15 +107,15 @@ public class CodeGroupService {
         CodeGroup group = getGroup(id);
         // 변경 이력용으로 수정 전 값을 떠 둔다.
         CodeGroupSnapshot before = CodeGroupSnapshot.from(group);
-        // 엔티티를 변경하기 전에 검사해야 한다. 변경 후 조회하면 auto flush로 unique 제약 위반이 먼저 터진다.
+        // 엔티티를 변경하기 전에 검사해 중복이면 저장하지 않고 409로 끝낸다.
         String codeId = CodeGroup.normalizeCodeId(request.codeId());
         if (groupRepository.existsByCodeIdAndIdNot(codeId, id)) {
             throw new BusinessException(ErrorCode.DUPLICATE_CODE_ID);
         }
 
         group.update(codeId, request.codeName(), request.description(), request.used());
-        // 즉시 update를 실행해 갱신된 updatedAt으로 응답한다.
-        groupRepository.flush();
+        // MyBatis는 변경 감지가 없으므로 직접 update한다. updatedAt도 함께 갱신되어 응답에 쓰인다.
+        groupRepository.save(group);
         historyRecorder.recordUpdate(before, CodeGroupSnapshot.from(group));
         return CodeGroupResponse.from(group);
     }
@@ -124,8 +124,8 @@ public class CodeGroupService {
      * 코드 그룹과 속한 코드값을 삭제한다.
      *
      * <p>순서는 {@code MetaTableService.delete}와 같다: 코드값을 불러와 값마다 삭제 이력을 남기고 엔티티 단위로 삭제한 뒤,
-     * 그룹 이력을 남기고 그룹을 지운다. 코드값 삭제를 먼저 등록해야 flush 때 FK 위반이 없다.
-     * JPQL 벌크 delete는 불러온 코드값이 영속성 컨텍스트에 남아 {@code TransientPropertyValueException}이 나므로 쓰지 않는다.
+     * 그룹 이력을 남기고 그룹을 지운다. 코드값을 먼저 지워야 FK 위반이 없다.
+     * 코드값마다 이력을 남기므로 한 건씩 지운다.
      *
      * @throws BusinessException CODE_GROUP_NOT_FOUND (404), CODE_GROUP_IN_USE (409)
      */

@@ -2,28 +2,27 @@ package com.step.dictionary.request;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.step.dictionary.global.config.JpaConfig;
+import com.step.dictionary.global.config.MyBatisConfig;
 import com.step.dictionary.request.dto.ChangeRequestSearchCondition;
 import com.step.dictionary.user.AppUser;
 import com.step.dictionary.user.AppUserRepository;
 import com.step.dictionary.support.TestRoles;
-import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mybatis.spring.boot.test.autoconfigure.MybatisTest;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 
-@DataJpaTest
+@MybatisTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
-@Import(JpaConfig.class)
+@Import({MyBatisConfig.class, ChangeRequestRepository.class, AppUserRepository.class})
 class ChangeRequestRepositoryTest {
 
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 15, 10, 0);
@@ -33,9 +32,6 @@ class ChangeRequestRepositoryTest {
 
     @Autowired
     private AppUserRepository userRepository;
-
-    @Autowired
-    private EntityManager entityManager;
 
     private ChangeRequest wordCreate;
     private ChangeRequest wordUpdate;
@@ -58,9 +54,6 @@ class ChangeRequestRepositoryTest {
         requestRepository.save(wordUpdate);
         domainDelete = requestRepository.save(
                 new ChangeRequest(TargetType.DOMAIN, RequestType.DELETE, 7L, NOW, null, null, admin));
-
-        entityManager.flush();
-        entityManager.clear();
     }
 
     @Test

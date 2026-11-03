@@ -87,7 +87,7 @@
   - 메뉴는 사용 여부와 관리자 전용 여부를 가진다. 화면 표시용 조회(`GET /api/menus`)는 사용 중인 메뉴만, 관리자 전용은 ADMIN에게만 돌려주고 보여줄 하위가 없는 상위 메뉴는 뺀다. 관리용 조회(`GET /api/menus/all`)는 전부 돌려준다.
   - 조회는 로그인한 사용자, 관리(전체 조회 포함)는 ADMIN이다. 메뉴의 관리자 전용 여부는 화면에 보이는지의 문제이고, 실제 권한 검사는 각 API가 그대로 한다.
   - 아이콘은 이름만 저장하고(`book`, `table` 등) 화면이 실제 아이콘으로 바꾼다. 경로가 화면으로 등록되지 않았으면 메뉴는 만들어지되 "준비 중" 화면이 나온다.
-  - 메뉴가 하나도 없으면 기동 시 기본 메뉴(상위 5개·하위 20개, 초급 개발자 온보딩용 "샘플" 묶음 포함)를 만든다. 이미 있으면 건드리지 않아 관리자가 고친 메뉴가 유지된다.
+  - 메뉴가 하나도 없으면 기동 시 기본 메뉴(상위 6개·하위 25개, 초급 개발자 온보딩용 "샘플" 묶음 포함)를 만든다. 이미 있으면 건드리지 않아 관리자가 고친 메뉴가 유지된다.
   - 메뉴는 화면 구성이라 변경 이력을 남기지 않는다.
 - 사용자별 메뉴 권한 **(11단계 구현됨)**: 관리자가 사용자마다 보여줄 메뉴를 지정한다(`app_user_menu`).
   - 지정이 없는 사용자는 기본 규칙(사용 중 + 역할)대로 본다. 지정하면 그 메뉴만 본다.
@@ -107,6 +107,17 @@
   - 권한은 요청마다 DB에서 다시 계산하므로 역할·권한 변경이 바로 반영된다(토큰 재발급 불필요). 토큰의 `roles`는 표시용이다.
   - 마이그레이션(V11)은 기존 `app_user.role` 값을 `app_user_role`로 옮기고 컬럼을 지운다. 메뉴의 관리자 전용 표시(`admin_only_yn`)도 역할 권한으로 대체돼 사라졌다.
   - 사용자별 메뉴 지정(11단계)은 그대로 남아 역할 권한을 더 좁히는 설정으로 동작한다.
+- 약제 업무 **(13단계 구현됨)**: 처방 → 조제 → 검수 → 불출 → 반납을 업무마다 마스터 + 하위(품목) 테이블로 관리한다(`phm_*`, V12).
+  - 처방(`phm_prescription` + `phm_prescription_item`): 처방전번호는 대문자로 저장하며 유일하다(`DUPLICATE_PRESCRIPTION_NO`). 품목 순번은 요청 순서대로 1부터 매긴다. 처방은 수정하지 않고, 조제 전(ORDERED)에만 취소한다(`PRESCRIPTION_NOT_CANCELLABLE`).
+  - 조제(`phm_dispensing` + `phm_dispensing_item`): 조제 품목은 처방 품목을 빠짐없이 한 번씩 다룬다(`INVALID_DISPENSING_ITEMS`). 취소된 처방은 조제할 수 없다(`PRESCRIPTION_CANCELLED`). 처방에 검수 불합격이 아닌 조제가 있으면 다시 조제할 수 없다(`DISPENSING_ALREADY_EXISTS`). 조제하면 처방은 DISPENSED가 된다.
+  - 검수(`phm_inspection` + `phm_inspection_item`): 조제 상태(DISPENSED)인 조제만 검수한다(`DISPENSING_NOT_INSPECTABLE`). 검수 품목도 조제 품목을 빠짐없이 다루고(`INVALID_INSPECTION_ITEMS`), 불합격 품목은 불량 사유가 필요하다(`DEFECT_REASON_REQUIRED`). 전 품목 합격이면 조제가 INSPECTED, 아니면 REJECTED(같은 처방으로 재조제)가 된다.
+  - 불출(`phm_issue` + `phm_issue_item`): 검수 합격(INSPECTED)한 조제만 불출한다(`DISPENSING_NOT_ISSUABLE`). 품목은 요청으로 받지 않고 조제 품목을 수량 그대로 옮긴다. 불출하면 조제는 ISSUED가 된다.
+  - 반납(`phm_return` + `phm_return_item`): 불출 하나에 여러 번, 일부 품목만 반납할 수 있다. 품목은 그 불출의 것이어야 하고 중복될 수 없으며(`INVALID_RETURN_ITEMS`), 품목별 반납 합계는 불출 수량을 넘을 수 없다(`RETURN_QUANTITY_EXCEEDED`). 처리 방법은 재입고(RESTOCK) 또는 폐기(DISPOSE)다.
+  - 등록자(조제자·검수자·불출자·반납자)는 로그인 아이디, 일시는 등록 시각으로 서버가 채운다. 처방 일시만 요청으로 받는다.
+  - 수량은 `DECIMAL(12,3)`이며 응답도 항상 소수 3자리다(`Quantities`). 코드성 값(진료과·약품코드·단위·경로·빈도·불출처)은 대문자로 저장한다.
+  - 약품 마스터는 아직 없어 품목에 약품코드·약품명을 직접 저장한다. 업무 기록 자체가 이력이라 변경 이력(`change_history`)은 남기지 않는다.
+  - 권한: 메뉴 `/prescriptions`, `/dispensings`, `/inspections`, `/issues`, `/returns`(상위 메뉴 "약제"). 처방 취소는 처방 메뉴의 수정 권한이다. USER 기본 권한은 조회만이며, 업무 담당자에게는 관리자가 역할을 만들어 등록 권한을 준다.
+  - 동시에 같은 불출 품목을 반납하면 두 요청이 모두 한도 검사를 통과할 수 있다(잠금 없음). 필요해지면 불출 행을 비관적 잠금으로 읽는다.
 
 ## ERD (전체 계획)
 
@@ -261,6 +272,118 @@ erDiagram
 
 모든 표준/메타 테이블은 `created_at`, `updated_at`을 가진다 (`BaseTimeEntity`).
 
+### 약제 업무 ERD (13단계)
+
+마스터 테이블은 `created_at`, `updated_at`을 가지고, 하위(품목) 테이블은 마스터와 함께 저장되므로 갖지 않는다.
+
+```mermaid
+erDiagram
+    phm_prescription ||--|{ phm_prescription_item : "품목"
+    phm_prescription ||--o{ phm_dispensing : "조제 (불합격 시 재조제)"
+    phm_dispensing ||--|{ phm_dispensing_item : "품목"
+    phm_prescription_item ||--o{ phm_dispensing_item : "조제 대상"
+    phm_dispensing ||--o| phm_inspection : "검수"
+    phm_inspection ||--|{ phm_inspection_item : "품목"
+    phm_dispensing_item ||--o{ phm_inspection_item : "검수 대상"
+    phm_dispensing ||--o| phm_issue : "불출"
+    phm_issue ||--|{ phm_issue_item : "품목"
+    phm_dispensing_item ||--o{ phm_issue_item : "불출 대상"
+    phm_issue ||--o{ phm_return : "반납 (여러 번)"
+    phm_return ||--|{ phm_return_item : "품목"
+    phm_issue_item ||--o{ phm_return_item : "반납 대상"
+
+    phm_prescription {
+        bigint id PK
+        varchar prescription_no UK "처방전번호, 대문자"
+        varchar patient_no "환자번호"
+        varchar patient_name
+        varchar department_code "진료과, 대문자"
+        varchar prescriber_name "처방의"
+        varchar prescription_type "OUTPATIENT/INPATIENT/DISCHARGE/EMERGENCY"
+        varchar status "ORDERED/DISPENSED/CANCELLED"
+        datetime prescribed_at
+        varchar remark
+        datetime cancelled_at "nullable"
+        varchar cancel_reason "nullable"
+    }
+    phm_prescription_item {
+        bigint id PK
+        bigint prescription_id FK
+        int line_no "처방 내 순번, 1부터"
+        varchar drug_code "대문자"
+        varchar drug_name
+        decimal dose "1회 투여량 (12,3)"
+        varchar dose_unit "MG, TAB 등"
+        varchar route "PO, IV 등"
+        varchar frequency "TID, PRN 등"
+        int days "투여 일수"
+        decimal total_quantity "총 처방량 (12,3)"
+        varchar usage_note
+    }
+    phm_dispensing {
+        bigint id PK
+        bigint prescription_id FK
+        varchar status "DISPENSED/INSPECTED/REJECTED/ISSUED"
+        varchar dispensed_by "조제자 아이디"
+        datetime dispensed_at
+        varchar remark
+    }
+    phm_dispensing_item {
+        bigint id PK
+        bigint dispensing_id FK
+        bigint prescription_item_id FK
+        decimal quantity "조제 수량"
+        varchar lot_no "제조번호, nullable"
+        date expiry_date "nullable"
+    }
+    phm_inspection {
+        bigint id PK
+        bigint dispensing_id FK "UK"
+        varchar result "PASS/FAIL, 품목 결과로 계산"
+        varchar inspected_by
+        datetime inspected_at
+        varchar remark
+    }
+    phm_inspection_item {
+        bigint id PK
+        bigint inspection_id FK
+        bigint dispensing_item_id FK
+        varchar result "PASS/FAIL"
+        varchar defect_reason "불합격이면 필수"
+    }
+    phm_issue {
+        bigint id PK
+        bigint dispensing_id FK "UK"
+        varchar destination_code "불출처, 대문자"
+        varchar destination_name
+        varchar receiver_name "수령자"
+        varchar issued_by
+        datetime issued_at
+        varchar remark
+    }
+    phm_issue_item {
+        bigint id PK
+        bigint issue_id FK
+        bigint dispensing_item_id FK
+        decimal quantity "조제 수량 그대로"
+    }
+    phm_return {
+        bigint id PK
+        bigint issue_id FK
+        varchar reason "반납 사유"
+        varchar returned_by
+        datetime returned_at
+        varchar remark
+    }
+    phm_return_item {
+        bigint id PK
+        bigint return_id FK
+        bigint issue_item_id FK
+        decimal quantity "반납 합계는 불출 수량 이하"
+        varchar disposition "RESTOCK/DISPOSE"
+    }
+```
+
 ## 구현 단계
 
 | 단계 | 내용 | 상태 |
@@ -277,6 +400,8 @@ erDiagram
 | 10 | 화면 메뉴 관리 (TOP/LEFT 2단 메뉴, 메뉴 관리 화면) | 완료 (H2 테스트 + 로컬 MySQL 8.4 실행 검증) |
 | 11 | 사용자별 메뉴 권한 (메뉴 권한 화면) | 완료 (H2 테스트 + 로컬 MySQL 8.4 실행 검증) |
 | 12 | 역할 관리 (메뉴별 조회/등록/수정/삭제 권한, 서버 검사, 역할 관리 화면) | 완료 (H2 테스트 + 로컬 MySQL 8.4 실행 검증) |
+| 13 | 약제 업무: 처방·조제·검수·불출·반납 마스터/품목 테이블과 API | 백엔드 완료 (H2 테스트 + 로컬 MySQL 8.4 마이그레이션·기동 검증). 화면은 아직 없음 |
+| 14 | 데이터 접근 기술 전환: JPA·Querydsl → MyBatis (스키마·API 변경 없음, 리포지토리가 매퍼로 애그리거트 저장·조회) | 완료 (H2 테스트 331건 + 로컬 MySQL 8.4 기동·조회 API 검증) |
 
 ## API (1단계)
 
@@ -470,5 +595,30 @@ erDiagram
 사용자 API 변경: 생성·수정 요청이 `role` 대신 `roleIds`(하나 이상)를 받고, 응답에 `roles[]`와 `superAdmin`이 들어간다. 검색 조건도 `role` 대신 `roleId`다.
 
 메뉴 조회 변경: `GET /api/menus`, `GET /api/menus/all`의 각 메뉴에 그 사용자의 권한(`canRead`, `canCreate`, `canUpdate`, `canDelete`)이 함께 담긴다.
+
+## API (13단계)
+
+모든 등록은 201 + Location을 돌려준다. 목록은 품목을 뺀 요약이고 단건 조회에 품목이 들어간다. 목록 검색의 `keyword`는 처방전번호·환자번호·환자명 부분 일치, `from`/`to`는 그 업무의 일자(yyyy-MM-dd, 양끝 포함)이며 최신순이다.
+
+| Method | Path | 권한 | 설명 |
+|---|---|---|---|
+| POST | `/api/prescriptions` | 처방 등록 | 처방 등록 (품목 포함) |
+| GET | `/api/prescriptions?keyword=&status=&prescriptionType=&departmentCode=&from=&to=` | 처방 조회 | 검색 |
+| GET | `/api/prescriptions/{id}` | 처방 조회 | 단건 조회 (품목 포함) |
+| POST | `/api/prescriptions/{id}/cancel` | 처방 수정 | 취소 `{"reason"}`. 조제 전에만 |
+| POST | `/api/dispensings` | 조제 등록 | `{"prescriptionId", "remark", "items": [{"prescriptionItemId", "quantity", "lotNo", "expiryDate"}]}` |
+| GET | `/api/dispensings?keyword=&prescriptionId=&status=&from=&to=` | 조제 조회 | 검색 |
+| GET | `/api/dispensings/{id}` | 조제 조회 | 단건 조회 |
+| POST | `/api/inspections` | 검수 등록 | `{"dispensingId", "remark", "items": [{"dispensingItemId", "result", "defectReason"}]}` |
+| GET | `/api/inspections?keyword=&result=&from=&to=` | 검수 조회 | 검색 |
+| GET | `/api/inspections/{id}` | 검수 조회 | 단건 조회 |
+| POST | `/api/issues` | 불출 등록 | `{"dispensingId", "destinationCode", "destinationName", "receiverName", "remark"}` (품목은 조제 품목 그대로) |
+| GET | `/api/issues?keyword=&destinationCode=&from=&to=` | 불출 조회 | 검색 |
+| GET | `/api/issues/{id}` | 불출 조회 | 단건 조회. 품목마다 `returnedQuantity`(반납 합계) 포함 |
+| POST | `/api/returns` | 반납 등록 | `{"issueId", "reason", "remark", "items": [{"issueItemId", "quantity", "disposition"}]}` |
+| GET | `/api/returns?keyword=&issueId=&from=&to=` | 반납 조회 | 검색 |
+| GET | `/api/returns/{id}` | 반납 조회 | 단건 조회 |
+
+처방 등록 요청: `{"prescriptionNo", "patientNo", "patientName", "departmentCode", "prescriberName", "prescriptionType", "prescribedAt", "remark", "items": [{"drugCode", "drugName", "dose", "doseUnit", "route", "frequency", "days", "totalQuantity", "usageNote"}]}`
 
 오류 응답 형식: `{"code": "ErrorCode 이름", "message": "...", "fieldErrors": [{"field", "reason"}]}`

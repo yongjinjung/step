@@ -47,6 +47,12 @@ public class RoleInitializer implements ApplicationRunner {
             Map.entry("/non-standard-columns", Set.of(PermissionAction.READ)),
             Map.entry("/requests", Set.of(PermissionAction.READ, PermissionAction.CREATE)),
             Map.entry("/histories", Set.of(PermissionAction.READ)),
+            // 약제 업무는 조회만 연다. 처방·조제 등을 등록할 사람(약사 등)에게는 관리자가 역할을 따로 만들어 준다.
+            Map.entry("/prescriptions", Set.of(PermissionAction.READ)),
+            Map.entry("/dispensings", Set.of(PermissionAction.READ)),
+            Map.entry("/inspections", Set.of(PermissionAction.READ)),
+            Map.entry("/issues", Set.of(PermissionAction.READ)),
+            Map.entry("/returns", Set.of(PermissionAction.READ)),
             // 샘플 화면은 업무 데이터를 다루지 않는 온보딩 참고 자료라 누구나 볼 수 있게 조회만 연다.
             Map.entry("/react", Set.of(PermissionAction.READ)),
             Map.entry("/typescript", Set.of(PermissionAction.READ)),

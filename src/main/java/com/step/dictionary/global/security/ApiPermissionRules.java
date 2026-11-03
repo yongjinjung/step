@@ -99,6 +99,10 @@ public final class ApiPermissionRules {
         rules.add(new Rule(HttpMethod.PUT, "/api/users/*/menus",
                 req(MenuPaths.MENU_PERMISSIONS, PermissionAction.UPDATE)));
 
+        // 처방 취소는 등록된 처방의 상태를 바꾸므로 수정 권한으로 본다.
+        rules.add(new Rule(HttpMethod.POST, "/api/prescriptions/*/cancel",
+                req(MenuPaths.PRESCRIPTIONS, PermissionAction.UPDATE)));
+
         // ---- 기본 규칙: 메서드로 동작을 정한다 ----
         rules.addAll(crud("/api/words/**", MenuPaths.WORDS));
         rules.addAll(crud("/api/domains/**", MenuPaths.DOMAINS));
@@ -111,6 +115,11 @@ public final class ApiPermissionRules {
         rules.addAll(crud("/api/users/**", MenuPaths.USERS));
         rules.addAll(crud("/api/menus/**", MenuPaths.MENUS));
         rules.addAll(crud("/api/roles/**", MenuPaths.ROLES));
+        rules.addAll(crud("/api/prescriptions/**", MenuPaths.PRESCRIPTIONS));
+        rules.addAll(crud("/api/dispensings/**", MenuPaths.DISPENSINGS));
+        rules.addAll(crud("/api/inspections/**", MenuPaths.INSPECTIONS));
+        rules.addAll(crud("/api/issues/**", MenuPaths.ISSUES));
+        rules.addAll(crud("/api/returns/**", MenuPaths.RETURNS));
         return List.copyOf(rules);
     }
 

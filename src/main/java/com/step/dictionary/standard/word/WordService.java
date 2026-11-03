@@ -65,7 +65,7 @@ public class WordService {
             throw new BusinessException(ErrorCode.DUPLICATE_WORD_ABBREVIATION);
         }
 
-        // IDENTITY 전략이라 save() 시점에 insert되고 id와 감사 필드가 채워진다.
+        // save()가 insert하면서 생성된 id와 생성·수정 일시를 채운다.
         Word word = wordRepository.save(new Word(
                 request.name(), abbreviation, request.englishName(), request.description(), request.classifier()));
         historyRecorder.recordCreate(WordSnapshot.from(word));
@@ -97,7 +97,7 @@ public class WordService {
         Word word = getWord(id);
         // 변경 이력용으로 수정 전 값을 떠 둔다. 엔티티가 바뀌기 전이어야 한다.
         WordSnapshot before = WordSnapshot.from(word);
-        // 엔티티를 변경하기 전에 검사해야 한다. 변경 후 조회하면 auto flush로 unique 제약 위반이 먼저 터진다.
+        // 엔티티를 변경하기 전에 검사한다. 검사에 쓰는 현재 값(이름·약어·분류어)이 바뀌기 전이어야 한다.
         String abbreviation = Word.normalizeAbbreviation(request.abbreviation());
         if (wordRepository.existsByNameAndIdNot(request.name(), id)) {
             throw new BusinessException(ErrorCode.DUPLICATE_WORD_NAME);
@@ -116,8 +116,8 @@ public class WordService {
         }
 
         word.update(request.name(), abbreviation, request.englishName(), request.description(), request.classifier());
-        // 즉시 flush해 update를 실행한다. 감사 필드(updatedAt)가 갱신된 값으로 응답하기 위해서다.
-        wordRepository.flush();
+        // MyBatis는 변경 감지가 없으므로 직접 update한다. updatedAt도 함께 갱신되어 응답에 쓰인다.
+        wordRepository.save(word);
         historyRecorder.recordUpdate(before, WordSnapshot.from(word));
         return WordResponse.from(word);
     }

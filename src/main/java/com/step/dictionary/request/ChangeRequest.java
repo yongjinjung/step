@@ -2,20 +2,7 @@ package com.step.dictionary.request;
 
 import com.step.dictionary.global.entity.BaseTimeEntity;
 import com.step.dictionary.user.AppUser;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
 import java.time.LocalDateTime;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 /**
  * 표준 데이터 변경 신청.
@@ -26,26 +13,16 @@ import org.hibernate.type.SqlTypes;
  * <p>상태 전이 메서드({@link #approve}, {@link #reject}, {@link #cancel})는 상태만 바꾼다.
  * "대기 중일 때만 처리 가능", "본인만 취소" 같은 검사는 {@link ChangeRequestService}에서 먼저 한다.
  */
-@Entity
-@Table(name = "std_request")
 public class ChangeRequest extends BaseTimeEntity {
 
     /** 신청 ID (AUTO_INCREMENT). */
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     // enum 컬럼은 MySQL 방언이 ENUM 타입으로 보지 않도록 VARCHAR로 지정한다 (이하 동일).
     /** 대상 종류. */
-    @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(nullable = false, length = 20)
     private TargetType targetType;
 
     /** 신청 종류. */
-    @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(nullable = false, length = 20)
     private RequestType requestType;
 
     /** 대상 ID. 등록 신청은 승인 전까지 null이고, 승인되면 새 대상의 ID가 들어간다. */
@@ -55,37 +32,27 @@ public class ChangeRequest extends BaseTimeEntity {
     private LocalDateTime targetUpdatedAt;
 
     /** 신청 내용 JSON (WordRequest/DomainRequest/TermRequest 직렬화). 삭제 신청은 null. */
-    @Column(length = 4000)
     private String payload;
 
     /** 신청 사유 (선택). */
-    @Column(length = 1000)
     private String reason;
 
     /** 상태. */
-    @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(nullable = false, length = 20)
     private RequestStatus status;
 
     /** 신청자. */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "requester_id", nullable = false)
     private AppUser requester;
 
     /** 검토자 (승인/반려한 관리자). 대기·취소 상태면 null. */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "reviewer_id")
     private AppUser reviewer;
 
     /** 검토 의견. 반려 시 필수, 승인 시 선택. */
-    @Column(length = 1000)
     private String reviewComment;
 
     /** 처리 일시 (승인/반려/취소 시각). */
     private LocalDateTime reviewedAt;
 
-    /** JPA 전용 기본 생성자. */
+    /** MyBatis가 조회 결과로 객체를 만들 때 쓰는 기본 생성자. */
     protected ChangeRequest() {
     }
 
@@ -147,7 +114,7 @@ public class ChangeRequest extends BaseTimeEntity {
         return status == RequestStatus.REQUESTED;
     }
 
-    /** 이 사용자가 신청했는지. 신청자가 지연 로딩 프록시면 이 호출에서 조회된다. */
+    /** 이 사용자가 신청했는지. */
     public boolean isRequestedBy(String username) {
         return requester.getUsername().equals(username);
     }

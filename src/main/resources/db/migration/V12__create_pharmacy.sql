@@ -1,0 +1,267 @@
+-- =====================================================================
+-- V12: 약제 업무 (처방 → 조제 → 검수 → 불출 → 반납), 업무마다 마스터 + 하위(품목) 테이블
+-- ---------------------------------------------------------------------
+-- 흐름과 상태:
+--   처방(ORDERED) ──조제 등록──▶ 처방(DISPENSED), 조제(DISPENSED)
+--   조제(DISPENSED) ──검수 등록──▶ 조제(INSPECTED: 전 품목 합격) / 조제(REJECTED: 불합격 품목 있음)
+--   조제(REJECTED)이면 같은 처방으로 다시 조제할 수 있다.
+--   조제(INSPECTED) ──불출 등록──▶ 조제(ISSUED). 불출 품목은 조제 품목을 그대로 옮긴다.
+--   불출 ──반납 등록(여러 번 가능)──▶ 품목별 반납 수량 합계는 불출 수량을 넘을 수 없다.
+--   처방 취소(CANCELLED)는 조제 전(ORDERED)에만 할 수 있다.
+--
+-- 약품은 아직 마스터가 없어 품목마다 약품코드·약품명을 직접 저장한다.
+-- 등록자(dispensed_by 등)는 로그인 아이디(app_user.username)다. 계정은 삭제하지 않으므로 문자열로 남긴다.
+-- 업무 기록 자체가 이력이므로 변경 이력(change_history)은 남기지 않는다.
+--
+-- 주의: MySQL 8.4와 테스트용 H2(MODE=MySQL) 양쪽에서 실행된다. ENGINE=, COMMENT 구문을 쓰지 않는다.
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- 처방 마스터
+-- ---------------------------------------------------------------------
+CREATE TABLE phm_prescription (
+    -- 처방 ID (자동 증가 기본키)
+    id                BIGINT        NOT NULL AUTO_INCREMENT,
+    -- 처방전번호. 처방 전달 시스템(OCS)이 발급한 번호를 받아 저장하며 전체에서 유일하다. 대문자로 저장한다.
+    prescription_no   VARCHAR(30)   NOT NULL,
+    -- 환자번호(등록번호)
+    patient_no        VARCHAR(20)   NOT NULL,
+    -- 환자명
+    patient_name      VARCHAR(100)  NOT NULL,
+    -- 처방 진료과 코드. 예) IM(내과)
+    department_code   VARCHAR(20)   NOT NULL,
+    -- 처방의 이름
+    prescriber_name   VARCHAR(100)  NOT NULL,
+    -- 처방 구분: OUTPATIENT(외래) / INPATIENT(입원) / DISCHARGE(퇴원) / EMERGENCY(응급)
+    prescription_type VARCHAR(20)   NOT NULL,
+    -- 처방 상태: ORDERED(처방) / DISPENSED(조제됨) / CANCELLED(취소)
+    status            VARCHAR(20)   NOT NULL,
+    -- 처방 일시
+    prescribed_at     DATETIME(6)   NOT NULL,
+    -- 비고 (선택)
+    remark            VARCHAR(1000),
+    -- 취소 일시 (취소한 처방만)
+    cancelled_at      DATETIME(6),
+    -- 취소 사유 (취소한 처방만)
+    cancel_reason     VARCHAR(500),
+    created_at        DATETIME(6)   NOT NULL,
+    updated_at        DATETIME(6)   NOT NULL,
+    PRIMARY KEY (id),
+    -- 처방전번호 유일 제약 (409 DUPLICATE_PRESCRIPTION_NO)
+    CONSTRAINT uk_phm_prescription_no UNIQUE (prescription_no)
+);
+CREATE INDEX ix_phm_prescription_patient ON phm_prescription (patient_no);
+CREATE INDEX ix_phm_prescription_prescribed_at ON phm_prescription (prescribed_at);
+
+-- ---------------------------------------------------------------------
+-- 처방 품목 (처방의 하위). 한 행이 처방 약품 하나다.
+-- ---------------------------------------------------------------------
+CREATE TABLE phm_prescription_item (
+    -- 처방 품목 ID
+    id              BIGINT         NOT NULL AUTO_INCREMENT,
+    -- 처방 ID (phm_prescription.id)
+    prescription_id BIGINT         NOT NULL,
+    -- 처방 안에서의 순번 (1부터, 요청 순서대로 매긴다)
+    line_no         INT            NOT NULL,
+    -- 약품코드 (대문자). 예) AMXCLN500
+    drug_code       VARCHAR(30)    NOT NULL,
+    -- 약품명. 예) 아목시실린캡슐 500mg
+    drug_name       VARCHAR(200)   NOT NULL,
+    -- 1회 투여량. 예) 500
+    dose            DECIMAL(12,3)  NOT NULL,
+    -- 투여 단위. 예) MG, ML, TAB
+    dose_unit       VARCHAR(20)    NOT NULL,
+    -- 투여 경로. 예) PO(경구), IV(정맥)
+    route           VARCHAR(20)    NOT NULL,
+    -- 투여 빈도. 예) TID(1일 3회)
+    frequency       VARCHAR(20)    NOT NULL,
+    -- 투여 일수 (1 이상)
+    days            INT            NOT NULL,
+    -- 총 처방량 (조제 단위 기준). 예) 21
+    total_quantity  DECIMAL(12,3)  NOT NULL,
+    -- 용법 설명 (선택). 예) 식후 30분
+    usage_note      VARCHAR(500),
+    PRIMARY KEY (id),
+    CONSTRAINT uk_phm_prescription_item_line UNIQUE (prescription_id, line_no),
+    CONSTRAINT fk_phm_prescription_item_prescription FOREIGN KEY (prescription_id) REFERENCES phm_prescription (id)
+);
+
+-- ---------------------------------------------------------------------
+-- 조제 마스터. 처방 하나에 여러 번 있을 수 있지만, 불합격(REJECTED)이 아닌 조제는 하나뿐이다(서비스에서 검사).
+-- ---------------------------------------------------------------------
+CREATE TABLE phm_dispensing (
+    -- 조제 ID
+    id              BIGINT        NOT NULL AUTO_INCREMENT,
+    -- 처방 ID (phm_prescription.id)
+    prescription_id BIGINT        NOT NULL,
+    -- 조제 상태: DISPENSED(조제) / INSPECTED(검수 합격) / REJECTED(검수 불합격) / ISSUED(불출)
+    status          VARCHAR(20)   NOT NULL,
+    -- 조제자 아이디 (로그인 사용자)
+    dispensed_by    VARCHAR(50)   NOT NULL,
+    -- 조제 일시
+    dispensed_at    DATETIME(6)   NOT NULL,
+    -- 비고 (선택)
+    remark          VARCHAR(1000),
+    created_at      DATETIME(6)   NOT NULL,
+    updated_at      DATETIME(6)   NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT fk_phm_dispensing_prescription FOREIGN KEY (prescription_id) REFERENCES phm_prescription (id)
+);
+CREATE INDEX ix_phm_dispensing_dispensed_at ON phm_dispensing (dispensed_at);
+
+-- ---------------------------------------------------------------------
+-- 조제 품목 (조제의 하위). 처방 품목마다 정확히 하나씩 있다(서비스에서 검사).
+-- ---------------------------------------------------------------------
+CREATE TABLE phm_dispensing_item (
+    -- 조제 품목 ID
+    id                   BIGINT         NOT NULL AUTO_INCREMENT,
+    -- 조제 ID (phm_dispensing.id)
+    dispensing_id        BIGINT         NOT NULL,
+    -- 처방 품목 ID (phm_prescription_item.id)
+    prescription_item_id BIGINT         NOT NULL,
+    -- 조제 수량 (0보다 크다)
+    quantity             DECIMAL(12,3)  NOT NULL,
+    -- 제조번호(로트) (선택)
+    lot_no               VARCHAR(50),
+    -- 유효기간 만료일 (선택)
+    expiry_date          DATE,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_phm_dispensing_item UNIQUE (dispensing_id, prescription_item_id),
+    CONSTRAINT fk_phm_dispensing_item_dispensing FOREIGN KEY (dispensing_id) REFERENCES phm_dispensing (id),
+    CONSTRAINT fk_phm_dispensing_item_prescription_item
+        FOREIGN KEY (prescription_item_id) REFERENCES phm_prescription_item (id)
+);
+
+-- ---------------------------------------------------------------------
+-- 검수 마스터. 조제 하나에 검수 하나다.
+-- ---------------------------------------------------------------------
+CREATE TABLE phm_inspection (
+    -- 검수 ID
+    id            BIGINT        NOT NULL AUTO_INCREMENT,
+    -- 조제 ID (phm_dispensing.id)
+    dispensing_id BIGINT        NOT NULL,
+    -- 검수 결과: PASS(전 품목 합격) / FAIL(불합격 품목 있음). 품목 결과로 계산한다.
+    result        VARCHAR(20)   NOT NULL,
+    -- 검수자 아이디 (로그인 사용자)
+    inspected_by  VARCHAR(50)   NOT NULL,
+    -- 검수 일시
+    inspected_at  DATETIME(6)   NOT NULL,
+    -- 비고 (선택)
+    remark        VARCHAR(1000),
+    created_at    DATETIME(6)   NOT NULL,
+    updated_at    DATETIME(6)   NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_phm_inspection_dispensing UNIQUE (dispensing_id),
+    CONSTRAINT fk_phm_inspection_dispensing FOREIGN KEY (dispensing_id) REFERENCES phm_dispensing (id)
+);
+CREATE INDEX ix_phm_inspection_inspected_at ON phm_inspection (inspected_at);
+
+-- ---------------------------------------------------------------------
+-- 검수 품목 (검수의 하위). 조제 품목마다 정확히 하나씩 있다(서비스에서 검사).
+-- ---------------------------------------------------------------------
+CREATE TABLE phm_inspection_item (
+    -- 검수 품목 ID
+    id                 BIGINT        NOT NULL AUTO_INCREMENT,
+    -- 검수 ID (phm_inspection.id)
+    inspection_id      BIGINT        NOT NULL,
+    -- 조제 품목 ID (phm_dispensing_item.id)
+    dispensing_item_id BIGINT        NOT NULL,
+    -- 품목 검수 결과: PASS / FAIL
+    result             VARCHAR(20)   NOT NULL,
+    -- 불량 사유. 불합격이면 필수 (서비스에서 검사)
+    defect_reason      VARCHAR(500),
+    PRIMARY KEY (id),
+    CONSTRAINT uk_phm_inspection_item UNIQUE (inspection_id, dispensing_item_id),
+    CONSTRAINT fk_phm_inspection_item_inspection FOREIGN KEY (inspection_id) REFERENCES phm_inspection (id),
+    CONSTRAINT fk_phm_inspection_item_dispensing_item
+        FOREIGN KEY (dispensing_item_id) REFERENCES phm_dispensing_item (id)
+);
+
+-- ---------------------------------------------------------------------
+-- 불출 마스터. 검수 합격한 조제 하나에 불출 하나다.
+-- ---------------------------------------------------------------------
+CREATE TABLE phm_issue (
+    -- 불출 ID
+    id               BIGINT        NOT NULL AUTO_INCREMENT,
+    -- 조제 ID (phm_dispensing.id)
+    dispensing_id    BIGINT        NOT NULL,
+    -- 불출처 코드 (병동·부서·외래 창구). 예) W71
+    destination_code VARCHAR(20)   NOT NULL,
+    -- 불출처 이름. 예) 71병동
+    destination_name VARCHAR(100)  NOT NULL,
+    -- 수령자 이름
+    receiver_name    VARCHAR(100)  NOT NULL,
+    -- 불출자 아이디 (로그인 사용자)
+    issued_by        VARCHAR(50)   NOT NULL,
+    -- 불출 일시
+    issued_at        DATETIME(6)   NOT NULL,
+    -- 비고 (선택)
+    remark           VARCHAR(1000),
+    created_at       DATETIME(6)   NOT NULL,
+    updated_at       DATETIME(6)   NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_phm_issue_dispensing UNIQUE (dispensing_id),
+    CONSTRAINT fk_phm_issue_dispensing FOREIGN KEY (dispensing_id) REFERENCES phm_dispensing (id)
+);
+CREATE INDEX ix_phm_issue_issued_at ON phm_issue (issued_at);
+
+-- ---------------------------------------------------------------------
+-- 불출 품목 (불출의 하위). 조제 품목을 그대로 옮긴다.
+-- ---------------------------------------------------------------------
+CREATE TABLE phm_issue_item (
+    -- 불출 품목 ID
+    id                 BIGINT         NOT NULL AUTO_INCREMENT,
+    -- 불출 ID (phm_issue.id)
+    issue_id           BIGINT         NOT NULL,
+    -- 조제 품목 ID (phm_dispensing_item.id)
+    dispensing_item_id BIGINT         NOT NULL,
+    -- 불출 수량 (= 조제 수량)
+    quantity           DECIMAL(12,3)  NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_phm_issue_item UNIQUE (issue_id, dispensing_item_id),
+    CONSTRAINT fk_phm_issue_item_issue FOREIGN KEY (issue_id) REFERENCES phm_issue (id),
+    CONSTRAINT fk_phm_issue_item_dispensing_item FOREIGN KEY (dispensing_item_id) REFERENCES phm_dispensing_item (id)
+);
+
+-- ---------------------------------------------------------------------
+-- 반납 마스터. 불출 하나에 여러 번 반납할 수 있다.
+-- ---------------------------------------------------------------------
+CREATE TABLE phm_return (
+    -- 반납 ID
+    id          BIGINT        NOT NULL AUTO_INCREMENT,
+    -- 불출 ID (phm_issue.id)
+    issue_id    BIGINT        NOT NULL,
+    -- 반납 사유. 예) 퇴원, 처방 중단
+    reason      VARCHAR(500)  NOT NULL,
+    -- 반납자 아이디 (로그인 사용자)
+    returned_by VARCHAR(50)   NOT NULL,
+    -- 반납 일시
+    returned_at DATETIME(6)   NOT NULL,
+    -- 비고 (선택)
+    remark      VARCHAR(1000),
+    created_at  DATETIME(6)   NOT NULL,
+    updated_at  DATETIME(6)   NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT fk_phm_return_issue FOREIGN KEY (issue_id) REFERENCES phm_issue (id)
+);
+CREATE INDEX ix_phm_return_returned_at ON phm_return (returned_at);
+
+-- ---------------------------------------------------------------------
+-- 반납 품목 (반납의 하위)
+-- ---------------------------------------------------------------------
+CREATE TABLE phm_return_item (
+    -- 반납 품목 ID
+    id            BIGINT         NOT NULL AUTO_INCREMENT,
+    -- 반납 ID (phm_return.id)
+    return_id     BIGINT         NOT NULL,
+    -- 불출 품목 ID (phm_issue_item.id)
+    issue_item_id BIGINT         NOT NULL,
+    -- 반납 수량 (0보다 크다). 같은 불출 품목의 반납 합계는 불출 수량 이하 (서비스에서 검사)
+    quantity      DECIMAL(12,3)  NOT NULL,
+    -- 반납 후 처리: RESTOCK(재입고) / DISPOSE(폐기)
+    disposition   VARCHAR(20)    NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_phm_return_item UNIQUE (return_id, issue_item_id),
+    CONSTRAINT fk_phm_return_item_return FOREIGN KEY (return_id) REFERENCES phm_return (id),
+    CONSTRAINT fk_phm_return_item_issue_item FOREIGN KEY (issue_item_id) REFERENCES phm_issue_item (id)
+);

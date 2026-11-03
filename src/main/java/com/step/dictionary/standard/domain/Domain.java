@@ -2,19 +2,6 @@ package com.step.dictionary.standard.domain;
 
 import com.step.dictionary.global.entity.BaseTimeEntity;
 import com.step.dictionary.standard.word.Word;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 /**
  * 표준 도메인. 분류어 단어에 속하며 데이터 타입과 길이 규칙을 정한다 (예: 번호V20 = 번호, VARCHAR(20)).
@@ -28,32 +15,22 @@ import org.hibernate.type.SqlTypes;
  * </ul>
  * 분류어 여부 확인, 타입/길이 검증, 참조 시 삭제·분류어 변경 제한은 {@link DomainService}에서 한다.
  */
-@Entity
-@Table(name = "std_domain")
 public class Domain extends BaseTimeEntity {
 
     /** 도메인 ID (AUTO_INCREMENT). */
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     /** 도메인명. 예: 번호V20. 자동 생성하지 않는다. */
-    @Column(nullable = false, length = 100)
     private String name;
 
     /**
-     * 분류어 단어. 지연 로딩이므로 목록 조회에서는 fetch join으로 함께 가져온다
+     * 분류어 단어. 조회 쿼리에서 조인해 함께 가져온다
      * ({@link DomainRepositoryCustomImpl}).
      */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "classifier_word_id", nullable = false)
     private Word classifierWord;
 
     // MySQL 방언은 STRING enum을 ENUM 타입으로 보므로 VARCHAR 컬럼과 validate가 어긋나지 않게 지정한다.
     /** 데이터 타입. DB에는 enum 이름 문자열로 저장한다. */
-    @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(nullable = false, length = 20)
     private DataType dataType;
 
     /** 길이. 길이를 쓰지 않는 타입이면 null. */
@@ -63,10 +40,9 @@ public class Domain extends BaseTimeEntity {
     private Integer dataScale;
 
     /** 설명 (선택). */
-    @Column(length = 1000)
     private String description;
 
-    /** JPA 전용 기본 생성자. */
+    /** MyBatis가 조회 결과로 객체를 만들 때 쓰는 기본 생성자. */
     protected Domain() {
     }
 

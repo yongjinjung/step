@@ -154,7 +154,32 @@ public enum ErrorCode {
     /** 사용자에게 역할을 하나도 주지 않았을 때. 역할이 없으면 아무 화면도 쓸 수 없다. */
     USER_ROLE_REQUIRED(HttpStatus.BAD_REQUEST, "사용자에게 역할을 하나 이상 지정해야 합니다."),
     /** 요청한 기능에 대한 메뉴 권한이 없을 때. {@code SecurityErrorHandler}가 403으로 응답한다. */
-    PERMISSION_DENIED(HttpStatus.FORBIDDEN, "이 기능을 사용할 권한이 없습니다.");
+    PERMISSION_DENIED(HttpStatus.FORBIDDEN, "이 기능을 사용할 권한이 없습니다."),
+
+    // ---- 약제 업무: 처방·조제·검수·불출·반납 (13단계) ----
+    PRESCRIPTION_NOT_FOUND(HttpStatus.NOT_FOUND, "처방을 찾을 수 없습니다."),
+    /** 대문자로 정규화한 뒤 비교한다. */
+    DUPLICATE_PRESCRIPTION_NO(HttpStatus.CONFLICT, "이미 등록된 처방전번호입니다."),
+    /** 조제가 시작됐거나 이미 취소된 처방을 취소하려 할 때. */
+    PRESCRIPTION_NOT_CANCELLABLE(HttpStatus.CONFLICT, "조제 전 처방만 취소할 수 있습니다."),
+    PRESCRIPTION_CANCELLED(HttpStatus.CONFLICT, "취소된 처방은 조제할 수 없습니다."),
+    DISPENSING_NOT_FOUND(HttpStatus.NOT_FOUND, "조제를 찾을 수 없습니다."),
+    /** 처방에 검수 불합격이 아닌 조제가 이미 있을 때. 불합격이면 다시 조제할 수 있다. */
+    DISPENSING_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 조제된 처방입니다. 검수 불합격일 때만 다시 조제할 수 있습니다."),
+    /** 조제 품목이 처방 품목과 하나씩 맞지 않을 때 (누락·중복·다른 처방의 품목). */
+    INVALID_DISPENSING_ITEMS(HttpStatus.BAD_REQUEST, "조제 품목은 처방 품목마다 하나씩 빠짐없이 있어야 합니다."),
+    DISPENSING_NOT_INSPECTABLE(HttpStatus.CONFLICT, "검수를 기다리는 조제가 아닙니다."),
+    DISPENSING_NOT_ISSUABLE(HttpStatus.CONFLICT, "검수에 합격한 조제만 불출할 수 있습니다."),
+    INSPECTION_NOT_FOUND(HttpStatus.NOT_FOUND, "검수를 찾을 수 없습니다."),
+    /** 검수 품목이 조제 품목과 하나씩 맞지 않을 때 (누락·중복·다른 조제의 품목). */
+    INVALID_INSPECTION_ITEMS(HttpStatus.BAD_REQUEST, "검수 품목은 조제 품목마다 하나씩 빠짐없이 있어야 합니다."),
+    DEFECT_REASON_REQUIRED(HttpStatus.BAD_REQUEST, "불합격 품목은 불량 사유를 입력해야 합니다."),
+    ISSUE_NOT_FOUND(HttpStatus.NOT_FOUND, "불출을 찾을 수 없습니다."),
+    RETURN_NOT_FOUND(HttpStatus.NOT_FOUND, "반납을 찾을 수 없습니다."),
+    /** 반납 품목에 중복이 있거나 그 불출의 품목이 아닐 때. */
+    INVALID_RETURN_ITEMS(HttpStatus.BAD_REQUEST, "반납 품목은 그 불출의 품목이어야 하며 중복될 수 없습니다."),
+    /** 이전 반납과 합친 반납 수량이 불출 수량을 넘을 때. */
+    RETURN_QUANTITY_EXCEEDED(HttpStatus.CONFLICT, "반납 수량이 불출 수량을 넘습니다.");
 
     /** 응답 HTTP 상태. */
     private final HttpStatus status;

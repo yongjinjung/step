@@ -1,15 +1,7 @@
 package com.step.dictionary.code.group;
 
 import com.step.dictionary.global.entity.BaseTimeEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import java.util.Locale;
-import org.hibernate.type.YesNoConverter;
 
 /**
  * 공통 코드 그룹. 코드ID 하나에 코드값({@code CodeValue}) 여러 개가 속한다 (예: ORDER_STAT 주문상태 → 01 접수, 02 결제완료).
@@ -23,36 +15,27 @@ import org.hibernate.type.YesNoConverter;
  * </ul>
  * 참조 검사는 {@link CodeGroupService}에서 한다.
  */
-@Entity
-@Table(name = "com_code_group")
 public class CodeGroup extends BaseTimeEntity {
 
     /** 코드 그룹 ID (AUTO_INCREMENT). 컬럼 매핑은 이 값으로 연결하므로 코드ID를 바꿔도 매핑이 유지된다. */
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     /** 코드ID(대문자). 예: ORDER_STAT */
-    @Column(nullable = false, length = 50)
     private String codeId;
 
     /** 코드명. 예: 주문상태 */
-    @Column(nullable = false, length = 200)
     private String codeName;
 
     /** 설명 (선택). */
-    @Column(length = 1000)
     private String description;
 
     /**
      * 사용 여부 ('Y'/'N'). 미사용 그룹은 컬럼에 새로 매핑할 수 없다(기존 매핑은 유지).
-     * MySQL BOOLEAN(TINYINT)은 ddl-auto=validate에서 어긋날 수 있어 CHAR(1) + YesNoConverter를 쓴다.
+     * DB는 CHAR(1) Y/N이고 YesNoTypeHandler가 boolean으로 바꾼다.
      */
-    @Convert(converter = YesNoConverter.class)
-    @Column(name = "used_yn", nullable = false, length = 1)
     private boolean used;
 
-    /** JPA 전용 기본 생성자. */
+    /** MyBatis가 조회 결과로 객체를 만들 때 쓰는 기본 생성자. */
     protected CodeGroup() {
     }
 

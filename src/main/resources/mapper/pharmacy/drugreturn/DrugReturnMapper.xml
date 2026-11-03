@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  반납 (phm_return) + 반납 품목 (phm_return_item). 반납은 수정하지 않는다.
+  반납 → 불출(s_) → 조제(s_d_) → 처방(s_d_p_),
+  반납 품목 → 불출 품목(si_) → 조제 품목(si_di_) → 처방 품목(si_di_pi_).
+-->
+<mapper namespace="com.step.dictionary.pharmacy.drugreturn.DrugReturnMapper">
+
+    <resultMap id="drugReturn" type="com.step.dictionary.pharmacy.drugreturn.DrugReturn" autoMapping="true">
+        <id property="id" column="id"/>
+        <association property="issue" columnPrefix="s_"
+                     resultMap="com.step.dictionary.pharmacy.issue.IssueMapper.issue"/>
+    </resultMap>
+
+    <resultMap id="drugReturnItem" type="com.step.dictionary.pharmacy.drugreturn.DrugReturnItem" autoMapping="true">
+        <id property="id" column="id"/>
+        <association property="issueItem" columnPrefix="si_"
+                     resultMap="com.step.dictionary.pharmacy.issue.IssueMapper.issueItem"/>
+    </resultMap>
+
+    <sql id="columns">
+        r.id, r.reason, r.returned_by, r.returned_at, r.remark, r.created_at, r.updated_at,
+        <include refid="com.step.dictionary.pharmacy.issue.IssueMapper.issueColumns">
+            <property name="a" value="r_s"/><property name="p" value="s_"/>
+        </include>
+    </sql>
+
+    <sql id="from">
+        FROM phm_return r
+        JOIN phm_issue r_s ON r_s.id = r.issue_id
+        JOIN phm_dispensing r_s_d ON r_s_d.id = r_s.dispensing_id
+        JOIN phm_prescription r_s_d_p ON r_s_d_p.id = r_s_d.prescription_id
+    </sql>
+
+    <select id="findById" resultMap="drugReturn">
+        SELECT <include refid="columns"/> <include refid="from"/> WHERE r.id = #{id}
+    </select>
+
+    <select id="findItemsByReturnId" resultMap="drugReturnItem">
+        SELECT ri.id, ri.quantity, ri.disposition,
+        <include refid="com.step.dictionary.pharmacy.issue.IssueMapper.issueItemColumns">
+            <property name="a" value="ri_si"/><property name="p" value="si_"/>
+        </include>
+        FROM phm_return_item ri
+        JOIN phm_issue_item ri_si ON ri_si.id = ri.issue_item_id
+        JOIN phm_dispensing_item ri_si_di ON ri_si_di.id = ri_si.dispensing_item_id
+        JOIN phm_prescription_item ri_si_di_pi ON ri_si_di_pi.id = ri_si_di.prescription_item_id
+        WHERE ri.return_id = #{returnId}
+        ORDER BY ri.id ASC
+    </select>
+
+    <resultMap id="returnedQuantity" type="com.step.dictionary.pharmacy.drugreturn.DrugReturnMapper$ReturnedQuantity">
+        <result property="issueItemId" column="issue_item_id"/>
+        <result property="quantity" column="quantity"/>
+    </resultMap>
+
+    <select id="sumQuantitiesByIssueId" resultMap="returnedQuantity">
+        SELECT ri.issue_item_id, SUM(ri.quantity) AS quantity
+        FROM phm_return_item ri
+        JOIN phm_issue_item si ON si.id = ri.issue_item_id
+        WHERE si.issue_id = #{issueId}
+        GROUP BY ri.issue_item_id
+    </select>
+
+    <sql id="searchWhere">
+        <where>
+            <include refid="com.step.dictionary.pharmacy.prescription.PrescriptionMapper.keywordCondition">
+                <property name="a" value="r_s_d_p"/>
+            </include>
+            <if test="c.issueId != null">AND r.issue_id = #{c.issueId}</if>
+            <include refid="com.step.dictionary.pharmacy.prescription.PrescriptionMapper.periodCondition">
+                <property name="col" value="r.returned_at"/>
+            </include>
+        </where>
+    </sql>
+
+    <select id="search" resultMap="drugReturn">
+        SELECT <include refid="columns"/> <include refid="from"/>
+        <include refid="searchWhere"/>
+        ORDER BY r.returned_at DESC, r.id DESC
+        LIMIT #{p.pageSize} OFFSET #{p.offset}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*) <include refid="from"/>
+        <include refid="searchWhere"/>
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO phm_return (issue_id, reason, returned_by, returned_at, remark, created_at, updated_at)
+        VALUES (#{issue.id}, #{reason}, #{returnedBy}, #{returnedAt}, #{remark}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <insert id="insertItem" useGeneratedKeys="true" keyProperty="item.id" keyColumn="id">
+        INSERT INTO phm_return_item (return_id, issue_item_id, quantity, disposition)
+        VALUES (#{returnId}, #{item.issueItem.id}, #{item.quantity}, #{item.disposition})
+    </insert>
+</mapper>

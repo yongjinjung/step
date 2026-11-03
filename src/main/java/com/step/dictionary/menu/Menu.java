@@ -1,17 +1,6 @@
 package com.step.dictionary.menu;
 
 import com.step.dictionary.global.entity.BaseTimeEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import org.hibernate.type.YesNoConverter;
 import org.springframework.util.StringUtils;
 
 /**
@@ -27,42 +16,30 @@ import org.springframework.util.StringUtils;
  * <p>누가 이 메뉴를 볼 수 있고 무엇을 할 수 있는지는 역할의 메뉴 권한({@code RoleMenu})이 정한다 (12단계).
  * 화면 경로는 주소이면서 권한의 기준이기도 해서({@code MenuPaths}), 쓰고 있는 메뉴의 경로는 바꾸지 않는 것이 좋다.
  */
-@Entity
-@Table(name = "app_menu")
 public class Menu extends BaseTimeEntity {
 
     /** 메뉴 ID (AUTO_INCREMENT). */
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     /** 상위 메뉴. null이면 자기 자신이 상위(TOP) 메뉴다. */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_id")
     private Menu parent;
 
     /** 메뉴명. 예: 표준 단어 */
-    @Column(nullable = false, length = 100)
     private String name;
 
     /** 화면 경로 (하위 메뉴만). 예: /words. 상위 메뉴는 null이다. */
-    @Column(length = 200)
     private String path;
 
     /** 아이콘 이름 (선택). 화면이 아이콘 컴포넌트로 바꾼다. 예: book */
-    @Column(length = 50)
     private String icon;
 
     /** 같은 단계 안에서의 정렬 순서. 같으면 ID 순으로 정렬한다. */
-    @Column(nullable = false)
     private int sortOrder;
 
     /** 사용 여부 ('Y'/'N'). 미사용 메뉴는 화면 메뉴에 나오지 않는다. */
-    @Convert(converter = YesNoConverter.class)
-    @Column(name = "used_yn", nullable = false, length = 1)
     private boolean used;
 
-    /** JPA 전용 기본 생성자. */
+    /** MyBatis가 조회 결과로 객체를 만들 때 쓰는 기본 생성자. */
     protected Menu() {
     }
 
@@ -102,7 +79,7 @@ public class Menu extends BaseTimeEntity {
         this.used = used;
     }
 
-    /** 상위(TOP) 메뉴인지. 지연 로딩 프록시여도 null 여부는 조회 없이 알 수 있다. */
+    /** 상위(TOP) 메뉴인지 (상위 메뉴가 없으면 상위). */
     public boolean isTop() {
         return parent == null;
     }

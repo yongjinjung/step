@@ -1,31 +1,47 @@
 package com.step.dictionary.role;
 
+import java.util.Collection;
 import java.util.List;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 
-/** 역할별 메뉴 권한 리포지토리. 권한은 역할 단위로 통째로 읽고 교체한다. */
-public interface RoleMenuRepository extends JpaRepository<RoleMenu, Long> {
+/**
+ * 역할별 메뉴 권한 리포지토리 ({@link RoleMenuMapper} 사용).
+ * 권한은 수정하지 않고 역할 단위로 지운 뒤 다시 넣는다({@code RoleService.replacePermissions}).
+ */
+@Repository
+public class RoleMenuRepository {
 
-    /** 역할의 권한 전체 (관리 화면). 메뉴 이름·경로를 함께 보여주므로 메뉴를 같이 읽는다. */
-    @Query("select rm from RoleMenu rm join fetch rm.menu where rm.role.id = :roleId order by rm.menu.id")
-    List<RoleMenu> findAllByRoleId(@Param("roleId") Long roleId);
+    private final RoleMenuMapper mapper;
 
-    /**
-     * 사용자가 가진 (사용 중인) 역할들의 권한 전체. 요청마다 권한을 계산할 때 쓴다.
-     * 메뉴 경로·ID가 필요하므로 메뉴를 함께 읽는다.
-     */
-    @Query("""
-            select rm from RoleMenu rm join fetch rm.menu
-            where rm.role.used = true
-              and rm.role in (select r from AppUser u join u.roles r where u.username = :username)
-            """)
-    List<RoleMenu> findAllByUsername(@Param("username") String username);
+    public RoleMenuRepository(RoleMenuMapper mapper) {
+        this.mapper = mapper;
+    }
 
-    /** 역할의 권한을 모두 지운다 (권한 교체, 역할 삭제). */
-    void deleteAllByRoleId(Long roleId);
+    /** 역할의 메뉴 권한 (메뉴 ID 순, 메뉴 포함). */
+    public List<RoleMenu> findAllByRoleId(Long roleId) {
+        return mapper.findAllByRoleId(roleId);
+    }
 
-    /** 메뉴에 걸린 권한을 모두 지운다. 메뉴 삭제 전에 호출해 FK 위반을 막는다. */
-    void deleteAllByMenuId(Long menuId);
+    /** 사용자가 가진 사용 중인 역할들의 메뉴 권한 (메뉴 포함). 권한 계산({@code PermissionService})에 쓴다. */
+    public List<RoleMenu> findAllByUsername(String username) {
+        return mapper.findAllByUsername(username);
+    }
+
+    public long count() {
+        return mapper.count();
+    }
+
+    /** 한 건씩 insert한다. 같은 (역할, 메뉴)가 이미 있으면 unique 제약 위반이므로 먼저 지워야 한다. */
+    public List<RoleMenu> saveAll(Collection<RoleMenu> roleMenus) {
+        roleMenus.forEach(mapper::insert);
+        return List.copyOf(roleMenus);
+    }
+
+    public void deleteAllByRoleId(Long roleId) {
+        mapper.deleteByRoleId(roleId);
+    }
+
+    public void deleteAllByMenuId(Long menuId) {
+        mapper.deleteByMenuId(menuId);
+    }
 }

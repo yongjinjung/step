@@ -65,7 +65,7 @@ public class CodeValueService {
      * @throws BusinessException CODE_GROUP_NOT_FOUND (404). 그룹은 있는데 코드값이 없으면 빈 목록
      */
     public List<CodeValueResponse> findAll(Long groupId) {
-        // 그룹을 먼저 불러 두면 영속성 컨텍스트에 올라가, 응답 변환에서 코드값마다 그룹을 따로 조회하지 않는다.
+        // 그룹이 없으면 404로 끝낸다. 코드값 조회 결과에는 그룹이 조인되어 함께 채워진다.
         getGroup(groupId);
         return valueRepository.findAllByGroupIdOrderBySortOrderAscIdAsc(groupId).stream()
                 .map(CodeValueResponse::from)
@@ -91,15 +91,15 @@ public class CodeValueService {
         CodeValue value = getValue(groupId, valueId);
         // 변경 이력용으로 수정 전 값을 떠 둔다.
         CodeValueSnapshot before = CodeValueSnapshot.from(value);
-        // 엔티티를 변경하기 전에 검사해야 한다. 변경 후 조회하면 auto flush로 unique 제약 위반이 먼저 터진다.
+        // 엔티티를 변경하기 전에 검사해 중복이면 저장하지 않고 409로 끝낸다.
         String codeValue = CodeValue.normalizeCodeValue(request.codeValue());
         if (valueRepository.existsByGroupIdAndCodeValueAndIdNot(groupId, codeValue, valueId)) {
             throw new BusinessException(ErrorCode.DUPLICATE_CODE_VALUE);
         }
 
         value.update(codeValue, request.valueName(), request.description(), request.sortOrder(), request.used());
-        // 즉시 update를 실행해 갱신된 updatedAt으로 응답한다.
-        valueRepository.flush();
+        // MyBatis는 변경 감지가 없으므로 직접 update한다. updatedAt도 함께 갱신되어 응답에 쓰인다.
+        valueRepository.save(value);
         historyRecorder.recordUpdate(before, CodeValueSnapshot.from(value));
         return CodeValueResponse.from(value);
     }

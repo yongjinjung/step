@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -21,6 +22,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -139,10 +141,10 @@ class RoleServiceTest {
 
         assertThat(saved).hasSize(1);
         assertThat(saved.get(0).canCreate()).isTrue();
-        verify(roleMenuRepository).deleteAllByRoleId(5L);
-        // 같은 조합을 다시 넣기 전에 삭제를 먼저 내보내야 unique 제약에 걸리지 않는다.
-        verify(roleMenuRepository).flush();
-        verify(roleMenuRepository).saveAll(anyList());
+        // 같은 조합을 다시 넣기 전에 먼저 지워야 unique 제약에 걸리지 않는다.
+        InOrder order = inOrder(roleMenuRepository);
+        order.verify(roleMenuRepository).deleteAllByRoleId(5L);
+        order.verify(roleMenuRepository).saveAll(anyList());
     }
 
     @Test

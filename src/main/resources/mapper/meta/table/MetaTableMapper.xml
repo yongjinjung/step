@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 테이블 정의 (meta_table). -->
+<mapper namespace="com.step.dictionary.meta.table.MetaTableMapper">
+
+    <!-- 컬럼 매퍼도 refid로 쓴다. -->
+    <resultMap id="metaTable" type="com.step.dictionary.meta.table.MetaTable" autoMapping="true">
+        <id property="id" column="id"/>
+    </resultMap>
+
+    <sql id="columns">
+        mt.id, mt.physical_name, mt.logical_name, mt.description, mt.created_at, mt.updated_at
+    </sql>
+
+    <select id="findById" resultMap="metaTable">
+        SELECT <include refid="columns"/> FROM meta_table mt WHERE mt.id = #{id}
+    </select>
+
+    <select id="countByPhysicalName" resultType="long">
+        SELECT COUNT(*) FROM meta_table
+        WHERE physical_name = #{physicalName}
+        <if test="excludeId != null">AND id &lt;&gt; #{excludeId}</if>
+    </select>
+
+    <!-- 키워드는 물리명(대소문자 무시) OR 논리명. -->
+    <sql id="searchWhere">
+        <bind name="keyword" value="@com.step.dictionary.global.mybatis.Likes@contains(c.keyword)"/>
+        <where>
+            <if test="keyword != null">
+                AND (LOWER(mt.physical_name) LIKE LOWER(#{keyword}) ESCAPE '!'
+                     OR mt.logical_name LIKE #{keyword} ESCAPE '!')
+            </if>
+        </where>
+    </sql>
+
+    <select id="search" resultMap="metaTable">
+        SELECT <include refid="columns"/> FROM meta_table mt
+        <include refid="searchWhere"/>
+        ORDER BY mt.physical_name ASC
+        LIMIT #{p.pageSize} OFFSET #{p.offset}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*) FROM meta_table mt
+        <include refid="searchWhere"/>
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO meta_table (physical_name, logical_name, description, created_at, updated_at)
+        VALUES (#{physicalName}, #{logicalName}, #{description}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="update">
+        UPDATE meta_table
+        SET physical_name = #{physicalName}, logical_name = #{logicalName}, description = #{description},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM meta_table WHERE id = #{id}
+    </delete>
+</mapper>

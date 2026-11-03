@@ -46,7 +46,7 @@ public record ChangeRequestResponse(
 ) {
 
     /**
-     * 엔티티를 응답으로 변환한다. 신청자/검토자를 읽으므로 트랜잭션 안에서 호출하거나 fetch join해 둬야 한다.
+     * 엔티티를 응답으로 변환한다. 신청자/검토자는 조회 쿼리에서 조인해 채워 둔다.
      *
      * @param payload 신청 내용 JSON을 파싱한 트리 (서비스가 매퍼로 만든다)
      */

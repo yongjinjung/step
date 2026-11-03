@@ -78,7 +78,7 @@ public record MetaColumnResponse(
 
     /**
      * 엔티티를 응답으로 변환한다.
-     * 테이블, 용어, 도메인, 코드 그룹을 읽으므로 트랜잭션 안에서 호출하거나 미리 fetch해 둬야 한다 (open-in-view가 꺼져 있다).
+     * 테이블, 용어, 도메인, 코드 그룹은 컬럼 조회 쿼리에서 조인해 채워 둔다.
      */
     public static MetaColumnResponse from(MetaColumn column) {
         Term term = column.getTerm();

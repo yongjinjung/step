@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -20,6 +21,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -79,10 +81,10 @@ class MenuPermissionServiceTest {
 
         assertThat(response.useDefault()).isFalse();
         assertThat(response.menuIds()).containsExactly(2L, 3L);
-        verify(userMenuRepository).deleteAllByUserId(7L);
-        // 같은 조합을 다시 넣기 전에 삭제를 먼저 내보내야 unique 제약에 걸리지 않는다.
-        verify(userMenuRepository).flush();
-        verify(userMenuRepository).saveAll(anyList());
+        // 같은 조합을 다시 넣기 전에 먼저 지워야 unique 제약에 걸리지 않는다.
+        InOrder order = inOrder(userMenuRepository);
+        order.verify(userMenuRepository).deleteAllByUserId(7L);
+        order.verify(userMenuRepository).saveAll(anyList());
     }
 
     @Test

@@ -440,6 +440,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/returns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 반납 검색
+         * @description keyword는 처방전번호·환자번호·환자명 부분 일치. from/to는 반납일(yyyy-MM-dd).
+         */
+        get: operations["drugReturnSearch"];
+        put?: never;
+        /**
+         * 반납 등록
+         * @description 불출 품목 일부만 반납할 수 있다. 품목별 반납 합계는 불출 수량을 넘을 수 없다.
+         */
+        post: operations["drugReturnCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/requests/{id}/reject": {
         parameters: {
             query?: never;
@@ -560,6 +584,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/prescriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 처방 검색
+         * @description keyword는 처방전번호·환자번호·환자명 부분 일치. from/to는 처방일(yyyy-MM-dd).
+         */
+        get: operations["prescriptionSearch"];
+        put?: never;
+        /**
+         * 처방 등록
+         * @description 품목 순번은 요청 순서대로 매긴다. 처방전번호는 대문자로 저장한다.
+         */
+        post: operations["prescriptionCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/prescriptions/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 처방 취소
+         * @description 조제 전(ORDERED) 처방만 취소할 수 있다.
+         */
+        post: operations["prescriptionCancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/menus": {
         parameters: {
             query?: never;
@@ -578,6 +646,54 @@ export interface paths {
          * @description parentId가 없으면 상위(TOP) 메뉴, 있으면 그 아래 하위(LEFT) 메뉴가 된다.
          */
         post: operations["menuCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/issues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 불출 검색
+         * @description keyword는 처방전번호·환자번호·환자명 부분 일치. from/to는 불출일(yyyy-MM-dd).
+         */
+        get: operations["issueSearch"];
+        put?: never;
+        /**
+         * 불출 등록
+         * @description 검수 합격한 조제만 불출할 수 있다. 품목은 조제 품목을 수량 그대로 옮긴다.
+         */
+        post: operations["issueCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inspections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 검수 검색
+         * @description keyword는 처방전번호·환자번호·환자명 부분 일치. from/to는 검수일(yyyy-MM-dd).
+         */
+        get: operations["inspectionSearch"];
+        put?: never;
+        /**
+         * 검수 등록
+         * @description 조제 품목마다 결과를 하나씩 보낸다. 모두 합격이면 조제가 불출 가능, 하나라도 불합격이면 재조제 대상이 된다.
+         */
+        post: operations["inspectionCreate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -704,6 +820,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dispensings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 조제 검색
+         * @description keyword는 처방전번호·환자번호·환자명 부분 일치. from/to는 조제일(yyyy-MM-dd).
+         */
+        get: operations["dispensingSearch"];
+        put?: never;
+        /**
+         * 조제 등록
+         * @description 처방 품목마다 조제 품목을 하나씩 보낸다. 조제하면 처방은 취소할 수 없다.
+         */
+        post: operations["dispensingCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/code-groups": {
         parameters: {
             query?: never;
@@ -772,6 +912,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/returns/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 반납 단건 조회 */
+        get: operations["drugReturnFindById"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/requests": {
         parameters: {
             query?: never;
@@ -809,6 +966,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/prescriptions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 처방 단건 조회 */
+        get: operations["prescriptionFindById"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/menus/all": {
         parameters: {
             query?: never;
@@ -821,6 +995,43 @@ export interface paths {
          * @description 메뉴 관리 화면용. 미사용 메뉴와 권한이 없는 메뉴도 모두 나온다.
          */
         get: operations["menuFindAll"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/issues/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 불출 단건 조회
+         * @description 품목마다 지금까지 반납한 수량(returnedQuantity)을 함께 준다.
+         */
+        get: operations["issueFindById"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inspections/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 검수 단건 조회 */
+        get: operations["inspectionFindById"];
         put?: never;
         post?: never;
         delete?: never;
@@ -878,6 +1089,23 @@ export interface paths {
          * @description target은 words, domains, terms, tables 중 하나.
          */
         get: operations["excelTemplate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dispensings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 조제 단건 조회 */
+        get: operations["dispensingFindById"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1265,6 +1493,56 @@ export interface components {
             name: string;
             roleIds: number[];
         };
+        DrugReturnItemRequest: {
+            /** Format: int64 */
+            issueItemId: number;
+            quantity: number;
+            /** @enum {string} */
+            disposition: "RESTOCK" | "DISPOSE";
+        };
+        DrugReturnRequest: {
+            /** Format: int64 */
+            issueId: number;
+            reason: string;
+            remark?: string;
+            items: components["schemas"]["DrugReturnItemRequest"][];
+        };
+        DrugReturnItemResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            issueItemId?: number;
+            /** Format: int32 */
+            lineNo?: number;
+            drugCode?: string;
+            drugName?: string;
+            issuedQuantity?: number;
+            quantity?: number;
+            /** @enum {string} */
+            disposition?: "RESTOCK" | "DISPOSE";
+        };
+        DrugReturnResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            issueId?: number;
+            /** Format: int64 */
+            prescriptionId?: number;
+            prescriptionNo?: string;
+            patientNo?: string;
+            patientName?: string;
+            destinationName?: string;
+            reason?: string;
+            returnedBy?: string;
+            /** Format: date-time */
+            returnedAt?: string;
+            remark?: string;
+            items?: components["schemas"]["DrugReturnItemResponse"][];
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
         RejectForm: {
             comment: string;
         };
@@ -1299,26 +1577,26 @@ export interface components {
             null?: boolean;
             float?: boolean;
             number?: boolean;
-            valueNode?: boolean;
-            container?: boolean;
+            floatingPointNumber?: boolean;
             integralNumber?: boolean;
-            bigInteger?: boolean;
-            bigDecimal?: boolean;
+            missingNode?: boolean;
+            valueNode?: boolean;
             /** @enum {string} */
             nodeType?: "ARRAY" | "BINARY" | "BOOLEAN" | "MISSING" | "NULL" | "NUMBER" | "OBJECT" | "POJO" | "STRING";
-            missingNode?: boolean;
+            bigDecimal?: boolean;
+            container?: boolean;
+            bigInteger?: boolean;
+            int?: boolean;
+            boolean?: boolean;
+            long?: boolean;
             object?: boolean;
             string?: boolean;
-            pojo?: boolean;
             short?: boolean;
-            int?: boolean;
-            floatingPointNumber?: boolean;
-            long?: boolean;
-            binary?: boolean;
-            boolean?: boolean;
             double?: boolean;
+            pojo?: boolean;
             /** @deprecated */
             textual?: boolean;
+            binary?: boolean;
             embeddedValue?: boolean;
         };
         ApproveForm: {
@@ -1348,12 +1626,223 @@ export interface components {
             payload?: components["schemas"]["DomainRequest"];
             reason?: string;
         };
+        PrescriptionItemRequest: {
+            drugCode: string;
+            drugName: string;
+            dose: number;
+            doseUnit: string;
+            route: string;
+            frequency: string;
+            /** Format: int32 */
+            days: number;
+            totalQuantity: number;
+            usageNote?: string;
+        };
+        PrescriptionRequest: {
+            prescriptionNo: string;
+            patientNo: string;
+            patientName: string;
+            departmentCode: string;
+            prescriberName: string;
+            /** @enum {string} */
+            prescriptionType: "OUTPATIENT" | "INPATIENT" | "DISCHARGE" | "EMERGENCY";
+            /** Format: date-time */
+            prescribedAt: string;
+            remark?: string;
+            items: components["schemas"]["PrescriptionItemRequest"][];
+        };
+        PrescriptionItemResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int32 */
+            lineNo?: number;
+            drugCode?: string;
+            drugName?: string;
+            dose?: number;
+            doseUnit?: string;
+            route?: string;
+            frequency?: string;
+            /** Format: int32 */
+            days?: number;
+            totalQuantity?: number;
+            usageNote?: string;
+        };
+        PrescriptionResponse: {
+            /** Format: int64 */
+            id?: number;
+            prescriptionNo?: string;
+            patientNo?: string;
+            patientName?: string;
+            departmentCode?: string;
+            prescriberName?: string;
+            /** @enum {string} */
+            prescriptionType?: "OUTPATIENT" | "INPATIENT" | "DISCHARGE" | "EMERGENCY";
+            /** @enum {string} */
+            status?: "ORDERED" | "DISPENSED" | "CANCELLED";
+            /** Format: date-time */
+            prescribedAt?: string;
+            remark?: string;
+            /** Format: date-time */
+            cancelledAt?: string;
+            cancelReason?: string;
+            items?: components["schemas"]["PrescriptionItemResponse"][];
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        PrescriptionCancelRequest: {
+            reason: string;
+        };
+        IssueRequest: {
+            /** Format: int64 */
+            dispensingId: number;
+            destinationCode: string;
+            destinationName: string;
+            receiverName: string;
+            remark?: string;
+        };
+        IssueItemResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            dispensingItemId?: number;
+            /** Format: int32 */
+            lineNo?: number;
+            drugCode?: string;
+            drugName?: string;
+            lotNo?: string;
+            quantity?: number;
+            returnedQuantity?: number;
+        };
+        IssueResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            dispensingId?: number;
+            /** Format: int64 */
+            prescriptionId?: number;
+            prescriptionNo?: string;
+            patientNo?: string;
+            patientName?: string;
+            destinationCode?: string;
+            destinationName?: string;
+            receiverName?: string;
+            issuedBy?: string;
+            /** Format: date-time */
+            issuedAt?: string;
+            remark?: string;
+            items?: components["schemas"]["IssueItemResponse"][];
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        InspectionItemRequest: {
+            /** Format: int64 */
+            dispensingItemId: number;
+            /** @enum {string} */
+            result: "PASS" | "FAIL";
+            defectReason?: string;
+        };
+        InspectionRequest: {
+            /** Format: int64 */
+            dispensingId: number;
+            remark?: string;
+            items: components["schemas"]["InspectionItemRequest"][];
+        };
+        InspectionItemResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            dispensingItemId?: number;
+            /** Format: int32 */
+            lineNo?: number;
+            drugCode?: string;
+            drugName?: string;
+            quantity?: number;
+            lotNo?: string;
+            /** @enum {string} */
+            result?: "PASS" | "FAIL";
+            defectReason?: string;
+        };
+        InspectionResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            dispensingId?: number;
+            /** Format: int64 */
+            prescriptionId?: number;
+            prescriptionNo?: string;
+            patientNo?: string;
+            patientName?: string;
+            /** @enum {string} */
+            result?: "PASS" | "FAIL";
+            inspectedBy?: string;
+            /** Format: date-time */
+            inspectedAt?: string;
+            remark?: string;
+            items?: components["schemas"]["InspectionItemResponse"][];
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
         ExcelUploadResponse: {
             /** @enum {string} */
             mode?: "APPLIED" | "REQUESTED";
             /** Format: int32 */
             rowCount?: number;
             ids?: number[];
+        };
+        DispensingItemRequest: {
+            /** Format: int64 */
+            prescriptionItemId: number;
+            quantity: number;
+            lotNo?: string;
+            /** Format: date */
+            expiryDate?: string;
+        };
+        DispensingRequest: {
+            /** Format: int64 */
+            prescriptionId: number;
+            remark?: string;
+            items: components["schemas"]["DispensingItemRequest"][];
+        };
+        DispensingItemResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            prescriptionItemId?: number;
+            /** Format: int32 */
+            lineNo?: number;
+            drugCode?: string;
+            drugName?: string;
+            prescribedQuantity?: number;
+            quantity?: number;
+            lotNo?: string;
+            /** Format: date */
+            expiryDate?: string;
+        };
+        DispensingResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            prescriptionId?: number;
+            prescriptionNo?: string;
+            patientNo?: string;
+            patientName?: string;
+            /** @enum {string} */
+            status?: "DISPENSED" | "INSPECTED" | "REJECTED" | "ISSUED";
+            dispensedBy?: string;
+            /** Format: date-time */
+            dispensedAt?: string;
+            remark?: string;
+            items?: components["schemas"]["DispensingItemResponse"][];
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
         };
         LoginRequest: {
             username: string;
@@ -1409,8 +1898,118 @@ export interface components {
             /** Format: int32 */
             totalPages?: number;
         };
+        DrugReturnSummaryResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            issueId?: number;
+            /** Format: int64 */
+            prescriptionId?: number;
+            prescriptionNo?: string;
+            patientNo?: string;
+            patientName?: string;
+            destinationName?: string;
+            reason?: string;
+            returnedBy?: string;
+            /** Format: date-time */
+            returnedAt?: string;
+        };
+        PageResponseDrugReturnSummaryResponse: {
+            content?: components["schemas"]["DrugReturnSummaryResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
         PageResponseChangeRequestResponse: {
             content?: components["schemas"]["ChangeRequestResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        PageResponsePrescriptionSummaryResponse: {
+            content?: components["schemas"]["PrescriptionSummaryResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        PrescriptionSummaryResponse: {
+            /** Format: int64 */
+            id?: number;
+            prescriptionNo?: string;
+            patientNo?: string;
+            patientName?: string;
+            departmentCode?: string;
+            prescriberName?: string;
+            /** @enum {string} */
+            prescriptionType?: "OUTPATIENT" | "INPATIENT" | "DISCHARGE" | "EMERGENCY";
+            /** @enum {string} */
+            status?: "ORDERED" | "DISPENSED" | "CANCELLED";
+            /** Format: date-time */
+            prescribedAt?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        IssueSummaryResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            dispensingId?: number;
+            /** Format: int64 */
+            prescriptionId?: number;
+            prescriptionNo?: string;
+            patientNo?: string;
+            patientName?: string;
+            destinationCode?: string;
+            destinationName?: string;
+            receiverName?: string;
+            issuedBy?: string;
+            /** Format: date-time */
+            issuedAt?: string;
+        };
+        PageResponseIssueSummaryResponse: {
+            content?: components["schemas"]["IssueSummaryResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        InspectionSummaryResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            dispensingId?: number;
+            /** Format: int64 */
+            prescriptionId?: number;
+            prescriptionNo?: string;
+            patientNo?: string;
+            patientName?: string;
+            /** @enum {string} */
+            result?: "PASS" | "FAIL";
+            inspectedBy?: string;
+            /** Format: date-time */
+            inspectedAt?: string;
+        };
+        PageResponseInspectionSummaryResponse: {
+            content?: components["schemas"]["InspectionSummaryResponse"][];
             /** Format: int32 */
             page?: number;
             /** Format: int32 */
@@ -1452,6 +2051,31 @@ export interface components {
         };
         PageResponseDomainResponse: {
             content?: components["schemas"]["DomainResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        DispensingSummaryResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            prescriptionId?: number;
+            prescriptionNo?: string;
+            patientNo?: string;
+            patientName?: string;
+            /** @enum {string} */
+            status?: "DISPENSED" | "INSPECTED" | "REJECTED" | "ISSUED";
+            dispensedBy?: string;
+            /** Format: date-time */
+            dispensedAt?: string;
+        };
+        PageResponseDispensingSummaryResponse: {
+            content?: components["schemas"]["DispensingSummaryResponse"][];
             /** Format: int32 */
             page?: number;
             /** Format: int32 */
@@ -2615,6 +3239,61 @@ export interface operations {
             };
         };
     };
+    drugReturnSearch: {
+        parameters: {
+            query?: {
+                keyword?: string;
+                issueId?: number;
+                from?: string;
+                to?: string;
+                /** @description Zero-based page index (0..N) */
+                page?: number;
+                /** @description The size of the page to be returned */
+                size?: number;
+                /** @description Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported. */
+                sort?: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageResponseDrugReturnSummaryResponse"];
+                };
+            };
+        };
+    };
+    drugReturnCreate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DrugReturnRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DrugReturnResponse"];
+                };
+            };
+        };
+    };
     changeRequestReject: {
         parameters: {
             query?: never;
@@ -2761,6 +3440,89 @@ export interface operations {
             };
         };
     };
+    prescriptionSearch: {
+        parameters: {
+            query?: {
+                keyword?: string;
+                status?: "ORDERED" | "DISPENSED" | "CANCELLED";
+                prescriptionType?: "OUTPATIENT" | "INPATIENT" | "DISCHARGE" | "EMERGENCY";
+                departmentCode?: string;
+                from?: string;
+                to?: string;
+                /** @description Zero-based page index (0..N) */
+                page?: number;
+                /** @description The size of the page to be returned */
+                size?: number;
+                /** @description Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported. */
+                sort?: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageResponsePrescriptionSummaryResponse"];
+                };
+            };
+        };
+    };
+    prescriptionCreate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrescriptionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrescriptionResponse"];
+                };
+            };
+        };
+    };
+    prescriptionCancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrescriptionCancelRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrescriptionResponse"];
+                };
+            };
+        };
+    };
     menuFindNavigation: {
         parameters: {
             query?: never;
@@ -2801,6 +3563,116 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MenuResponse"];
+                };
+            };
+        };
+    };
+    issueSearch: {
+        parameters: {
+            query?: {
+                keyword?: string;
+                destinationCode?: string;
+                from?: string;
+                to?: string;
+                /** @description Zero-based page index (0..N) */
+                page?: number;
+                /** @description The size of the page to be returned */
+                size?: number;
+                /** @description Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported. */
+                sort?: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageResponseIssueSummaryResponse"];
+                };
+            };
+        };
+    };
+    issueCreate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IssueRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueResponse"];
+                };
+            };
+        };
+    };
+    inspectionSearch: {
+        parameters: {
+            query?: {
+                keyword?: string;
+                result?: "PASS" | "FAIL";
+                from?: string;
+                to?: string;
+                /** @description Zero-based page index (0..N) */
+                page?: number;
+                /** @description The size of the page to be returned */
+                size?: number;
+                /** @description Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported. */
+                sort?: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageResponseInspectionSummaryResponse"];
+                };
+            };
+        };
+    };
+    inspectionCreate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InspectionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InspectionResponse"];
                 };
             };
         };
@@ -3060,6 +3932,62 @@ export interface operations {
             };
         };
     };
+    dispensingSearch: {
+        parameters: {
+            query?: {
+                keyword?: string;
+                prescriptionId?: number;
+                status?: "DISPENSED" | "INSPECTED" | "REJECTED" | "ISSUED";
+                from?: string;
+                to?: string;
+                /** @description Zero-based page index (0..N) */
+                page?: number;
+                /** @description The size of the page to be returned */
+                size?: number;
+                /** @description Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported. */
+                sort?: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageResponseDispensingSummaryResponse"];
+                };
+            };
+        };
+    };
+    dispensingCreate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DispensingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DispensingResponse"];
+                };
+            };
+        };
+    };
     codeGroupSearch: {
         parameters: {
             query?: {
@@ -3185,6 +4113,28 @@ export interface operations {
             };
         };
     };
+    drugReturnFindById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DrugReturnResponse"];
+                };
+            };
+        };
+    };
     changeRequestSearch: {
         parameters: {
             query?: {
@@ -3238,6 +4188,28 @@ export interface operations {
             };
         };
     };
+    prescriptionFindById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrescriptionResponse"];
+                };
+            };
+        };
+    };
     menuFindAll: {
         parameters: {
             query?: never;
@@ -3254,6 +4226,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MenuResponse"][];
+                };
+            };
+        };
+    };
+    issueFindById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueResponse"];
+                };
+            };
+        };
+    };
+    inspectionFindById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InspectionResponse"];
                 };
             };
         };
@@ -3332,6 +4348,28 @@ export interface operations {
                 };
                 content: {
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+        };
+    };
+    dispensingFindById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DispensingResponse"];
                 };
             };
         };

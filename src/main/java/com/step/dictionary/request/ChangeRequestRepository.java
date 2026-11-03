@@ -1,25 +1,48 @@
 package com.step.dictionary.request;
 
+import com.step.dictionary.global.mybatis.Pages;
+import com.step.dictionary.request.dto.ChangeRequestSearchCondition;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.EntityGraph;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Repository;
 
 /**
- * 변경 신청 리포지토리.
- * 기본 CRUD는 {@link JpaRepository}, 동적 검색은 {@link ChangeRequestRepositoryCustom}이 맡는다.
+ * 변경 신청 리포지토리 ({@link ChangeRequestMapper} 사용). 조회한 신청에는 신청자·검토자가 채워져 있다.
+ * 처리(승인·반려·취소) 후에는 {@link #save}를 호출한다. 신청은 삭제하지 않는다.
  */
-public interface ChangeRequestRepository extends JpaRepository<ChangeRequest, Long>, ChangeRequestRepositoryCustom {
+@Repository
+public class ChangeRequestRepository {
 
-    /**
-     * 신청자와 검토자를 함께 조회한다. 응답에 두 사용자의 아이디/이름이 들어가므로 추가 조회를 막는다.
-     * 메서드 이름의 {@code WithUsers}는 설명용이며 Spring Data가 무시한다({@code find...By} 사이의 단어).
-     */
-    @EntityGraph(attributePaths = {"requester", "reviewer"})
-    Optional<ChangeRequest> findWithUsersById(Long id);
+    private final ChangeRequestMapper mapper;
 
-    /**
-     * 같은 대상에 특정 상태의 신청이 있는지 확인한다.
-     * {@code (대상 종류, 대상 ID, REQUESTED)}로 호출해 대기 중인 신청 중복을 막는다 (인덱스 idx_std_request_target).
-     */
-    boolean existsByTargetTypeAndTargetIdAndStatus(TargetType targetType, Long targetId, RequestStatus status);
+    public ChangeRequestRepository(ChangeRequestMapper mapper) {
+        this.mapper = mapper;
+    }
+
+    /** ID가 없으면 등록, 있으면 처리 결과를 저장한다. */
+    public ChangeRequest save(ChangeRequest request) {
+        if (request.getId() == null) {
+            mapper.insert(request);
+        } else {
+            mapper.update(request);
+        }
+        return request;
+    }
+
+    /** 신청자·검토자와 함께 조회한다. */
+    public Optional<ChangeRequest> findWithUsersById(Long id) {
+        return mapper.findById(id);
+    }
+
+    /** 같은 대상에 대기 중인 신청이 있는지. 중복 신청을 막는 데 쓴다. */
+    public boolean existsByTargetTypeAndTargetIdAndStatus(TargetType targetType, Long targetId,
+            RequestStatus status) {
+        return mapper.countByTargetAndStatus(targetType, targetId, status) > 0;
+    }
+
+    /** 조건에 맞는 신청을 최신순(ID 내림차순)으로 페이지 조회한다. */
+    public Page<ChangeRequest> search(ChangeRequestSearchCondition condition, Pageable pageable) {
+        return Pages.of(mapper.search(condition, pageable), pageable, () -> mapper.count(condition));
+    }
 }

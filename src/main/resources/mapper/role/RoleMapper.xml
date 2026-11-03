@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 역할 (app_role). 여부 컬럼(*_yn)은 필드명과 달라 결과 매핑에 적는다. -->
+<mapper namespace="com.step.dictionary.role.RoleMapper">
+
+    <!-- 사용자 매퍼도 refid로 쓴다. -->
+    <resultMap id="role" type="com.step.dictionary.role.Role" autoMapping="true">
+        <id property="id" column="id"/>
+        <result property="superAdmin" column="all_permissions_yn"/>
+        <result property="used" column="used_yn"/>
+        <result property="builtIn" column="built_in_yn"/>
+    </resultMap>
+
+    <sql id="columns">
+        r.id, r.code, r.name, r.description, r.all_permissions_yn, r.used_yn, r.built_in_yn,
+        r.created_at, r.updated_at
+    </sql>
+
+    <select id="findById" resultMap="role">
+        SELECT <include refid="columns"/> FROM app_role r WHERE r.id = #{id}
+    </select>
+
+    <select id="findByCode" resultMap="role">
+        SELECT <include refid="columns"/> FROM app_role r WHERE r.code = #{code}
+    </select>
+
+    <select id="findAll" resultMap="role">
+        SELECT <include refid="columns"/> FROM app_role r ORDER BY r.code ASC
+    </select>
+
+    <select id="findAllById" resultMap="role">
+        SELECT <include refid="columns"/> FROM app_role r
+        WHERE r.id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+        ORDER BY r.code ASC
+    </select>
+
+    <select id="countByCode" resultType="long">
+        SELECT COUNT(*) FROM app_role
+        WHERE code = #{code}
+        <if test="excludeId != null">AND id &lt;&gt; #{excludeId}</if>
+    </select>
+
+    <select id="countOtherActiveSuperAdmins" resultType="long">
+        SELECT COUNT(DISTINCT u.id)
+        FROM app_user u
+        JOIN app_user_role ur ON ur.user_id = u.id
+        JOIN app_role r ON r.id = ur.role_id
+        WHERE r.all_permissions_yn = 'Y' AND r.used_yn = 'Y' AND u.enabled = 'Y'
+          AND u.id &lt;&gt; #{excludedUserId}
+    </select>
+
+    <select id="countUsersByRoleId" resultType="long">
+        SELECT COUNT(*) FROM app_user_role WHERE role_id = #{roleId}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO app_role (code, name, description, all_permissions_yn, used_yn, built_in_yn,
+                              created_at, updated_at)
+        VALUES (#{code}, #{name}, #{description}, #{superAdmin}, #{used}, #{builtIn}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <!-- 기본 제공 여부는 바뀌지 않는다. -->
+    <update id="update">
+        UPDATE app_role
+        SET code = #{code}, name = #{name}, description = #{description}, all_permissions_yn = #{superAdmin},
+            used_yn = #{used}, updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM app_role WHERE id = #{id}
+    </delete>
+</mapper>

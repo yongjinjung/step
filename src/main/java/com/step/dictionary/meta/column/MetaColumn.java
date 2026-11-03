@@ -7,24 +7,9 @@ import com.step.dictionary.meta.table.MetaTable;
 import com.step.dictionary.standard.domain.DataType;
 import com.step.dictionary.standard.domain.Domain;
 import com.step.dictionary.standard.term.Term;
-import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-import org.hibernate.type.YesNoConverter;
 
 /**
  * 컬럼 정의. 표준 용어에 매핑하고, 매핑된 용어와 도메인을 기준으로 표준 준수 여부를 점검한다.
@@ -38,31 +23,21 @@ import org.hibernate.type.YesNoConverter;
  *   <li>공통 코드 그룹({@link CodeGroup})은 선택이다. 코드성 컬럼이 가질 수 있는 값을 나타내며 비표준 검출 대상이 아니다.</li>
  * </ul>
  */
-@Entity
-@Table(name = "meta_column")
 public class MetaColumn extends BaseTimeEntity {
 
     /** 컬럼 정의 ID (AUTO_INCREMENT). */
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     /** 소속 테이블. update()로 바꿀 수 없다 (다른 테이블로 옮기려면 삭제 후 등록). */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "table_id", nullable = false)
     private MetaTable table;
 
     /** 물리명(대문자). 용어 영문약어와 같아야 표준이다. 예: CUST_NO */
-    @Column(nullable = false, length = PhysicalNames.MAX_LENGTH)
     private String physicalName;
 
     /** 논리명(한글명). 예: 고객번호. 검출 대상이 아니다. */
-    @Column(nullable = false, length = 200)
     private String logicalName;
 
-    /** 매핑된 표준 용어 (선택). 지연 로딩이며 조회 쿼리에서 용어와 도메인을 함께 가져온다. */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "term_id")
+    /** 매핑된 표준 용어 (선택). 조회 쿼리에서 용어와 도메인을 함께 가져온다(구성 단어는 채우지 않는다). */
     private Term term;
 
     /**
@@ -70,15 +45,10 @@ public class MetaColumn extends BaseTimeEntity {
      * 비표준 검출과 무관하므로 {@link #update}에 넣지 않고 {@link #mapCodeGroup}으로 따로 바꾼다
      * (검출 규칙을 다루는 생성자·update의 시그니처를 건드리지 않기 위해서다).
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "code_group_id")
     private CodeGroup codeGroup;
 
     // MySQL 방언은 STRING enum을 ENUM 타입으로 보므로 VARCHAR 컬럼과 validate가 어긋나지 않게 지정한다.
     /** 데이터 타입. 용어 도메인의 타입과 같아야 표준이다. */
-    @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.VARCHAR)
-    @Column(nullable = false, length = 20)
     private DataType dataType;
 
     /** 길이. 길이를 쓰지 않는 타입이면 null. */
@@ -88,20 +58,15 @@ public class MetaColumn extends BaseTimeEntity {
     private Integer dataScale;
 
     /** NULL 허용 여부 ('Y'/'N'). 검출 대상이 아니다. */
-    @Convert(converter = YesNoConverter.class)
-    @Column(name = "nullable_yn", nullable = false, length = 1)
     private boolean nullable;
 
     /** 기본키 여부 ('Y'/'N'). 기본키면 nullable은 false여야 한다 (서비스에서 검증). */
-    @Convert(converter = YesNoConverter.class)
-    @Column(name = "primary_key_yn", nullable = false, length = 1)
     private boolean primaryKey;
 
     /** 테이블 내 컬럼 순서 (1 이상). 유일하지 않으며 같으면 id 순으로 정렬한다. */
-    @Column(nullable = false)
     private int seq;
 
-    /** JPA 전용 기본 생성자. */
+    /** MyBatis가 조회 결과로 객체를 만들 때 쓰는 기본 생성자. */
     protected MetaColumn() {
     }
 

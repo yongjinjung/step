@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  불출 (phm_issue) + 불출 품목 (phm_issue_item). 불출은 수정하지 않는다.
+  불출 → 조제(d_) → 처방(d_p_), 불출 품목 → 조제 품목(di_) → 처방 품목(di_pi_).
+-->
+<mapper namespace="com.step.dictionary.pharmacy.issue.IssueMapper">
+
+    <resultMap id="issue" type="com.step.dictionary.pharmacy.issue.Issue" autoMapping="true">
+        <id property="id" column="id"/>
+        <association property="dispensing" columnPrefix="d_"
+                     resultMap="com.step.dictionary.pharmacy.dispensing.DispensingMapper.dispensing"/>
+    </resultMap>
+
+    <resultMap id="issueItem" type="com.step.dictionary.pharmacy.issue.IssueItem" autoMapping="true">
+        <id property="id" column="id"/>
+        <association property="dispensingItem" columnPrefix="di_"
+                     resultMap="com.step.dictionary.pharmacy.dispensing.DispensingMapper.dispensingItem"/>
+    </resultMap>
+
+    <!-- 불출(별칭 a, 접두사 p) + 조제(${a}_d, ${p}d_) + 처방(${a}_d_p, ${p}d_p_). -->
+    <sql id="issueColumns">
+        ${a}.id AS ${p}id, ${a}.destination_code AS ${p}destination_code,
+        ${a}.destination_name AS ${p}destination_name, ${a}.receiver_name AS ${p}receiver_name,
+        ${a}.issued_by AS ${p}issued_by, ${a}.issued_at AS ${p}issued_at, ${a}.remark AS ${p}remark,
+        ${a}.created_at AS ${p}created_at, ${a}.updated_at AS ${p}updated_at,
+        <include refid="com.step.dictionary.pharmacy.dispensing.DispensingMapper.dispensingColumns">
+            <property name="a" value="${a}_d"/><property name="p" value="${p}d_"/>
+        </include>
+    </sql>
+
+    <!-- 불출 품목(별칭 a, 접두사 p) + 조제 품목(${a}_di, ${p}di_) + 처방 품목(${a}_di_pi, ${p}di_pi_). -->
+    <sql id="issueItemColumns">
+        ${a}.id AS ${p}id, ${a}.quantity AS ${p}quantity,
+        <include refid="com.step.dictionary.pharmacy.dispensing.DispensingMapper.dispensingItemColumns">
+            <property name="a" value="${a}_di"/><property name="p" value="${p}di_"/>
+        </include>
+    </sql>
+
+    <sql id="from">
+        FROM phm_issue s
+        JOIN phm_dispensing s_d ON s_d.id = s.dispensing_id
+        JOIN phm_prescription s_d_p ON s_d_p.id = s_d.prescription_id
+    </sql>
+
+    <select id="findById" resultMap="issue">
+        SELECT
+        <include refid="issueColumns"><property name="a" value="s"/><property name="p" value=""/></include>
+        <include refid="from"/>
+        WHERE s.id = #{id}
+    </select>
+
+    <select id="findItemsByIssueId" resultMap="issueItem">
+        SELECT
+        <include refid="issueItemColumns"><property name="a" value="si"/><property name="p" value=""/></include>
+        FROM phm_issue_item si
+        JOIN phm_dispensing_item si_di ON si_di.id = si.dispensing_item_id
+        JOIN phm_prescription_item si_di_pi ON si_di_pi.id = si_di.prescription_item_id
+        WHERE si.issue_id = #{issueId}
+        ORDER BY si.id ASC
+    </select>
+
+    <sql id="searchWhere">
+        <bind name="destinationCode" value="@com.step.dictionary.global.mybatis.SqlParams@upper(c.destinationCode)"/>
+        <where>
+            <include refid="com.step.dictionary.pharmacy.prescription.PrescriptionMapper.keywordCondition">
+                <property name="a" value="s_d_p"/>
+            </include>
+            <if test="destinationCode != null">AND s.destination_code = #{destinationCode}</if>
+            <include refid="com.step.dictionary.pharmacy.prescription.PrescriptionMapper.periodCondition">
+                <property name="col" value="s.issued_at"/>
+            </include>
+        </where>
+    </sql>
+
+    <select id="search" resultMap="issue">
+        SELECT
+        <include refid="issueColumns"><property name="a" value="s"/><property name="p" value=""/></include>
+        <include refid="from"/>
+        <include refid="searchWhere"/>
+        ORDER BY s.issued_at DESC, s.id DESC
+        LIMIT #{p.pageSize} OFFSET #{p.offset}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*) <include refid="from"/>
+        <include refid="searchWhere"/>
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO phm_issue (dispensing_id, destination_code, destination_name, receiver_name, issued_by, issued_at,
+                               remark, created_at, updated_at)
+        VALUES (#{dispensing.id}, #{destinationCode}, #{destinationName}, #{receiverName}, #{issuedBy}, #{issuedAt},
+                #{remark}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <insert id="insertItem" useGeneratedKeys="true" keyProperty="item.id" keyColumn="id">
+        INSERT INTO phm_issue_item (issue_id, dispensing_item_id, quantity)
+        VALUES (#{issueId}, #{item.dispensingItem.id}, #{item.quantity})
+    </insert>
+</mapper>

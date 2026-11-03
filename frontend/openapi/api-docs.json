@@ -24,6 +24,10 @@
       "description": "코드 그룹에 속한 코드값 관리"
     },
     {
+      "name": "조제",
+      "description": "처방 조제 등록과 조회"
+    },
+    {
       "name": "역할",
       "description": "역할과 역할별 메뉴 권한 관리"
     },
@@ -34,6 +38,10 @@
     {
       "name": "컬럼 정의",
       "description": "테이블 컬럼 정의와 비표준 컬럼 검출"
+    },
+    {
+      "name": "처방",
+      "description": "처방 마스터·품목 등록, 조회, 취소"
     },
     {
       "name": "사용자 메뉴 권한",
@@ -50,6 +58,18 @@
     {
       "name": "표준 단어",
       "description": "표준 단어사전 관리"
+    },
+    {
+      "name": "반납",
+      "description": "불출된 약의 반납 등록과 조회"
+    },
+    {
+      "name": "불출",
+      "description": "검수 합격한 조제의 불출 등록과 조회"
+    },
+    {
+      "name": "검수",
+      "description": "조제 검수 등록과 조회"
     },
     {
       "name": "신청/승인",
@@ -1833,6 +1853,129 @@
         }
       }
     },
+    "/api/returns": {
+      "get": {
+        "tags": [
+          "반납"
+        ],
+        "summary": "반납 검색",
+        "description": "keyword는 처방전번호·환자번호·환자명 부분 일치. from/to는 반납일(yyyy-MM-dd).",
+        "operationId": "drugReturnSearch",
+        "parameters": [
+          {
+            "name": "keyword",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "issueId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Zero-based page index (0..N)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "The size of the page to be returned",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseDrugReturnSummaryResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "반납"
+        ],
+        "summary": "반납 등록",
+        "description": "불출 품목 일부만 반납할 수 있다. 품목별 반납 합계는 불출 수량을 넘을 수 없다.",
+        "operationId": "drugReturnCreate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DrugReturnRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrugReturnResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/requests/{id}/reject": {
       "post": {
         "tags": [
@@ -2047,6 +2190,198 @@
         }
       }
     },
+    "/api/prescriptions": {
+      "get": {
+        "tags": [
+          "처방"
+        ],
+        "summary": "처방 검색",
+        "description": "keyword는 처방전번호·환자번호·환자명 부분 일치. from/to는 처방일(yyyy-MM-dd).",
+        "operationId": "prescriptionSearch",
+        "parameters": [
+          {
+            "name": "keyword",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ORDERED",
+                "DISPENSED",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "prescriptionType",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OUTPATIENT",
+                "INPATIENT",
+                "DISCHARGE",
+                "EMERGENCY"
+              ]
+            }
+          },
+          {
+            "name": "departmentCode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Zero-based page index (0..N)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "The size of the page to be returned",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponsePrescriptionSummaryResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "처방"
+        ],
+        "summary": "처방 등록",
+        "description": "품목 순번은 요청 순서대로 매긴다. 처방전번호는 대문자로 저장한다.",
+        "operationId": "prescriptionCreate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrescriptionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrescriptionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prescriptions/{id}/cancel": {
+      "post": {
+        "tags": [
+          "처방"
+        ],
+        "summary": "처방 취소",
+        "description": "조제 전(ORDERED) 처방만 취소할 수 있다.",
+        "operationId": "prescriptionCancel",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrescriptionCancelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrescriptionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/menus": {
       "get": {
         "tags": [
@@ -2095,6 +2430,254 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MenuResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/issues": {
+      "get": {
+        "tags": [
+          "불출"
+        ],
+        "summary": "불출 검색",
+        "description": "keyword는 처방전번호·환자번호·환자명 부분 일치. from/to는 불출일(yyyy-MM-dd).",
+        "operationId": "issueSearch",
+        "parameters": [
+          {
+            "name": "keyword",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "destinationCode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Zero-based page index (0..N)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "The size of the page to be returned",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseIssueSummaryResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "불출"
+        ],
+        "summary": "불출 등록",
+        "description": "검수 합격한 조제만 불출할 수 있다. 품목은 조제 품목을 수량 그대로 옮긴다.",
+        "operationId": "issueCreate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inspections": {
+      "get": {
+        "tags": [
+          "검수"
+        ],
+        "summary": "검수 검색",
+        "description": "keyword는 처방전번호·환자번호·환자명 부분 일치. from/to는 검수일(yyyy-MM-dd).",
+        "operationId": "inspectionSearch",
+        "parameters": [
+          {
+            "name": "keyword",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "result",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PASS",
+                "FAIL"
+              ]
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Zero-based page index (0..N)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "The size of the page to be returned",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseInspectionSummaryResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "검수"
+        ],
+        "summary": "검수 등록",
+        "description": "조제 품목마다 결과를 하나씩 보낸다. 모두 합격이면 조제가 불출 가능, 하나라도 불합격이면 재조제 대상이 된다.",
+        "operationId": "inspectionCreate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InspectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionResponse"
                 }
               }
             }
@@ -2562,6 +3145,143 @@
         }
       }
     },
+    "/api/dispensings": {
+      "get": {
+        "tags": [
+          "조제"
+        ],
+        "summary": "조제 검색",
+        "description": "keyword는 처방전번호·환자번호·환자명 부분 일치. from/to는 조제일(yyyy-MM-dd).",
+        "operationId": "dispensingSearch",
+        "parameters": [
+          {
+            "name": "keyword",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "prescriptionId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DISPENSED",
+                "INSPECTED",
+                "REJECTED",
+                "ISSUED"
+              ]
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Zero-based page index (0..N)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "The size of the page to be returned",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseDispensingSummaryResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "조제"
+        ],
+        "summary": "조제 등록",
+        "description": "처방 품목마다 조제 품목을 하나씩 보낸다. 조제하면 처방은 취소할 수 없다.",
+        "operationId": "dispensingCreate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DispensingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispensingResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/code-groups": {
       "get": {
         "tags": [
@@ -2776,6 +3496,38 @@
         "security": []
       }
     },
+    "/api/returns/{id}": {
+      "get": {
+        "tags": [
+          "반납"
+        ],
+        "summary": "반납 단건 조회",
+        "operationId": "drugReturnFindById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrugReturnResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/requests": {
       "get": {
         "tags": [
@@ -2914,6 +3666,38 @@
         }
       }
     },
+    "/api/prescriptions/{id}": {
+      "get": {
+        "tags": [
+          "처방"
+        ],
+        "summary": "처방 단건 조회",
+        "operationId": "prescriptionFindById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrescriptionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/menus/all": {
       "get": {
         "tags": [
@@ -2932,6 +3716,71 @@
                   "items": {
                     "$ref": "#/components/schemas/MenuResponse"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/issues/{id}": {
+      "get": {
+        "tags": [
+          "불출"
+        ],
+        "summary": "불출 단건 조회",
+        "description": "품목마다 지금까지 반납한 수량(returnedQuantity)을 함께 준다.",
+        "operationId": "issueFindById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inspections/{id}": {
+      "get": {
+        "tags": [
+          "검수"
+        ],
+        "summary": "검수 단건 조회",
+        "operationId": "inspectionFindById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionResponse"
                 }
               }
             }
@@ -3129,6 +3978,38 @@
                 "schema": {
                   "type": "string",
                   "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dispensings/{id}": {
+      "get": {
+        "tags": [
+          "조제"
+        ],
+        "summary": "조제 단건 조회",
+        "operationId": "dispensingFindById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispensingResponse"
                 }
               }
             }
@@ -4321,6 +5202,155 @@
           "username"
         ]
       },
+      "DrugReturnItemRequest": {
+        "type": "object",
+        "properties": {
+          "issueItemId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "quantity": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "RESTOCK",
+              "DISPOSE"
+            ]
+          }
+        },
+        "required": [
+          "disposition",
+          "issueItemId",
+          "quantity"
+        ]
+      },
+      "DrugReturnRequest": {
+        "type": "object",
+        "properties": {
+          "issueId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 0
+          },
+          "remark": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 0
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DrugReturnItemRequest"
+            },
+            "maxItems": 100,
+            "minItems": 0
+          }
+        },
+        "required": [
+          "issueId",
+          "items",
+          "reason"
+        ]
+      },
+      "DrugReturnItemResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "issueItemId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lineNo": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "drugCode": {
+            "type": "string"
+          },
+          "drugName": {
+            "type": "string"
+          },
+          "issuedQuantity": {
+            "type": "number"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "RESTOCK",
+              "DISPOSE"
+            ]
+          }
+        }
+      },
+      "DrugReturnResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "issueId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prescriptionId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prescriptionNo": {
+            "type": "string"
+          },
+          "patientNo": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "destinationName": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "returnedBy": {
+            "type": "string"
+          },
+          "returnedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "remark": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DrugReturnItemResponse"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "RejectForm": {
         "type": "object",
         "properties": {
@@ -4423,19 +5453,16 @@
           "number": {
             "type": "boolean"
           },
-          "valueNode": {
-            "type": "boolean"
-          },
-          "container": {
+          "floatingPointNumber": {
             "type": "boolean"
           },
           "integralNumber": {
             "type": "boolean"
           },
-          "bigInteger": {
+          "missingNode": {
             "type": "boolean"
           },
-          "bigDecimal": {
+          "valueNode": {
             "type": "boolean"
           },
           "nodeType": {
@@ -4452,7 +5479,22 @@
               "STRING"
             ]
           },
-          "missingNode": {
+          "bigDecimal": {
+            "type": "boolean"
+          },
+          "container": {
+            "type": "boolean"
+          },
+          "bigInteger": {
+            "type": "boolean"
+          },
+          "int": {
+            "type": "boolean"
+          },
+          "boolean": {
+            "type": "boolean"
+          },
+          "long": {
             "type": "boolean"
           },
           "object": {
@@ -4461,33 +5503,21 @@
           "string": {
             "type": "boolean"
           },
-          "pojo": {
-            "type": "boolean"
-          },
           "short": {
-            "type": "boolean"
-          },
-          "int": {
-            "type": "boolean"
-          },
-          "floatingPointNumber": {
-            "type": "boolean"
-          },
-          "long": {
-            "type": "boolean"
-          },
-          "binary": {
-            "type": "boolean"
-          },
-          "boolean": {
             "type": "boolean"
           },
           "double": {
             "type": "boolean"
           },
+          "pojo": {
+            "type": "boolean"
+          },
           "textual": {
             "type": "boolean",
             "deprecated": true
+          },
+          "binary": {
+            "type": "boolean"
           },
           "embeddedValue": {
             "type": "boolean"
@@ -4588,6 +5618,527 @@
           "requestType"
         ]
       },
+      "PrescriptionItemRequest": {
+        "type": "object",
+        "properties": {
+          "drugCode": {
+            "type": "string",
+            "maxLength": 30,
+            "minLength": 0
+          },
+          "drugName": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 0
+          },
+          "dose": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "doseUnit": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 0
+          },
+          "route": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 0
+          },
+          "frequency": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 0
+          },
+          "days": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 365,
+            "minimum": 1
+          },
+          "totalQuantity": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "usageNote": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "days",
+          "dose",
+          "doseUnit",
+          "drugCode",
+          "drugName",
+          "frequency",
+          "route",
+          "totalQuantity"
+        ]
+      },
+      "PrescriptionRequest": {
+        "type": "object",
+        "properties": {
+          "prescriptionNo": {
+            "type": "string",
+            "maxLength": 30,
+            "minLength": 0
+          },
+          "patientNo": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 0
+          },
+          "patientName": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "departmentCode": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 0
+          },
+          "prescriberName": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "prescriptionType": {
+            "type": "string",
+            "enum": [
+              "OUTPATIENT",
+              "INPATIENT",
+              "DISCHARGE",
+              "EMERGENCY"
+            ]
+          },
+          "prescribedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "remark": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 0
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PrescriptionItemRequest"
+            },
+            "maxItems": 100,
+            "minItems": 0
+          }
+        },
+        "required": [
+          "departmentCode",
+          "items",
+          "patientName",
+          "patientNo",
+          "prescribedAt",
+          "prescriberName",
+          "prescriptionNo",
+          "prescriptionType"
+        ]
+      },
+      "PrescriptionItemResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lineNo": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "drugCode": {
+            "type": "string"
+          },
+          "drugName": {
+            "type": "string"
+          },
+          "dose": {
+            "type": "number"
+          },
+          "doseUnit": {
+            "type": "string"
+          },
+          "route": {
+            "type": "string"
+          },
+          "frequency": {
+            "type": "string"
+          },
+          "days": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalQuantity": {
+            "type": "number"
+          },
+          "usageNote": {
+            "type": "string"
+          }
+        }
+      },
+      "PrescriptionResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prescriptionNo": {
+            "type": "string"
+          },
+          "patientNo": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "departmentCode": {
+            "type": "string"
+          },
+          "prescriberName": {
+            "type": "string"
+          },
+          "prescriptionType": {
+            "type": "string",
+            "enum": [
+              "OUTPATIENT",
+              "INPATIENT",
+              "DISCHARGE",
+              "EMERGENCY"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ORDERED",
+              "DISPENSED",
+              "CANCELLED"
+            ]
+          },
+          "prescribedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "remark": {
+            "type": "string"
+          },
+          "cancelledAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cancelReason": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PrescriptionItemResponse"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PrescriptionCancelRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "IssueRequest": {
+        "type": "object",
+        "properties": {
+          "dispensingId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "destinationCode": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 0
+          },
+          "destinationName": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "receiverName": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "remark": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "destinationCode",
+          "destinationName",
+          "dispensingId",
+          "receiverName"
+        ]
+      },
+      "IssueItemResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dispensingItemId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lineNo": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "drugCode": {
+            "type": "string"
+          },
+          "drugName": {
+            "type": "string"
+          },
+          "lotNo": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "returnedQuantity": {
+            "type": "number"
+          }
+        }
+      },
+      "IssueResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dispensingId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prescriptionId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prescriptionNo": {
+            "type": "string"
+          },
+          "patientNo": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "destinationCode": {
+            "type": "string"
+          },
+          "destinationName": {
+            "type": "string"
+          },
+          "receiverName": {
+            "type": "string"
+          },
+          "issuedBy": {
+            "type": "string"
+          },
+          "issuedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "remark": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IssueItemResponse"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "InspectionItemRequest": {
+        "type": "object",
+        "properties": {
+          "dispensingItemId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL"
+            ]
+          },
+          "defectReason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "dispensingItemId",
+          "result"
+        ]
+      },
+      "InspectionRequest": {
+        "type": "object",
+        "properties": {
+          "dispensingId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "remark": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 0
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InspectionItemRequest"
+            },
+            "maxItems": 100,
+            "minItems": 0
+          }
+        },
+        "required": [
+          "dispensingId",
+          "items"
+        ]
+      },
+      "InspectionItemResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dispensingItemId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lineNo": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "drugCode": {
+            "type": "string"
+          },
+          "drugName": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "lotNo": {
+            "type": "string"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL"
+            ]
+          },
+          "defectReason": {
+            "type": "string"
+          }
+        }
+      },
+      "InspectionResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dispensingId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prescriptionId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prescriptionNo": {
+            "type": "string"
+          },
+          "patientNo": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL"
+            ]
+          },
+          "inspectedBy": {
+            "type": "string"
+          },
+          "inspectedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "remark": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InspectionItemResponse"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "ExcelUploadResponse": {
         "type": "object",
         "properties": {
@@ -4608,6 +6159,149 @@
               "type": "integer",
               "format": "int64"
             }
+          }
+        }
+      },
+      "DispensingItemRequest": {
+        "type": "object",
+        "properties": {
+          "prescriptionItemId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "quantity": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "lotNo": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 0
+          },
+          "expiryDate": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "required": [
+          "prescriptionItemId",
+          "quantity"
+        ]
+      },
+      "DispensingRequest": {
+        "type": "object",
+        "properties": {
+          "prescriptionId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "remark": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 0
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DispensingItemRequest"
+            },
+            "maxItems": 100,
+            "minItems": 0
+          }
+        },
+        "required": [
+          "items",
+          "prescriptionId"
+        ]
+      },
+      "DispensingItemResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prescriptionItemId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lineNo": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "drugCode": {
+            "type": "string"
+          },
+          "drugName": {
+            "type": "string"
+          },
+          "prescribedQuantity": {
+            "type": "number"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "lotNo": {
+            "type": "string"
+          },
+          "expiryDate": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "DispensingResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prescriptionId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prescriptionNo": {
+            "type": "string"
+          },
+          "patientNo": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DISPENSED",
+              "INSPECTED",
+              "REJECTED",
+              "ISSUED"
+            ]
+          },
+          "dispensedBy": {
+            "type": "string"
+          },
+          "dispensedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "remark": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DispensingItemResponse"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -4754,6 +6448,72 @@
           }
         }
       },
+      "DrugReturnSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "issueId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prescriptionId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prescriptionNo": {
+            "type": "string"
+          },
+          "patientNo": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "destinationName": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "returnedBy": {
+            "type": "string"
+          },
+          "returnedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PageResponseDrugReturnSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DrugReturnSummaryResponse"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "PageResponseChangeRequestResponse": {
         "type": "object",
         "properties": {
@@ -4761,6 +6521,218 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ChangeRequestResponse"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "PageResponsePrescriptionSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PrescriptionSummaryResponse"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "PrescriptionSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prescriptionNo": {
+            "type": "string"
+          },
+          "patientNo": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "departmentCode": {
+            "type": "string"
+          },
+          "prescriberName": {
+            "type": "string"
+          },
+          "prescriptionType": {
+            "type": "string",
+            "enum": [
+              "OUTPATIENT",
+              "INPATIENT",
+              "DISCHARGE",
+              "EMERGENCY"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ORDERED",
+              "DISPENSED",
+              "CANCELLED"
+            ]
+          },
+          "prescribedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "IssueSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dispensingId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prescriptionId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prescriptionNo": {
+            "type": "string"
+          },
+          "patientNo": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "destinationCode": {
+            "type": "string"
+          },
+          "destinationName": {
+            "type": "string"
+          },
+          "receiverName": {
+            "type": "string"
+          },
+          "issuedBy": {
+            "type": "string"
+          },
+          "issuedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PageResponseIssueSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IssueSummaryResponse"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "InspectionSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dispensingId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prescriptionId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prescriptionNo": {
+            "type": "string"
+          },
+          "patientNo": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL"
+            ]
+          },
+          "inspectedBy": {
+            "type": "string"
+          },
+          "inspectedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PageResponseInspectionSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InspectionSummaryResponse"
             }
           },
           "page": {
@@ -4874,6 +6846,71 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DomainResponse"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "DispensingSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prescriptionId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prescriptionNo": {
+            "type": "string"
+          },
+          "patientNo": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DISPENSED",
+              "INSPECTED",
+              "REJECTED",
+              "ISSUED"
+            ]
+          },
+          "dispensedBy": {
+            "type": "string"
+          },
+          "dispensedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PageResponseDispensingSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DispensingSummaryResponse"
             }
           },
           "page": {

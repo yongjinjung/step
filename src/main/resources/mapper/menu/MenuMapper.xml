@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  화면 메뉴 (app_menu). 상위-하위 2단이라 상위 메뉴는 한 단계만 조인해 parent에 채운다(p_ 접두사).
+  상위 메뉴의 상위는 항상 없으므로 menuRow(상위 없음)로 받는다.
+-->
+<mapper namespace="com.step.dictionary.menu.MenuMapper">
+
+    <!-- 상위 메뉴 없이 메뉴 한 행. 역할별 메뉴 권한 매퍼도 refid로 쓴다. -->
+    <resultMap id="menuRow" type="com.step.dictionary.menu.Menu" autoMapping="true">
+        <id property="id" column="id"/>
+        <result property="used" column="used_yn"/>
+    </resultMap>
+
+    <resultMap id="menu" type="com.step.dictionary.menu.Menu" extends="menuRow" autoMapping="true">
+        <association property="parent" columnPrefix="p_" resultMap="menuRow"/>
+    </resultMap>
+
+    <sql id="columns">
+        m.id, m.name, m.path, m.icon, m.sort_order, m.used_yn, m.created_at, m.updated_at,
+        p.id AS p_id, p.name AS p_name, p.path AS p_path, p.icon AS p_icon, p.sort_order AS p_sort_order,
+        p.used_yn AS p_used_yn, p.created_at AS p_created_at, p.updated_at AS p_updated_at
+    </sql>
+
+    <sql id="from">
+        FROM app_menu m
+        LEFT JOIN app_menu p ON p.id = m.parent_id
+    </sql>
+
+    <select id="findById" resultMap="menu">
+        SELECT <include refid="columns"/> <include refid="from"/> WHERE m.id = #{id}
+    </select>
+
+    <select id="findAll" resultMap="menu">
+        SELECT <include refid="columns"/> <include refid="from"/>
+        ORDER BY m.sort_order ASC, m.id ASC
+    </select>
+
+    <select id="findAllById" resultMap="menu">
+        SELECT <include refid="columns"/> <include refid="from"/>
+        WHERE m.id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+        ORDER BY m.sort_order ASC, m.id ASC
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*) FROM app_menu
+    </select>
+
+    <select id="countByPath" resultType="long">
+        SELECT COUNT(*) FROM app_menu
+        WHERE path = #{path}
+        <if test="excludeId != null">AND id &lt;&gt; #{excludeId}</if>
+    </select>
+
+    <select id="countByParentId" resultType="long">
+        SELECT COUNT(*) FROM app_menu WHERE parent_id = #{parentId}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO app_menu (parent_id, name, path, icon, sort_order, used_yn, created_at, updated_at)
+        VALUES (#{parent.id}, #{name}, #{path}, #{icon}, #{sortOrder}, #{used}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="update">
+        UPDATE app_menu
+        SET parent_id = #{parent.id}, name = #{name}, path = #{path}, icon = #{icon}, sort_order = #{sortOrder},
+            used_yn = #{used}, updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM app_menu WHERE id = #{id}
+    </delete>
+</mapper>

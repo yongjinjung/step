@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 변경 이력 (change_history). 변경자(cb_)는 시스템 변경이면 없다. -->
+<mapper namespace="com.step.dictionary.history.ChangeHistoryMapper">
+
+    <resultMap id="changeHistory" type="com.step.dictionary.history.ChangeHistory" autoMapping="true">
+        <id property="id" column="id"/>
+        <association property="changedBy" columnPrefix="cb_" resultMap="com.step.dictionary.user.AppUserMapper.appUser"/>
+    </resultMap>
+
+    <sql id="columns">
+        h.id, h.target_type, h.target_id, h.change_type, h.before_data, h.after_data, h.request_id, h.changed_at,
+        cb.id AS cb_id, cb.username AS cb_username, cb.password AS cb_password, cb.name AS cb_name,
+        cb.enabled AS cb_enabled, cb.created_at AS cb_created_at, cb.updated_at AS cb_updated_at
+    </sql>
+
+    <sql id="from">
+        FROM change_history h
+        LEFT JOIN app_user cb ON cb.id = h.changed_by
+    </sql>
+
+    <select id="findById" resultMap="changeHistory">
+        SELECT <include refid="columns"/> <include refid="from"/> WHERE h.id = #{id}
+    </select>
+
+    <!-- changedBy는 변경자 아이디 정확히 일치(소문자로 정규화), from/to는 변경 일자(양 끝 포함). -->
+    <sql id="searchWhere">
+        <bind name="changedBy" value="@com.step.dictionary.global.mybatis.SqlParams@lower(c.changedBy)"/>
+        <bind name="fromAt" value="@com.step.dictionary.global.mybatis.SqlParams@startOfDay(c.from)"/>
+        <bind name="toBefore" value="@com.step.dictionary.global.mybatis.SqlParams@startOfNextDay(c.to)"/>
+        <where>
+            <if test="c.targetType != null">AND h.target_type = #{c.targetType}</if>
+            <if test="c.targetId != null">AND h.target_id = #{c.targetId}</if>
+            <if test="c.changeType != null">AND h.change_type = #{c.changeType}</if>
+            <if test="c.requestId != null">AND h.request_id = #{c.requestId}</if>
+            <if test="changedBy != null">AND cb.username = #{changedBy}</if>
+            <if test="fromAt != null">AND h.changed_at &gt;= #{fromAt}</if>
+            <if test="toBefore != null">AND h.changed_at &lt; #{toBefore}</if>
+        </where>
+    </sql>
+
+    <select id="search" resultMap="changeHistory">
+        SELECT <include refid="columns"/> <include refid="from"/>
+        <include refid="searchWhere"/>
+        ORDER BY h.id DESC
+        LIMIT #{p.pageSize} OFFSET #{p.offset}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*) <include refid="from"/>
+        <include refid="searchWhere"/>
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO change_history (target_type, target_id, change_type, before_data, after_data, changed_by,
+                                    request_id, changed_at)
+        VALUES (#{targetType}, #{targetId}, #{changeType}, #{beforeData}, #{afterData}, #{changedBy.id},
+                #{requestId}, #{changedAt})
+    </insert>
+</mapper>

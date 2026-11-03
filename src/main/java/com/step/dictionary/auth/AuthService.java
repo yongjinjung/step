@@ -91,8 +91,9 @@ public class AuthService {
         if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
             throw new BusinessException(ErrorCode.INVALID_CURRENT_PASSWORD);
         }
-        // 트랜잭션이 끝날 때 변경 감지로 update된다.
+        // MyBatis는 변경 감지가 없으므로 직접 update한다.
         user.changePassword(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
     }
 
     /** 아이디로 계정을 찾고, 없으면 USER_NOT_FOUND(404)를 던진다. */

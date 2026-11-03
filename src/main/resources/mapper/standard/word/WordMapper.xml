@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  표준 단어 (std_word). 기능 패키지 매퍼 XML의 기준 예시.
+  - 결과 매핑: 컬럼명(snake_case)이 필드명(camelCase)으로 자동 매핑된다 (mybatis.configuration.map-underscore-to-camel-case).
+    'Y'/'N' 컬럼은 YesNoTypeHandler가 boolean으로 바꾼다.
+  - 동적 조건: <where> 안의 <if>가 값이 있을 때만 붙고, 첫 AND는 <where>가 지운다.
+  - 부분 일치: Likes.contains로 %, _ 를 이스케이프한 패턴을 만들고 ESCAPE '!'를 붙인다.
+  - 이 SQL은 MySQL 8.4와 테스트용 H2(MODE=MySQL) 양쪽에서 실행된다. 양쪽에 있는 문법만 쓴다.
+-->
+<mapper namespace="com.step.dictionary.standard.word.WordMapper">
+
+    <resultMap id="word" type="com.step.dictionary.standard.word.Word" autoMapping="true">
+        <id property="id" column="id"/>
+    </resultMap>
+
+    <sql id="columns">
+        w.id, w.name, w.abbreviation, w.english_name, w.description, w.classifier, w.created_at, w.updated_at
+    </sql>
+
+    <select id="findById" resultMap="word">
+        SELECT <include refid="columns"/> FROM std_word w WHERE w.id = #{id}
+    </select>
+
+    <select id="findByName" resultMap="word">
+        SELECT <include refid="columns"/> FROM std_word w WHERE w.name = #{name}
+    </select>
+
+    <select id="findAllById" resultMap="word">
+        SELECT <include refid="columns"/> FROM std_word w
+        WHERE w.id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </select>
+
+    <select id="countByName" resultType="long">
+        SELECT COUNT(*) FROM std_word
+        WHERE name = #{name}
+        <if test="excludeId != null">AND id &lt;&gt; #{excludeId}</if>
+    </select>
+
+    <select id="countByAbbreviation" resultType="long">
+        SELECT COUNT(*) FROM std_word
+        WHERE abbreviation = #{abbreviation}
+        <if test="excludeId != null">AND id &lt;&gt; #{excludeId}</if>
+    </select>
+
+    <!-- 검색 조건. search와 count가 같이 쓴다. 키워드는 단어명 OR 영문약어 OR 영문명 (영문은 대소문자 무시). -->
+    <sql id="searchWhere">
+        <bind name="keyword" value="@com.step.dictionary.global.mybatis.Likes@contains(c.keyword)"/>
+        <where>
+            <if test="keyword != null">
+                AND (w.name LIKE #{keyword} ESCAPE '!'
+                     OR LOWER(w.abbreviation) LIKE LOWER(#{keyword}) ESCAPE '!'
+                     OR LOWER(w.english_name) LIKE LOWER(#{keyword}) ESCAPE '!')
+            </if>
+            <if test="c.classifier != null">AND w.classifier = #{c.classifier}</if>
+        </where>
+    </sql>
+
+    <select id="search" resultMap="word">
+        SELECT <include refid="columns"/> FROM std_word w
+        <include refid="searchWhere"/>
+        ORDER BY w.name ASC
+        LIMIT #{p.pageSize} OFFSET #{p.offset}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*) FROM std_word w
+        <include refid="searchWhere"/>
+    </select>
+
+    <!-- useGeneratedKeys: AUTO_INCREMENT로 만들어진 ID를 word.id에 넣는다. 생성·수정 일시는 AuditingInterceptor가 채운다. -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at)
+        VALUES (#{name}, #{abbreviation}, #{englishName}, #{description}, #{classifier}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="update">
+        UPDATE std_word
+        SET name = #{name}, abbreviation = #{abbreviation}, english_name = #{englishName},
+            description = #{description}, classifier = #{classifier}, updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM std_word WHERE id = #{id}
+    </delete>
+</mapper>

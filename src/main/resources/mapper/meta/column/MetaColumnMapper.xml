@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  컬럼 정의 (meta_column). 테이블(mt_), 용어(t_) + 도메인(t_d_) + 분류어(t_d_cw_), 코드 그룹(cg_)을 조인해 채운다.
+  모두 다대일이라 LIMIT 페이징이 그대로 동작한다. 용어와 코드 그룹은 없을 수 있어 LEFT JOIN이다.
+
+  비표준 검출 규칙(issueCondition)은 MetaColumn.inspect()와 같아야 한다.
+  nullable 컬럼(길이·소수점) 비교는 SQL의 <>가 NULL에서 참이 되지 않으므로 NULL 안전하게 비교한다.
+-->
+<mapper namespace="com.step.dictionary.meta.column.MetaColumnMapper">
+
+    <resultMap id="metaColumn" type="com.step.dictionary.meta.column.MetaColumn" autoMapping="true">
+        <id property="id" column="id"/>
+        <result property="nullable" column="nullable_yn"/>
+        <result property="primaryKey" column="primary_key_yn"/>
+        <association property="table" columnPrefix="mt_"
+                     resultMap="com.step.dictionary.meta.table.MetaTableMapper.metaTable"/>
+        <association property="term" columnPrefix="t_"
+                     resultMap="com.step.dictionary.standard.term.TermMapper.term"/>
+        <association property="codeGroup" columnPrefix="cg_"
+                     resultMap="com.step.dictionary.code.group.CodeGroupMapper.codeGroup"/>
+    </resultMap>
+
+    <sql id="columns">
+        c.id, c.physical_name, c.logical_name, c.data_type, c.data_length, c.data_scale,
+        c.nullable_yn, c.primary_key_yn, c.seq, c.created_at, c.updated_at,
+        mt.id AS mt_id, mt.physical_name AS mt_physical_name, mt.logical_name AS mt_logical_name,
+        mt.description AS mt_description, mt.created_at AS mt_created_at, mt.updated_at AS mt_updated_at,
+        t.id AS t_id, t.name AS t_name, t.abbreviation AS t_abbreviation, t.description AS t_description,
+        t.created_at AS t_created_at, t.updated_at AS t_updated_at,
+        d.id AS t_d_id, d.name AS t_d_name, d.data_type AS t_d_data_type, d.data_length AS t_d_data_length,
+        d.data_scale AS t_d_data_scale, d.description AS t_d_description,
+        d.created_at AS t_d_created_at, d.updated_at AS t_d_updated_at,
+        cw.id AS t_d_cw_id, cw.name AS t_d_cw_name, cw.abbreviation AS t_d_cw_abbreviation,
+        cw.english_name AS t_d_cw_english_name, cw.description AS t_d_cw_description,
+        cw.classifier AS t_d_cw_classifier, cw.created_at AS t_d_cw_created_at, cw.updated_at AS t_d_cw_updated_at,
+        cg.id AS cg_id, cg.code_id AS cg_code_id, cg.code_name AS cg_code_name, cg.description AS cg_description,
+        cg.used_yn AS cg_used_yn, cg.created_at AS cg_created_at, cg.updated_at AS cg_updated_at
+    </sql>
+
+    <sql id="from">
+        FROM meta_column c
+        JOIN meta_table mt ON mt.id = c.table_id
+        LEFT JOIN std_term t ON t.id = c.term_id
+        LEFT JOIN std_domain d ON d.id = t.domain_id
+        LEFT JOIN std_word cw ON cw.id = d.classifier_word_id
+        LEFT JOIN com_code_group cg ON cg.id = c.code_group_id
+    </sql>
+
+    <select id="findAll" resultMap="metaColumn">
+        SELECT <include refid="columns"/> <include refid="from"/>
+        ORDER BY c.id ASC
+    </select>
+
+    <select id="findAllByTableId" resultMap="metaColumn">
+        SELECT <include refid="columns"/> <include refid="from"/>
+        WHERE c.table_id = #{tableId}
+        ORDER BY c.seq ASC, c.id ASC
+    </select>
+
+    <select id="findAllByTableIds" resultMap="metaColumn">
+        SELECT <include refid="columns"/> <include refid="from"/>
+        WHERE c.table_id IN
+        <foreach collection="tableIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+        ORDER BY c.seq ASC, c.id ASC
+    </select>
+
+    <select id="findAllByCodeGroupId" resultMap="metaColumn">
+        SELECT <include refid="columns"/> <include refid="from"/>
+        WHERE c.code_group_id = #{codeGroupId}
+        ORDER BY mt.physical_name ASC, c.seq ASC, c.id ASC
+    </select>
+
+    <select id="findByIdAndTableId" resultMap="metaColumn">
+        SELECT <include refid="columns"/> <include refid="from"/>
+        WHERE c.id = #{id} AND c.table_id = #{tableId}
+    </select>
+
+    <select id="countByTableIdAndPhysicalName" resultType="long">
+        SELECT COUNT(*) FROM meta_column
+        WHERE table_id = #{tableId} AND physical_name = #{physicalName}
+        <if test="excludeId != null">AND id &lt;&gt; #{excludeId}</if>
+    </select>
+
+    <select id="countByTermId" resultType="long">
+        SELECT COUNT(*) FROM meta_column WHERE term_id = #{termId}
+    </select>
+
+    <select id="countByCodeGroupId" resultType="long">
+        SELECT COUNT(*) FROM meta_column WHERE code_group_id = #{codeGroupId}
+    </select>
+
+    <!-- 비표준 사유 하나의 조건 (MetaColumn.inspect()와 같은 규칙). issue 변수로 사유를 받는다. -->
+    <sql id="issueCondition">
+        <choose>
+            <when test="issue.name() == 'NO_TERM'">c.term_id IS NULL</when>
+            <when test="issue.name() == 'NAME_MISMATCH'">
+                (c.term_id IS NOT NULL AND c.physical_name &lt;&gt; t.abbreviation)
+            </when>
+            <when test="issue.name() == 'TYPE_MISMATCH'">
+                (c.term_id IS NOT NULL AND c.data_type &lt;&gt; d.data_type)
+            </when>
+            <when test="issue.name() == 'LENGTH_MISMATCH'">
+                (c.term_id IS NOT NULL AND (
+                    (c.data_length IS NULL AND d.data_length IS NOT NULL)
+                    OR (c.data_length IS NOT NULL AND d.data_length IS NULL)
+                    OR c.data_length &lt;&gt; d.data_length
+                    OR (c.data_scale IS NULL AND d.data_scale IS NOT NULL)
+                    OR (c.data_scale IS NOT NULL AND d.data_scale IS NULL)
+                    OR c.data_scale &lt;&gt; d.data_scale))
+            </when>
+        </choose>
+    </sql>
+
+    <!-- 사유를 지정하면 그 사유만, 없으면 사유 중 하나라도 있는 컬럼. -->
+    <sql id="nonStandardWhere">
+        <where>
+            <if test="c.tableId != null">AND c.table_id = #{c.tableId}</if>
+            <choose>
+                <when test="c.issue != null">
+                    <bind name="issue" value="c.issue"/>
+                    AND <include refid="issueCondition"/>
+                </when>
+                <otherwise>
+                    AND (
+                    <foreach collection="@com.step.dictionary.meta.column.ColumnIssue@values()" item="issue"
+                             separator=" OR ">
+                        <include refid="issueCondition"/>
+                    </foreach>
+                    )
+                </otherwise>
+            </choose>
+        </where>
+    </sql>
+
+    <select id="searchNonStandard" resultMap="metaColumn">
+        SELECT <include refid="columns"/> <include refid="from"/>
+        <include refid="nonStandardWhere"/>
+        ORDER BY mt.physical_name ASC, c.seq ASC, c.id ASC
+        LIMIT #{p.pageSize} OFFSET #{p.offset}
+    </select>
+
+    <!-- 건수는 검출 조건에 필요한 용어·도메인만 조인한다. -->
+    <select id="countNonStandard" resultType="long">
+        SELECT COUNT(*)
+        FROM meta_column c
+        LEFT JOIN std_term t ON t.id = c.term_id
+        LEFT JOIN std_domain d ON d.id = t.domain_id
+        <include refid="nonStandardWhere"/>
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO meta_column (table_id, physical_name, logical_name, term_id, code_group_id, data_type,
+                                 data_length, data_scale, nullable_yn, primary_key_yn, seq, created_at, updated_at)
+        VALUES (#{table.id}, #{physicalName}, #{logicalName}, #{term.id}, #{codeGroup.id}, #{dataType},
+                #{dataLength}, #{dataScale}, #{nullable}, #{primaryKey}, #{seq}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <!-- 소속 테이블은 바뀌지 않는다. -->
+    <update id="update">
+        UPDATE meta_column
+        SET physical_name = #{physicalName}, logical_name = #{logicalName}, term_id = #{term.id},
+            code_group_id = #{codeGroup.id}, data_type = #{dataType}, data_length = #{dataLength},
+            data_scale = #{dataScale}, nullable_yn = #{nullable}, primary_key_yn = #{primaryKey}, seq = #{seq},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM meta_column WHERE id = #{id}
+    </delete>
+</mapper>

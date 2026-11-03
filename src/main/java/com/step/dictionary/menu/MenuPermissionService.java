@@ -67,10 +67,8 @@ public class MenuPermissionService {
             throw new BusinessException(ErrorCode.MENU_NOT_FOUND);
         }
 
+        // 통째로 교체한다. 삭제가 먼저 실행되므로 같은 (사용자, 메뉴) 조합을 다시 넣어도 unique 제약에 걸리지 않는다.
         userMenuRepository.deleteAllByUserId(userId);
-        // Hibernate는 insert를 delete보다 먼저 실행하므로, 여기서 삭제를 먼저 내보내지 않으면
-        // 같은 (사용자, 메뉴) 조합을 다시 넣을 때 unique 제약(uk_app_user_menu)에 걸린다.
-        userMenuRepository.flush();
         userMenuRepository.saveAll(menus.stream().map(menu -> new UserMenu(user, menu)).toList());
 
         return response(user, menus.stream().map(Menu::getId).toList());

@@ -2,12 +2,6 @@ package com.step.dictionary.meta.table;
 
 import com.step.dictionary.global.entity.BaseTimeEntity;
 import com.step.dictionary.meta.PhysicalNames;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 
 /**
  * 테이블 정의. 실제 테이블을 등록하고 그 컬럼이 표준을 지키는지 점검하는 단위다.
@@ -16,28 +10,21 @@ import jakarta.persistence.Table;
  * 컬럼({@code MetaColumn})이 이 테이블을 참조하지만 양방향 컬렉션은 두지 않는다.
  * 테이블 삭제 시 컬럼 일괄 삭제는 {@link MetaTableService#delete}가 처리한다.
  */
-@Entity
-@Table(name = "meta_table")
 public class MetaTable extends BaseTimeEntity {
 
     /** 테이블 정의 ID (AUTO_INCREMENT). */
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     /** 물리명(대문자). 예: TB_CUSTOMER */
-    @Column(nullable = false, length = PhysicalNames.MAX_LENGTH)
     private String physicalName;
 
     /** 논리명(한글명). 예: 고객 */
-    @Column(nullable = false, length = 200)
     private String logicalName;
 
     /** 설명 (선택). */
-    @Column(length = 1000)
     private String description;
 
-    /** JPA 전용 기본 생성자. */
+    /** MyBatis가 조회 결과로 객체를 만들 때 쓰는 기본 생성자. */
     protected MetaTable() {
     }
 

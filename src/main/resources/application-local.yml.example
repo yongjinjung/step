@@ -7,14 +7,11 @@ spring:
     url: jdbc:mysql://localhost:3306/dictionary
     username: dictionary
     password: dictionary
-  jpa:
-    properties:
-      hibernate:
-        format_sql: true
 
 logging:
   level:
-    org.hibernate.SQL: debug
+    # 매퍼 SQL 로그 (실행 SQL과 파라미터)
+    com.step.dictionary: debug
 
 app:
   jwt:

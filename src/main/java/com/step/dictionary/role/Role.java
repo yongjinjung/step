@@ -1,15 +1,7 @@
 package com.step.dictionary.role;
 
 import com.step.dictionary.global.entity.BaseTimeEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import java.util.Locale;
-import org.hibernate.type.YesNoConverter;
 
 /**
  * 역할. 메뉴별 권한({@link RoleMenu})을 묶어 사용자에게 부여한다.
@@ -22,8 +14,6 @@ import org.hibernate.type.YesNoConverter;
  *
  * <p>기본 제공 역할({@link #builtIn})은 삭제할 수 없고 코드와 전권 여부를 바꿀 수 없다. 이름·설명·사용 여부·권한은 바꿀 수 있다.
  */
-@Entity
-@Table(name = "app_role")
 public class Role extends BaseTimeEntity {
 
     /** 관리자 역할 코드. 최초 관리자 계정과 마지막 전권 사용자 보호에 쓴다. */
@@ -32,38 +22,27 @@ public class Role extends BaseTimeEntity {
     public static final String USER_CODE = "USER";
 
     /** 역할 ID (AUTO_INCREMENT). */
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     /** 역할 코드(대문자). JWT {@code roles} 클레임에 들어간다. 예: ADMIN */
-    @Column(nullable = false, length = 50)
     private String code;
 
     /** 역할명. 예: 관리자 */
-    @Column(nullable = false, length = 100)
     private String name;
 
     /** 설명 (선택). */
-    @Column(length = 1000)
     private String description;
 
     /** 전권 여부 ('Y'/'N'). 메뉴 권한과 무관하게 모두 허용한다. */
-    @Convert(converter = YesNoConverter.class)
-    @Column(name = "all_permissions_yn", nullable = false, length = 1)
     private boolean superAdmin;
 
     /** 사용 여부 ('Y'/'N'). 미사용 역할의 권한은 무시한다. */
-    @Convert(converter = YesNoConverter.class)
-    @Column(name = "used_yn", nullable = false, length = 1)
     private boolean used;
 
     /** 기본 제공 역할 여부 ('Y'/'N'). 삭제·코드 변경·전권 변경이 막힌다. */
-    @Convert(converter = YesNoConverter.class)
-    @Column(name = "built_in_yn", nullable = false, length = 1)
     private boolean builtIn;
 
-    /** JPA 전용 기본 생성자. */
+    /** MyBatis가 조회 결과로 객체를 만들 때 쓰는 기본 생성자. */
     protected Role() {
     }
 

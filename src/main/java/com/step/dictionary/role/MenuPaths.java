@@ -22,6 +22,12 @@ public final class MenuPaths {
     public static final String MENUS = "/menus";
     public static final String MENU_PERMISSIONS = "/menu-permissions";
     public static final String ROLES = "/roles";
+    // ---- 약제 업무 (13단계) ----
+    public static final String PRESCRIPTIONS = "/prescriptions";
+    public static final String DISPENSINGS = "/dispensings";
+    public static final String INSPECTIONS = "/inspections";
+    public static final String ISSUES = "/issues";
+    public static final String RETURNS = "/returns";
 
     /** 인스턴스 생성 방지. */
     private MenuPaths() {

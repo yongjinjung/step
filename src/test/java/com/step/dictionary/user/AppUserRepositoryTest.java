@@ -2,7 +2,7 @@ package com.step.dictionary.user;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.step.dictionary.global.config.JpaConfig;
+import com.step.dictionary.global.config.MyBatisConfig;
 import com.step.dictionary.role.Role;
 import com.step.dictionary.role.RoleRepository;
 import com.step.dictionary.user.dto.UserSearchCondition;
@@ -10,17 +10,17 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mybatis.spring.boot.test.autoconfigure.MybatisTest;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 
-@DataJpaTest
+@MybatisTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
-@Import(JpaConfig.class)
+@Import({MyBatisConfig.class, AppUserRepository.class, RoleRepository.class})
 class AppUserRepositoryTest {
 
     @Autowired

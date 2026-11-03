@@ -2,29 +2,28 @@ package com.step.dictionary.history;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.step.dictionary.global.config.JpaConfig;
+import com.step.dictionary.global.config.MyBatisConfig;
 import com.step.dictionary.history.dto.ChangeHistorySearchCondition;
 import com.step.dictionary.user.AppUser;
 import com.step.dictionary.user.AppUserRepository;
 import com.step.dictionary.support.TestRoles;
-import jakarta.persistence.EntityManager;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mybatis.spring.boot.test.autoconfigure.MybatisTest;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 
-@DataJpaTest
+@MybatisTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
-@Import(JpaConfig.class)
+@Import({MyBatisConfig.class, ChangeHistoryRepository.class, AppUserRepository.class})
 class ChangeHistoryRepositoryTest {
 
     private static final LocalDateTime DAY1 = LocalDateTime.of(2026, 9, 14, 23, 59, 59);
@@ -35,9 +34,6 @@ class ChangeHistoryRepositoryTest {
 
     @Autowired
     private AppUserRepository userRepository;
-
-    @Autowired
-    private EntityManager entityManager;
 
     private ChangeHistory wordCreate;
     private ChangeHistory wordUpdate;
@@ -59,9 +55,6 @@ class ChangeHistoryRepositoryTest {
                 HistoryTargetType.WORD, 1L, ChangeType.UPDATE, "{}", "{}", user, null, DAY2));
         tableDelete = historyRepository.save(new ChangeHistory(
                 HistoryTargetType.TABLE, 1L, ChangeType.DELETE, "{}", null, null, null, DAY2));
-
-        entityManager.flush();
-        entityManager.clear();
     }
 
     @Test

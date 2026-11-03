@@ -2,23 +2,10 @@ package com.step.dictionary.user;
 
 import com.step.dictionary.global.entity.BaseTimeEntity;
 import com.step.dictionary.role.Role;
-import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.ManyToMany;
-import jakarta.persistence.Table;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Set;
-import org.hibernate.annotations.BatchSize;
-import org.hibernate.type.YesNoConverter;
 
 /**
  * 사용자 계정.
@@ -34,44 +21,30 @@ import org.hibernate.type.YesNoConverter;
  *   <li>역할은 여러 개 가질 수 있고(12단계), 권한은 역할들의 합집합이다.</li>
  * </ul>
  */
-@Entity
-@Table(name = "app_user")
 public class AppUser extends BaseTimeEntity {
 
     /** 사용자 ID (AUTO_INCREMENT). */
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     /** 로그인 아이디 (소문자). 변경 불가. */
-    @Column(nullable = false, length = 50, updatable = false)
     private String username;
 
     /** 비밀번호 해시 ({bcrypt} 접두어 포함). 응답에 절대 포함하지 않는다. */
-    @Column(nullable = false, length = 100)
     private String password;
 
     /** 표시 이름. */
-    @Column(nullable = false, length = 100)
     private String name;
 
     /**
      * 부여된 역할 (V11의 {@code app_user_role}). 권한은 역할들의 합집합이다.
-     * 목록 조회에서 사용자마다 역할을 따로 조회하지 않도록 {@code @BatchSize}로 묶어 읽는다.
+     * 목록 조회에서는 리포지토리가 사용자들의 역할을 IN 쿼리 한 번으로 읽어 채운다.
      */
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(name = "app_user_role",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "role_id"))
-    @BatchSize(size = 50)
     private Set<Role> roles = new LinkedHashSet<>();
 
     /** 활성 여부 ('Y'/'N'). false면 로그인할 수 없다. */
-    @Convert(converter = YesNoConverter.class)
-    @Column(nullable = false, length = 1)
     private boolean enabled;
 
-    /** JPA 전용 기본 생성자. */
+    /** MyBatis가 조회 결과로 객체를 만들 때 쓰는 기본 생성자. */
     protected AppUser() {
     }
 
@@ -116,6 +89,11 @@ public class AppUser extends BaseTimeEntity {
     /** 전권 역할(사용 중인 것)을 가졌는지. 마지막 전권 사용자 보호 규칙에서 쓴다. */
     public boolean hasSuperAdminRole() {
         return roles.stream().anyMatch(role -> role.isSuperAdmin() && role.isUsed());
+    }
+
+    /** 조회한 역할을 채운다. {@link AppUserRepository}만 호출한다. */
+    void loadRoles(Collection<Role> loaded) {
+        this.roles = new LinkedHashSet<>(loaded);
     }
 
     // ---- 조회용 getter ----

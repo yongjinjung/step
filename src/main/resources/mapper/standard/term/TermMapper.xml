@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  표준 용어 (std_term) + 구성 단어 조인 테이블 (std_term_word).
+  용어 조회는 도메인과 도메인의 분류어를 조인해 채운다(다대일이라 LIMIT 페이징이 그대로 동작한다).
+  구성 단어(일대다)를 같이 조인하면 행이 늘어 페이징이 깨지므로 findWordsByTermIds로 따로 읽는다.
+-->
+<mapper namespace="com.step.dictionary.standard.term.TermMapper">
+
+    <!-- 다른 매퍼(컬럼)도 refid로 쓴다. 도메인 컬럼은 d_, 도메인의 분류어 컬럼은 d_cw_ 접두사(접두사는 중첩될수록 이어 붙는다). -->
+    <resultMap id="term" type="com.step.dictionary.standard.term.Term" autoMapping="true">
+        <id property="id" column="id"/>
+        <association property="domain" columnPrefix="d_"
+                     resultMap="com.step.dictionary.standard.domain.DomainMapper.domain"/>
+    </resultMap>
+
+    <sql id="columns">
+        t.id, t.name, t.abbreviation, t.description, t.created_at, t.updated_at,
+        d.id AS d_id, d.name AS d_name, d.data_type AS d_data_type, d.data_length AS d_data_length,
+        d.data_scale AS d_data_scale, d.description AS d_description,
+        d.created_at AS d_created_at, d.updated_at AS d_updated_at,
+        cw.id AS d_cw_id, cw.name AS d_cw_name, cw.abbreviation AS d_cw_abbreviation,
+        cw.english_name AS d_cw_english_name, cw.description AS d_cw_description, cw.classifier AS d_cw_classifier,
+        cw.created_at AS d_cw_created_at, cw.updated_at AS d_cw_updated_at
+    </sql>
+
+    <sql id="from">
+        FROM std_term t
+        JOIN std_domain d ON d.id = t.domain_id
+        JOIN std_word cw ON cw.id = d.classifier_word_id
+    </sql>
+
+    <select id="findById" resultMap="term">
+        SELECT <include refid="columns"/> <include refid="from"/> WHERE t.id = #{id}
+    </select>
+
+    <select id="findByName" resultMap="term">
+        SELECT <include refid="columns"/> <include refid="from"/> WHERE t.name = #{name}
+    </select>
+
+    <resultMap id="termWord" type="com.step.dictionary.standard.term.TermWordRow">
+        <result property="termId" column="term_id"/>
+        <result property="seq" column="seq"/>
+        <association property="word" columnPrefix="w_" resultMap="com.step.dictionary.standard.word.WordMapper.word"/>
+    </resultMap>
+
+    <select id="findWordsByTermIds" resultMap="termWord">
+        SELECT tw.term_id, tw.seq,
+               w.id AS w_id, w.name AS w_name, w.abbreviation AS w_abbreviation, w.english_name AS w_english_name,
+               w.description AS w_description, w.classifier AS w_classifier,
+               w.created_at AS w_created_at, w.updated_at AS w_updated_at
+        FROM std_term_word tw
+        JOIN std_word w ON w.id = tw.word_id
+        WHERE tw.term_id IN
+        <foreach collection="termIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+        ORDER BY tw.term_id, tw.seq
+    </select>
+
+    <select id="countByName" resultType="long">
+        SELECT COUNT(*) FROM std_term
+        WHERE name = #{name}
+        <if test="excludeId != null">AND id &lt;&gt; #{excludeId}</if>
+    </select>
+
+    <select id="countByAbbreviation" resultType="long">
+        SELECT COUNT(*) FROM std_term
+        WHERE abbreviation = #{abbreviation}
+        <if test="excludeId != null">AND id &lt;&gt; #{excludeId}</if>
+    </select>
+
+    <select id="countByDomainId" resultType="long">
+        SELECT COUNT(*) FROM std_term WHERE domain_id = #{domainId}
+    </select>
+
+    <select id="countByWordId" resultType="long">
+        SELECT COUNT(DISTINCT term_id) FROM std_term_word WHERE word_id = #{wordId}
+    </select>
+
+    <!-- 키워드는 용어명 OR 영문약어(대소문자 무시). wordId는 그 단어를 구성 단어로 가진 용어. -->
+    <sql id="searchWhere">
+        <bind name="keyword" value="@com.step.dictionary.global.mybatis.Likes@contains(c.keyword)"/>
+        <where>
+            <if test="keyword != null">
+                AND (t.name LIKE #{keyword} ESCAPE '!' OR LOWER(t.abbreviation) LIKE LOWER(#{keyword}) ESCAPE '!')
+            </if>
+            <if test="c.domainId != null">AND t.domain_id = #{c.domainId}</if>
+            <if test="c.wordId != null">
+                AND EXISTS (SELECT 1 FROM std_term_word tw WHERE tw.term_id = t.id AND tw.word_id = #{c.wordId})
+            </if>
+        </where>
+    </sql>
+
+    <select id="search" resultMap="term">
+        SELECT <include refid="columns"/> <include refid="from"/>
+        <include refid="searchWhere"/>
+        ORDER BY t.name ASC
+        LIMIT #{p.pageSize} OFFSET #{p.offset}
+    </select>
+
+    <!-- 건수는 도메인을 조인하지 않는다 (domain_id가 NOT NULL FK라 건수가 같다). -->
+    <select id="count" resultType="long">
+        SELECT COUNT(*) FROM std_term t
+        <include refid="searchWhere"/>
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO std_term (name, abbreviation, domain_id, description, created_at, updated_at)
+        VALUES (#{name}, #{abbreviation}, #{domain.id}, #{description}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="update">
+        UPDATE std_term
+        SET name = #{name}, abbreviation = #{abbreviation}, domain_id = #{domain.id}, description = #{description},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <insert id="insertWord">
+        INSERT INTO std_term_word (term_id, seq, word_id) VALUES (#{termId}, #{seq}, #{wordId})
+    </insert>
+
+    <delete id="deleteWordsByTermId">
+        DELETE FROM std_term_word WHERE term_id = #{termId}
+    </delete>
+
+    <delete id="deleteById">
+        DELETE FROM std_term WHERE id = #{id}
+    </delete>
+</mapper>

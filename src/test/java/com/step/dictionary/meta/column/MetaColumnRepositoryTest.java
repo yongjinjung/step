@@ -2,7 +2,7 @@ package com.step.dictionary.meta.column;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.step.dictionary.global.config.JpaConfig;
+import com.step.dictionary.global.config.MyBatisConfig;
 import com.step.dictionary.meta.column.dto.NonStandardColumnCondition;
 import com.step.dictionary.meta.table.MetaTable;
 import com.step.dictionary.meta.table.MetaTableRepository;
@@ -13,22 +13,22 @@ import com.step.dictionary.standard.term.Term;
 import com.step.dictionary.standard.term.TermRepository;
 import com.step.dictionary.standard.word.Word;
 import com.step.dictionary.standard.word.WordRepository;
-import jakarta.persistence.EntityManager;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mybatis.spring.boot.test.autoconfigure.MybatisTest;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 
-@DataJpaTest
+@MybatisTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
-@Import(JpaConfig.class)
+@Import({MyBatisConfig.class, MetaColumnRepository.class, MetaTableRepository.class, TermRepository.class,
+        DomainRepository.class, WordRepository.class})
 class MetaColumnRepositoryTest {
 
     @Autowired
@@ -45,9 +45,6 @@ class MetaColumnRepositoryTest {
 
     @Autowired
     private WordRepository wordRepository;
-
-    @Autowired
-    private EntityManager entityManager;
 
     private MetaTable customerTable;
     private MetaTable orderTable;
@@ -76,9 +73,6 @@ class MetaColumnRepositoryTest {
         saveColumn(customerTable, "CUSTOMER_NO", customerNumber, DataType.VARCHAR, 20, null, 4);
         saveColumn(orderTable, "CUST_NO", customerNumber, DataType.CHAR, 20, null, 1);
         saveColumn(orderTable, "CUST_AMT", customerAmount, DataType.DECIMAL, 15, 2, 2);
-
-        entityManager.flush();
-        entityManager.clear();
     }
 
     @Test

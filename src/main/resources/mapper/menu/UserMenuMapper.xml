@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 사용자별 메뉴 지정 (app_user_menu). 행이 있으면 그 메뉴만, 없으면 기본 규칙대로 보여준다. -->
+<mapper namespace="com.step.dictionary.menu.UserMenuMapper">
+
+    <select id="findMenuIdsByUserId" resultType="long">
+        SELECT menu_id FROM app_user_menu WHERE user_id = #{userId} ORDER BY menu_id ASC
+    </select>
+
+    <select id="findMenuIdsByUsername" resultType="long">
+        SELECT um.menu_id
+        FROM app_user_menu um
+        JOIN app_user u ON u.id = um.user_id
+        WHERE u.username = #{username}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO app_user_menu (user_id, menu_id, created_at)
+        VALUES (#{user.id}, #{menu.id}, #{createdAt})
+    </insert>
+
+    <delete id="deleteByUserId">
+        DELETE FROM app_user_menu WHERE user_id = #{userId}
+    </delete>
+
+    <delete id="deleteByMenuId">
+        DELETE FROM app_user_menu WHERE menu_id = #{menuId}
+    </delete>
+</mapper>

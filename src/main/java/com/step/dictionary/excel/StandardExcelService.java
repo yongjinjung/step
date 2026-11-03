@@ -164,7 +164,7 @@ public class StandardExcelService {
                 .toList());
     }
 
-    /** 용어 검색 결과를 엑셀로 만든다. 구성 단어는 단어명을 쉼표로 잇는다 (단어는 @BatchSize로 한꺼번에 조회). */
+    /** 용어 검색 결과를 엑셀로 만든다. 구성 단어는 단어명을 쉼표로 잇는다 (단어는 리포지토리가 IN 쿼리 한 번으로 채운다). */
     public byte[] downloadTerms(TermSearchCondition condition) {
         Page<Term> page = termRepository.search(condition, ExcelWriter.downloadPage());
         ExcelWriter.requireWithinLimit(page);

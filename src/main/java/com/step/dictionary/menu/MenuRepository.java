@@ -1,23 +1,69 @@
 package com.step.dictionary.menu;
 
+import java.util.Collection;
 import java.util.List;
-import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.Optional;
+import org.springframework.stereotype.Repository;
 
 /**
- * 메뉴 리포지토리.
- * 메뉴는 수가 적어 트리를 만들 때 전체를 한 번에 읽고 메모리에서 묶는다 (동적 검색 없음).
+ * 화면 메뉴 리포지토리 ({@link MenuMapper} 사용). 조회한 메뉴에는 상위 메뉴가 한 단계 채워져 있다.
+ * 엔티티를 바꾼 뒤에는 {@link #save}를 호출한다.
  */
-public interface MenuRepository extends JpaRepository<Menu, Long> {
+@Repository
+public class MenuRepository {
 
-    /** 전체 메뉴를 정렬 순서, 같으면 ID 오름차순으로 읽는다. 상위·하위가 섞여 나오며 서비스가 트리로 묶는다. */
-    List<Menu> findAllByOrderBySortOrderAscIdAsc();
+    private final MenuMapper mapper;
 
-    /** 등록 시 경로 중복 확인. {@link Menu#normalizePath} 를 거친 값을 넘겨야 한다. */
-    boolean existsByPath(String path);
+    public MenuRepository(MenuMapper mapper) {
+        this.mapper = mapper;
+    }
 
-    /** 수정 시 경로 중복 확인. 자기 자신(id)은 제외한다. */
-    boolean existsByPathAndIdNot(String path, Long id);
+    /** ID가 없으면 등록, 있으면 수정한다. */
+    public Menu save(Menu menu) {
+        if (menu.getId() == null) {
+            mapper.insert(menu);
+        } else {
+            mapper.update(menu);
+        }
+        return menu;
+    }
 
-    /** 하위 메뉴가 있는지. 삭제 차단(MENU_HAS_CHILDREN)과 2단 제한 검사에 쓴다. */
-    boolean existsByParentId(Long parentId);
+    public Optional<Menu> findById(Long id) {
+        return mapper.findById(id);
+    }
+
+    /** 전체 메뉴를 정렬 순서, 같으면 ID 오름차순으로. 화면 표시용 트리를 만들 때 쓴다. */
+    public List<Menu> findAllByOrderBySortOrderAscIdAsc() {
+        return mapper.findAll();
+    }
+
+    /** 여러 ID를 한 번에 찾는다. 없는 ID는 결과에서 빠진다. */
+    public List<Menu> findAllById(Collection<Long> ids) {
+        return ids.isEmpty() ? List.of() : mapper.findAllById(ids);
+    }
+
+    /** 메뉴 수. 기본 메뉴 생성 여부(비어 있을 때만)를 정한다. */
+    public long count() {
+        return mapper.count();
+    }
+
+    /** 등록 시 화면 경로 중복 확인. */
+    public boolean existsByPath(String path) {
+        return mapper.countByPath(path, null) > 0;
+    }
+
+    /** 수정 시 화면 경로 중복 확인. 자기 자신(id)은 제외한다. */
+    public boolean existsByPathAndIdNot(String path, Long id) {
+        return mapper.countByPath(path, id) > 0;
+    }
+
+    /** 하위 메뉴가 있는지. 하위가 있는 상위 메뉴는 삭제할 수 없다. */
+    public boolean existsByParentId(Long parentId) {
+        return mapper.countByParentId(parentId) > 0;
+    }
+
+    /** 메뉴만 지운다. 걸린 권한(역할별·사용자별)은 서비스가 먼저 지워야 한다 (FK). */
+    public void delete(Menu menu) {
+        mapper.deleteById(menu.getId());
+    }
 }

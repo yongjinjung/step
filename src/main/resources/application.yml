@@ -3,18 +3,25 @@ spring:
     name: dictionary
   profiles:
     default: local
-  jpa:
-    open-in-view: false
-    hibernate:
-      ddl-auto: validate
-    properties:
-      hibernate:
-        default_batch_fetch_size: 100
   servlet:
     multipart:
       # 엑셀 업로드 파일 최대 크기 (8단계). 넘으면 413 EXCEL_FILE_TOO_LARGE
       max-file-size: 10MB
       max-request-size: 10MB
+
+# MyBatis. SQL은 src/main/resources/mapper/{기능}/XxxMapper.xml, 매퍼 인터페이스는 @Mapper.
+mybatis:
+  mapper-locations: classpath:mapper/**/*.xml
+  # Y/N ↔ boolean 변환(YesNoTypeHandler)을 모든 boolean에 기본으로 쓴다.
+  type-handlers-package: com.step.dictionary.global.mybatis
+  configuration:
+    # created_at → createdAt 처럼 컬럼명을 필드명으로 자동 매핑한다.
+    map-underscore-to-camel-case: true
+    # 세션(트랜잭션) 단위 1차 캐시를 쓰지 않는다. 같은 조회도 매번 DB를 읽어, 서비스가 바꾼 객체가
+    # 다른 조회 결과로 다시 나오는 일이 없게 한다.
+    local-cache-scope: statement
+    # null 파라미터를 JDBC NULL로 보낸다 (MySQL·H2 공통).
+    jdbc-type-for-null: "NULL"
 
 # API 문서 (springdoc)
 springdoc:

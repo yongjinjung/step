@@ -37,7 +37,7 @@ public record ChangeHistoryResponse(
         LocalDateTime changedAt
 ) {
 
-    /** 엔티티와 서비스가 계산한 값으로 응답을 만든다. 변경자를 읽으므로 fetch join해 두거나 트랜잭션 안에서 호출한다. */
+    /** 엔티티와 서비스가 계산한 값으로 응답을 만든다. 변경자는 조회 쿼리에서 조인해 채워 둔다. */
     public static ChangeHistoryResponse from(ChangeHistory history, JsonNode before, JsonNode after,
             List<String> changedFields) {
         AppUser changedBy = history.getChangedBy();

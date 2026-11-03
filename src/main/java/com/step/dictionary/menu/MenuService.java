@@ -111,12 +111,12 @@ public class MenuService {
     public MenuResponse update(Long id, MenuRequest request) {
         Menu menu = getMenu(id);
         Menu parent = getParent(request.parentId());
-        // 엔티티를 바꾸기 전에 검사한다. 변경 후 exists 쿼리를 날리면 auto flush로 unique 제약 위반이 먼저 터진다.
+        // 엔티티를 바꾸기 전에 검사해 중복이면 저장하지 않고 409로 끝낸다.
         validate(request, parent, id);
 
         menu.update(parent, request.name(), request.path(), request.icon(), request.sortOrder(), request.used());
-        // 즉시 update를 실행해 갱신된 updatedAt으로 응답한다.
-        menuRepository.flush();
+        // MyBatis는 변경 감지가 없으므로 직접 update한다. updatedAt도 함께 갱신되어 응답에 쓰인다.
+        menuRepository.save(menu);
         return MenuResponse.from(menu);
     }
 
@@ -136,8 +136,6 @@ public class MenuService {
         // 이 메뉴를 가리키는 권한 행을 먼저 지운다 (FK 위반 방지).
         roleMenuRepository.deleteAllByMenuId(id);
         userMenuRepository.deleteAllByMenuId(id);
-        roleMenuRepository.flush();
-        userMenuRepository.flush();
         menuRepository.delete(menu);
     }
 
@@ -150,7 +148,7 @@ public class MenuService {
      */
     private List<MenuResponse> tree(boolean includeHidden, UserPermissions permissions, Set<Long> narrowedIds) {
         List<Menu> all = menuRepository.findAllByOrderBySortOrderAscIdAsc();
-        // 하위 메뉴를 상위 메뉴 ID로 묶는다. 상위 메뉴는 이미 영속성 컨텍스트에 있어 프록시라도 조회가 더 나가지 않는다.
+        // 하위 메뉴를 상위 메뉴 ID로 묶는다. 상위 메뉴는 조회 쿼리에서 조인해 채워져 있다.
         Map<Long, List<Menu>> childrenByParent = all.stream()
                 .filter(menu -> !menu.isTop())
                 .collect(Collectors.groupingBy(menu -> menu.getParent().getId(), LinkedHashMap::new,

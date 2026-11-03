@@ -87,15 +87,15 @@ public class MetaTableService {
         MetaTable table = getTable(id);
         // 변경 이력용으로 수정 전 값을 떠 둔다.
         TableSnapshot before = TableSnapshot.from(table);
-        // 엔티티를 변경하기 전에 검사해야 한다. 변경 후 조회하면 auto flush로 unique 제약 위반이 먼저 터진다.
+        // 엔티티를 변경하기 전에 검사해 중복이면 저장하지 않고 409로 끝낸다.
         String physicalName = PhysicalNames.normalize(request.physicalName());
         if (tableRepository.existsByPhysicalNameAndIdNot(physicalName, id)) {
             throw new BusinessException(ErrorCode.DUPLICATE_TABLE_NAME);
         }
 
         table.update(physicalName, request.logicalName(), request.description());
-        // 즉시 update를 실행해 갱신된 updatedAt으로 응답한다.
-        tableRepository.flush();
+        // MyBatis는 변경 감지가 없으므로 직접 update한다. updatedAt도 함께 갱신되어 응답에 쓰인다.
+        tableRepository.save(table);
         historyRecorder.recordUpdate(before, TableSnapshot.from(table));
         return MetaTableResponse.from(table);
     }
@@ -106,14 +106,9 @@ public class MetaTableService {
      * <p>순서:
      * <ol>
      *   <li>컬럼을 불러와 컬럼마다 삭제 이력을 남긴다.</li>
-     *   <li>불러온 컬럼 엔티티를 JPA로 삭제한다. 테이블보다 먼저 삭제를 등록해야 flush 때 컬럼 DELETE가 먼저 나가 FK 위반이 없다.</li>
+     *   <li>컬럼을 지운다. 테이블보다 먼저 지워야 FK 위반이 없다.</li>
      *   <li>테이블 삭제 이력을 남기고 테이블을 지운다.</li>
      * </ol>
-     *
-     * <p>JPQL 벌크 delete를 쓰지 않는 이유: 벌크 삭제는 영속성 컨텍스트를 거치지 않아, 1에서 불러온 컬럼 엔티티가
-     * 컨텍스트에 "살아 있는" 채로 남는다. 그 상태로 테이블을 삭제하면 flush 때 Hibernate가 삭제된 테이블을 참조하는
-     * 영속 컬럼을 발견해 {@code TransientPropertyValueException}을 던진다. 엔티티 단위 삭제는 컬럼 수만큼 DELETE가
-     * 나가지만, 한 테이블의 컬럼 수는 많지 않다.
      *
      * @throws BusinessException TABLE_NOT_FOUND (404)
      */

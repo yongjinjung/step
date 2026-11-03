@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 공통 코드 그룹 (com_code_group). used_yn 컬럼은 필드명(used)과 달라 결과 매핑에 적는다. -->
+<mapper namespace="com.step.dictionary.code.group.CodeGroupMapper">
+
+    <!-- 컬럼 매퍼도 refid로 쓴다. -->
+    <resultMap id="codeGroup" type="com.step.dictionary.code.group.CodeGroup" autoMapping="true">
+        <id property="id" column="id"/>
+        <result property="used" column="used_yn"/>
+    </resultMap>
+
+    <sql id="columns">
+        g.id, g.code_id, g.code_name, g.description, g.used_yn, g.created_at, g.updated_at
+    </sql>
+
+    <select id="findById" resultMap="codeGroup">
+        SELECT <include refid="columns"/> FROM com_code_group g WHERE g.id = #{id}
+    </select>
+
+    <select id="countByCodeId" resultType="long">
+        SELECT COUNT(*) FROM com_code_group
+        WHERE code_id = #{codeId}
+        <if test="excludeId != null">AND id &lt;&gt; #{excludeId}</if>
+    </select>
+
+    <!-- 키워드는 코드ID(대소문자 무시) OR 코드명. -->
+    <sql id="searchWhere">
+        <bind name="keyword" value="@com.step.dictionary.global.mybatis.Likes@contains(c.keyword)"/>
+        <where>
+            <if test="keyword != null">
+                AND (LOWER(g.code_id) LIKE LOWER(#{keyword}) ESCAPE '!' OR g.code_name LIKE #{keyword} ESCAPE '!')
+            </if>
+            <if test="c.used != null">AND g.used_yn = #{c.used}</if>
+        </where>
+    </sql>
+
+    <select id="search" resultMap="codeGroup">
+        SELECT <include refid="columns"/> FROM com_code_group g
+        <include refid="searchWhere"/>
+        ORDER BY g.code_id ASC
+        LIMIT #{p.pageSize} OFFSET #{p.offset}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*) FROM com_code_group g
+        <include refid="searchWhere"/>
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO com_code_group (code_id, code_name, description, used_yn, created_at, updated_at)
+        VALUES (#{codeId}, #{codeName}, #{description}, #{used}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="update">
+        UPDATE com_code_group
+        SET code_id = #{codeId}, code_name = #{codeName}, description = #{description}, used_yn = #{used},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM com_code_group WHERE id = #{id}
+    </delete>
+</mapper>

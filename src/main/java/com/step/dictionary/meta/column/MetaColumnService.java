@@ -102,7 +102,7 @@ public class MetaColumnService {
     }
 
     /**
-     * 컬럼 정의를 단건 조회한다. 테이블·용어·도메인은 트랜잭션 안에서 지연 로딩된다.
+     * 컬럼 정의를 단건 조회한다. 테이블·용어·도메인은 조회 쿼리에서 함께 채워진다.
      *
      * @throws BusinessException COLUMN_NOT_FOUND (404). 다른 테이블의 컬럼이어도 404
      */
@@ -129,7 +129,7 @@ public class MetaColumnService {
         MetaColumn column = getColumn(tableId, columnId);
         // 변경 이력용으로 수정 전 값을 떠 둔다.
         ColumnSnapshot before = ColumnSnapshot.from(column);
-        // 엔티티를 변경하기 전에 검사해야 한다. 변경 후 조회하면 auto flush로 unique 제약 위반이 먼저 터진다.
+        // 엔티티를 변경하기 전에 검사해 중복이면 저장하지 않고 409로 끝낸다.
         String physicalName = PhysicalNames.normalize(request.physicalName());
         if (columnRepository.existsByTableIdAndPhysicalNameAndIdNot(tableId, physicalName, columnId)) {
             throw new BusinessException(ErrorCode.DUPLICATE_COLUMN_NAME);
@@ -141,8 +141,8 @@ public class MetaColumnService {
         column.update(physicalName, request.logicalName(), term, request.dataType(),
                 request.dataLength(), request.dataScale(), request.nullable(), request.primaryKey(), request.seq());
         column.mapCodeGroup(codeGroup);
-        // 즉시 update를 실행해 갱신된 updatedAt으로 응답한다.
-        columnRepository.flush();
+        // MyBatis는 변경 감지가 없으므로 직접 update한다. updatedAt도 함께 갱신되어 응답에 쓰인다.
+        columnRepository.save(column);
         historyRecorder.recordUpdate(before, ColumnSnapshot.from(column));
         return MetaColumnResponse.from(column);
     }
@@ -202,7 +202,7 @@ public class MetaColumnService {
      * </ul>
      *
      * @param codeGroupId 요청한 코드 그룹 ID (null 가능)
-     * @param current     현재 매핑된 코드 그룹 (등록이면 null). 지연 로딩 프록시여도 {@code getId()}는 조회 쿼리를 내지 않는다
+     * @param current     현재 매핑된 코드 그룹 (등록이면 null)
      */
     private CodeGroup getCodeGroup(Long codeGroupId, CodeGroup current) {
         if (codeGroupId == null) {

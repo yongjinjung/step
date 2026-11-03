@@ -92,7 +92,7 @@ public class TermService {
     }
 
     /**
-     * 용어를 단건 조회한다. 구성 단어와 도메인은 트랜잭션 안에서 지연 로딩된다.
+     * 용어를 단건 조회한다. 구성 단어와 도메인이 함께 채워진다.
      *
      * @throws BusinessException TERM_NOT_FOUND (404)
      */
@@ -121,7 +121,7 @@ public class TermService {
         Domain domain = getDomain(request.domainId());
         validateComposition(words, domain);
 
-        // 엔티티를 변경하기 전에 검사해야 한다. 변경 후 조회하면 auto flush로 unique 제약 위반이 먼저 터진다.
+        // 엔티티를 변경하기 전에 검사해 중복이면 저장하지 않고 409로 끝낸다.
         String name = Term.composeName(words);
         String abbreviation = Term.composeAbbreviation(words);
         validateLength(name, abbreviation);
@@ -133,14 +133,14 @@ public class TermService {
         }
 
         term.update(words, domain, request.description());
-        // 즉시 update(조인 테이블 포함)를 실행해 갱신된 updatedAt으로 응답한다.
-        termRepository.flush();
+        // MyBatis는 변경 감지가 없으므로 직접 update한다(구성 단어 포함). updatedAt도 함께 갱신되어 응답에 쓰인다.
+        termRepository.save(term);
         historyRecorder.recordUpdate(before, TermSnapshot.from(term));
         return TermResponse.from(term);
     }
 
     /**
-     * 용어를 삭제한다. 구성 단어 행(std_term_word)은 JPA가 함께 지운다.
+     * 용어를 삭제한다. 구성 단어 행(std_term_word)은 리포지토리가 먼저 지운다.
      *
      * @throws BusinessException TERM_NOT_FOUND (404), TERM_IN_USE (409)
      */
@@ -179,7 +179,7 @@ public class TermService {
         if (!lastWord.isClassifier()) {
             throw new BusinessException(ErrorCode.TERM_LAST_WORD_NOT_CLASSIFIER);
         }
-        // ID로 비교한다. 도메인의 분류어 단어는 지연 로딩 프록시일 수 있지만 getId()는 추가 조회를 하지 않는다.
+        // 객체가 아니라 ID로 비교한다 (같은 단어도 조회마다 다른 객체다).
         if (!Objects.equals(domain.getClassifierWord().getId(), lastWord.getId())) {
             throw new BusinessException(ErrorCode.TERM_DOMAIN_MISMATCH);
         }

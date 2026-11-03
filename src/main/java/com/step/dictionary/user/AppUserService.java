@@ -105,8 +105,8 @@ public class AppUserService {
         }
 
         user.update(request.name(), roles, request.enabled());
-        // 즉시 update를 실행해 갱신된 updatedAt으로 응답한다.
-        userRepository.flush();
+        // MyBatis는 변경 감지가 없으므로 직접 update한다. updatedAt도 함께 갱신되어 응답에 쓰인다.
+        userRepository.save(user);
         return UserResponse.from(user);
     }
 
@@ -118,8 +118,9 @@ public class AppUserService {
     @Transactional
     public void resetPassword(Long id, PasswordResetRequest request) {
         AppUser user = getUser(id);
-        // 트랜잭션이 끝날 때 변경 감지로 update된다.
+        // MyBatis는 변경 감지가 없으므로 직접 update한다.
         user.changePassword(passwordEncoder.encode(request.password()));
+        userRepository.save(user);
     }
 
     /** 역할 ID 목록을 실제 역할로 바꾼다. 비어 있으면 USER_ROLE_REQUIRED(400). */

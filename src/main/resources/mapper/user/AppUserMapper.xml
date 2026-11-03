@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  사용자 계정 (app_user) + 역할 연결 (app_user_role).
+  역할(다대다)을 같이 조인하면 행이 늘어 페이징이 깨지므로 findRolesByUserIds로 따로 읽는다.
+-->
+<mapper namespace="com.step.dictionary.user.AppUserMapper">
+
+    <!-- 다른 매퍼(신청자·검토자, 변경자)도 refid로 쓴다. 역할은 채우지 않는다. -->
+    <resultMap id="appUser" type="com.step.dictionary.user.AppUser" autoMapping="true">
+        <id property="id" column="id"/>
+    </resultMap>
+
+    <sql id="columns">
+        u.id, u.username, u.password, u.name, u.enabled, u.created_at, u.updated_at
+    </sql>
+
+    <select id="findById" resultMap="appUser">
+        SELECT <include refid="columns"/> FROM app_user u WHERE u.id = #{id}
+    </select>
+
+    <select id="findByUsername" resultMap="appUser">
+        SELECT <include refid="columns"/> FROM app_user u WHERE u.username = #{username}
+    </select>
+
+    <resultMap id="userRole" type="com.step.dictionary.user.AppUserMapper$UserRoleRow">
+        <result property="userId" column="user_id"/>
+        <association property="role" columnPrefix="r_" resultMap="com.step.dictionary.role.RoleMapper.role"/>
+    </resultMap>
+
+    <select id="findRolesByUserIds" resultMap="userRole">
+        SELECT ur.user_id,
+               r.id AS r_id, r.code AS r_code, r.name AS r_name, r.description AS r_description,
+               r.all_permissions_yn AS r_all_permissions_yn, r.used_yn AS r_used_yn, r.built_in_yn AS r_built_in_yn,
+               r.created_at AS r_created_at, r.updated_at AS r_updated_at
+        FROM app_user_role ur
+        JOIN app_role r ON r.id = ur.role_id
+        WHERE ur.user_id IN
+        <foreach collection="userIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+        ORDER BY ur.user_id, r.code
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*) FROM app_user
+    </select>
+
+    <select id="countByUsername" resultType="long">
+        SELECT COUNT(*) FROM app_user WHERE username = #{username}
+    </select>
+
+    <select id="countSuperAdminRoles" resultType="long">
+        SELECT COUNT(*)
+        FROM app_user u
+        JOIN app_user_role ur ON ur.user_id = u.id
+        JOIN app_role r ON r.id = ur.role_id
+        WHERE u.username = #{username} AND r.all_permissions_yn = 'Y' AND r.used_yn = 'Y'
+    </select>
+
+    <!-- 키워드는 아이디(대소문자 무시) OR 이름. roleId는 그 역할을 가진 사용자. -->
+    <sql id="searchWhere">
+        <bind name="keyword" value="@com.step.dictionary.global.mybatis.Likes@contains(c.keyword)"/>
+        <where>
+            <if test="keyword != null">
+                AND (LOWER(u.username) LIKE LOWER(#{keyword}) ESCAPE '!' OR u.name LIKE #{keyword} ESCAPE '!')
+            </if>
+            <if test="c.roleId != null">
+                AND EXISTS (SELECT 1 FROM app_user_role ur WHERE ur.user_id = u.id AND ur.role_id = #{c.roleId})
+            </if>
+            <if test="c.enabled != null">AND u.enabled = #{c.enabled}</if>
+        </where>
+    </sql>
+
+    <select id="search" resultMap="appUser">
+        SELECT <include refid="columns"/> FROM app_user u
+        <include refid="searchWhere"/>
+        ORDER BY u.username ASC
+        LIMIT #{p.pageSize} OFFSET #{p.offset}
+    </select>
+
+    <select id="countSearch" resultType="long">
+        SELECT COUNT(*) FROM app_user u
+        <include refid="searchWhere"/>
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO app_user (username, password, name, enabled, created_at, updated_at)
+        VALUES (#{username}, #{password}, #{name}, #{enabled}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="update">
+        UPDATE app_user
+        SET password = #{password}, name = #{name}, enabled = #{enabled}, updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <insert id="insertUserRole">
+        INSERT INTO app_user_role (user_id, role_id) VALUES (#{userId}, #{roleId})
+    </insert>
+
+    <delete id="deleteUserRoles">
+        DELETE FROM app_user_role WHERE user_id = #{userId}
+    </delete>
+</mapper>

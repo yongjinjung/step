@@ -16,7 +16,7 @@ import { SampleSection } from './SampleSection'
 export function BackendGuideSamplePage() {
   return (
     <>
-      <PageHeader title="서버 개발 가이드" subTitle="Spring Boot 4 · 계층 구조 · Querydsl · 오류 처리 · 테스트" />
+      <PageHeader title="서버 개발 가이드" subTitle="Spring Boot 4 · 계층 구조 · MyBatis · 오류 처리 · 테스트" />
 
       <Space orientation="vertical" size="large" className="full-width">
         <Alert
@@ -27,7 +27,7 @@ export function BackendGuideSamplePage() {
             <>
               새 기능을 만들 때 무엇부터 볼지 모르겠으면 <code>standard/word</code> 패키지를 그대로 따라 한다. 이
               화면의 모든 코드는 그 패키지(<code>Word</code>, <code>WordRepository</code>, <code>WordService</code>,{' '}
-              <code>WordController</code>)에서 그대로 가져왔다. API 문서는{' '}
+              <code>WordController</code>)와 매퍼 XML(<code>WordMapper.xml</code>)에서 그대로 가져왔다. API 문서는{' '}
               <a href="http://localhost:8080/swagger-ui/index.html" target="_blank" rel="noreferrer">
                 Swagger UI
               </a>
@@ -40,7 +40,7 @@ export function BackendGuideSamplePage() {
           title="1. 계층 구조 — Controller → Service → Repository"
           summary={
             <>
-              한 기능은 <b>패키지 하나</b>에 Entity, Repository(+Querydsl 구현), Service, Controller,{' '}
+              한 기능은 <b>패키지 하나</b>에 Entity, Mapper(SQL), Repository, Service, Controller,{' '}
               <code>dto/</code>를 모두 둔다. 여러 기능이 공유하는 코드만 <code>global/</code>에 둔다.
             </>
           }
@@ -55,8 +55,9 @@ export function BackendGuideSamplePage() {
               <code>@Transactional</code>을 다시 붙인다.
             </>,
             <>
-              <b>Repository</b>: 기본 CRUD는 <code>JpaRepository</code>, 이름으로 만들어지는 조회(
-              <code>existsByName</code> 등)와 동적 검색(Querydsl)을 더한다.
+              <b>Repository</b>: 서비스가 쓰는 저장·조회 창구(<code>save</code>, <code>findById</code>,{' '}
+              <code>existsByName</code>, <code>search</code>). SQL은 직접 쓰지 않고 <b>Mapper</b>(MyBatis)를 부른다.
+              SQL은 <code>resources/mapper/</code>의 XML에 있다.
             </>,
             <>
               직접 API 호출과 변경 신청 승인(<code>StandardDataApplier</code>) 둘 다 <b>같은 Service</b>를 거친다. 업무
@@ -64,16 +65,18 @@ export function BackendGuideSamplePage() {
             </>,
           ]}
           code={`com.step.dictionary.standard.word
-├── Word.java                    엔티티 (JPA)
-├── WordRepository.java          JpaRepository + WordRepositoryCustom
-├── WordRepositoryCustom.java    동적 검색 인터페이스
-├── WordRepositoryCustomImpl.java Querydsl 구현 (이름 고정: {Repository}CustomImpl)
+├── Word.java                    엔티티 (일반 자바 클래스 + 업무 메서드)
+├── WordMapper.java              MyBatis 매퍼 인터페이스 (@Mapper, 메서드 하나 = SQL 하나)
+├── WordRepository.java          저장·조회 창구 (@Repository, 매퍼 호출)
 ├── WordService.java             업무 규칙 (여기가 핵심)
 ├── WordController.java          HTTP 매핑만
 └── dto/
     ├── WordRequest.java         등록/수정 요청 (record)
     ├── WordResponse.java        응답 (record)
-    └── WordSearchCondition.java 검색 조건 (record)`}
+    └── WordSearchCondition.java 검색 조건 (record)
+
+src/main/resources/mapper/standard/word
+└── WordMapper.xml               SQL (namespace = WordMapper 전체 이름)`}
         />
 
         <SampleSection
@@ -87,7 +90,8 @@ export function BackendGuideSamplePage() {
           points={[
             <>
               <code>WordController.search()</code> → <code>WordService.search()</code> →{' '}
-              <code>WordRepositoryCustomImpl.search()</code>(Querydsl) 순서로 호출되고, 결과가{' '}
+              <code>WordRepository.search()</code> → <code>WordMapper.search()</code>·<code>count()</code>(XML의 SQL)
+              순서로 호출되고, 결과가{' '}
               <code>PageResponse</code>로 감싸져 나온다(4번에서 자세히).
             </>,
             <>
@@ -115,19 +119,21 @@ public PageResponse<WordResponse> search(WordSearchCondition condition, Pageable
           title="3. 엔티티와 DB 매핑 규칙"
           summary={
             <>
-              엔티티는 순수 JPA다. <code>boolean</code> Y/N 컬럼, 감사 필드(생성·수정 일시), 정규화 로직이 어디에
-              있는지가 핵심이다.
+              엔티티는 어노테이션 없는 일반 자바 클래스다. 컬럼 ↔ 필드 연결은 매퍼 XML이 하고,{' '}
+              <code>boolean</code> Y/N 컬럼, 생성·수정 일시, 정규화 로직이 어디에 있는지가 핵심이다.
             </>
           }
           points={[
             <>
-              <b>Y/N 컬럼</b>: DB는 <code>CHAR(1)</code>, 엔티티는 <code>boolean</code> +{' '}
-              <code>@Convert(converter = YesNoConverter.class)</code>. MySQL <code>BOOLEAN(TINYINT)</code>은{' '}
-              <code>ddl-auto=validate</code>에서 타입이 어긋날 수 있어 쓰지 않는다.
+              <b>Y/N 컬럼</b>: DB는 <code>CHAR(1)</code>, 엔티티는 <code>boolean</code>. 전역 타입 핸들러(
+              <code>YesNoTypeHandler</code>)가 저장·조회 때 'Y'/'N'으로 바꿔 준다. 컬럼명은{' '}
+              <code>map-underscore-to-camel-case</code> 설정으로 <code>english_name</code> → <code>englishName</code>
+              처럼 자동으로 이어진다.
             </>,
             <>
-              <b>생성·수정 일시</b>: 직접 채우지 않는다. <code>BaseTimeEntity</code>를 상속하면{' '}
-              <code>@CreatedDate</code>/<code>@LastModifiedDate</code>가 저장 시점에 자동으로 채운다.
+              <b>생성·수정 일시</b>: 직접 채우지 않는다. <code>BaseTimeEntity</code>를 상속하면 MyBatis 인터셉터(
+              <code>AuditingInterceptor</code>)가 insert/update 직전에 채운다. SQL에는 <code>#{'{createdAt}'}</code>,{' '}
+              <code>#{'{updatedAt}'}</code>을 적어 둔다.
             </>,
             <>
               <b>정규화</b>: 영문약어를 대문자로 바꾸는 규칙은 엔티티 안(<code>normalizeAbbreviation</code>)에 두고,
@@ -135,23 +141,17 @@ public PageResponse<WordResponse> search(WordSearchCondition condition, Pageable
               쉽다.
             </>,
             <>
-              스키마는 <b>Flyway만</b> 관리한다(<code>ddl-auto: validate</code>). 엔티티를 바꾸면 같은 작업에서{' '}
-              <code>V{'{다음 번호}'}__설명.sql</code>도 만든다. 이미 적용된 파일은 절대 고치지 않는다.
+              스키마는 <b>Flyway만</b> 관리한다. 엔티티를 바꾸면 같은 작업에서 <code>V{'{다음 번호}'}__설명.sql</code>과
+              매퍼 XML의 SQL도 고친다. 이미 적용된 파일은 절대 고치지 않는다.
             </>,
           ]}
-          code={`@Entity
-@Table(name = "std_word")
-public class Word extends BaseTimeEntity {   // createdAt/updatedAt은 여기서 자동으로
+          code={`public class Word extends BaseTimeEntity {   // createdAt/updatedAt은 인터셉터가 채운다
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(nullable = false, length = 100)
+    private Long id;               // insert 후 useGeneratedKeys로 채워진다
     private String name;
+    private boolean classifier;    // DB CHAR(1) 'Y'/'N' ↔ boolean (YesNoTypeHandler)
 
-    @Convert(converter = YesNoConverter.class)   // DB CHAR(1) 'Y'/'N' ↔ boolean
-    @Column(nullable = false, length = 1)
-    private boolean classifier;
+    protected Word() {}            // MyBatis가 조회 결과로 객체를 만들 때 쓴다
 
     public Word(String name, String abbreviation, ...) {
         this.abbreviation = normalizeAbbreviation(abbreviation);   // 정규화는 엔티티 안에 한 곳
@@ -217,49 +217,65 @@ public record PageResponse<T>(List<T> content, int page, int size, long totalEle
         />
 
         <SampleSection
-          title="5. Querydsl 동적 검색"
+          title="5. MyBatis 동적 검색"
           summary={
             <>
-              검색 조건이 여러 개고 각각 있을 수도 없을 수도 있을 때(JPQL 문자열 조립 대신) Querydsl의{' '}
-              <code>BooleanExpression</code> 메서드를 조합한다. <b>조건이 없으면 <code>null</code>을 돌려주고</b>,
-              Querydsl이 <code>where()</code>에서 <code>null</code>을 자동으로 뺀다.
+              검색 조건이 여러 개고 각각 있을 수도 없을 수도 있을 때 매퍼 XML의 <code>{'<where>'}</code> +{' '}
+              <code>{'<if>'}</code>로 조건을 붙인다. <b>값이 있을 때만</b> 조건이 붙고, 첫 <code>AND</code>는{' '}
+              <code>{'<where>'}</code>가 알아서 지운다. 목록 SQL과 건수 SQL이 같은 조건 조각을 쓴다.
             </>
           }
           points={[
             <>
-              커스텀 구현체 클래스 이름은 반드시 <code>{'{Repository}CustomImpl'}</code>이어야 한다(Spring Data
-              fragment 인식 규칙). 오타 나면 조용히 빈으로 등록되지 않고 기동이 실패한다.
+              부분 일치는 <code>Likes.contains()</code>로 패턴을 만들고 <code>ESCAPE '!'</code>를 붙인다. 사용자가
+              입력한 <code>%</code>, <code>_</code>가 와일드카드가 아니라 글자로 검색된다.
             </>,
             <>
-              전체 건수(count) 쿼리는 <b>실행하지 않고 정의만</b> 해서 <code>PageableExecutionUtils.getPage</code>에
-              넘긴다. 첫 페이지인데 결과가 페이지 크기보다 적으면 count 쿼리를 아예 안 돌린다(성능).
+              리포지토리는 <code>Pages.of(목록, pageable, () -&gt; 건수)</code>로 묶는다. 첫 페이지인데 결과가 페이지
+              크기보다 적으면 건수 SQL을 아예 안 돌린다(성능).
+            </>,
+            <>
+              MyBatis는 객체 변경을 감지하지 않는다. 엔티티를 바꾼 뒤에는 반드시 <code>repository.save()</code>를
+              불러야 DB에 반영된다.
             </>,
             <>
               아래 데모는 조건을 바꿔 가며 실제로 호출해, 조건에 따라 <code>totalElements</code>가 달라지는 것을
               보여준다.
             </>,
           ]}
-          demo={<QuerydslDemo />}
-          code={`@Override
+          demo={<DynamicSearchDemo />}
+          code={`<!-- WordMapper.xml -->
+<sql id="searchWhere">
+    <bind name="keyword" value="@com.step.dictionary.global.mybatis.Likes@contains(c.keyword)"/>
+    <where>                                                   <!-- 값이 있는 조건만 붙는다 -->
+        <if test="keyword != null">
+            AND (w.name LIKE #{keyword} ESCAPE '!'
+                 OR LOWER(w.abbreviation) LIKE LOWER(#{keyword}) ESCAPE '!')
+        </if>
+        <if test="c.classifier != null">AND w.classifier = #{c.classifier}</if>
+    </where>
+</sql>
+
+<select id="search" resultMap="word">
+    SELECT <include refid="columns"/> FROM std_word w
+    <include refid="searchWhere"/>
+    ORDER BY w.name ASC
+    LIMIT #{p.pageSize} OFFSET #{p.offset}
+</select>
+
+<select id="count" resultType="long">
+    SELECT COUNT(*) FROM std_word w <include refid="searchWhere"/>
+</select>
+
+// WordMapper.java — 메서드 이름 = XML의 id
+List<Word> search(@Param("c") WordSearchCondition condition, @Param("p") Pageable pageable);
+long count(@Param("c") WordSearchCondition condition);
+
+// WordRepository.java
 public Page<Word> search(WordSearchCondition condition, Pageable pageable) {
-    List<Word> content = queryFactory.selectFrom(word)
-            .where(keywordContains(condition.keyword()), classifierEq(condition.classifier()))  // null은 자동 제외
-            .orderBy(word.name.asc())
-            .offset(pageable.getOffset()).limit(pageable.getPageSize())
-            .fetch();
-
-    JPAQuery<Long> countQuery = queryFactory.select(word.count()).from(word)
-            .where(keywordContains(condition.keyword()), classifierEq(condition.classifier()));
-
-    return PageableExecutionUtils.getPage(content, pageable, countQuery::fetchOne);
-}
-
-private BooleanExpression keywordContains(String keyword) {
-    if (!StringUtils.hasText(keyword)) return null;         // 조건 없음 → where에서 빠진다
-    return word.name.contains(keyword.trim())
-            .or(word.abbreviation.containsIgnoreCase(keyword.trim()));
+    return Pages.of(mapper.search(condition, pageable), pageable, () -> mapper.count(condition));
 }`}
-          codeTitle="WordRepositoryCustomImpl.java"
+          codeTitle="WordMapper.xml · WordMapper.java · WordRepository.java"
         />
 
         <SampleSection
@@ -313,9 +329,8 @@ public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException e
           }
           points={[
             <>
-              수정에서 <code>word.update(...)</code>로 엔티티를 바꾼 <b>뒤에</b> 중복 검사(exists 쿼리)를 하면,
-              JPA의 auto flush가 먼저 실행되며 DB unique 제약을 위반해 500이 난다. 그래서{' '}
-              <b>바꾸기 전에</b> 검사한다.
+              수정은 <b>엔티티를 바꾸기 전에</b> 중복·참조를 검사한다. 검사에 지금 값(예: 분류어였는지, 이름이
+              바뀌는지)이 필요하고, 검사에 걸리면 저장하지 않고 409로 끝내야 하기 때문이다.
             </>,
             <>
               다른 엔티티가 참조하는 대상은 <code>existsBy...</code>로 먼저 확인해 409(<code>XXX_IN_USE</code>)를
@@ -331,7 +346,7 @@ public WordResponse update(Long id, WordRequest request) {
     Word word = getWord(id);
     String abbreviation = Word.normalizeAbbreviation(request.abbreviation());   // 1) 정규화
 
-    // 2) 엔티티를 바꾸기 전에 검사한다 (바꾼 후 검사하면 auto flush로 500이 난다)
+    // 2) 엔티티를 바꾸기 전에 검사한다 (지금 값과 비교하고, 걸리면 저장 전에 409로 끝낸다)
     if (wordRepository.existsByAbbreviationAndIdNot(abbreviation, id)) {
         throw new BusinessException(ErrorCode.DUPLICATE_WORD_ABBREVIATION);
     }
@@ -340,7 +355,8 @@ public WordResponse update(Long id, WordRequest request) {
         throw new BusinessException(ErrorCode.CLASSIFIER_WORD_IN_USE);
     }
 
-    word.update(request.name(), abbreviation, ...);   // 4) 검사를 통과한 뒤에야 바꾼다
+    word.update(request.name(), abbreviation, ...);   // 4) 검사를 통과한 뒤에야 바꾸고
+    wordRepository.save(word);                         // 5) 직접 저장한다 (변경 감지 없음)
     ...
 }`}
         />
@@ -355,7 +371,7 @@ public WordResponse update(Long id, WordRequest request) {
           }
           points={[
             <>
-              수정은 엔티티를 바꾸기 <b>전에</b> <code>before</code> 스냅샷을 떠 두고, 변경·flush 후{' '}
+              수정은 엔티티를 바꾸기 <b>전에</b> <code>before</code> 스냅샷을 떠 두고, 변경·저장 후{' '}
               <code>after</code> 스냅샷과 함께 기록한다. 등록은 저장 후, 삭제는 지우기 전에 기록한다(지우면 값을 읽을
               수 없으므로).
             </>,
@@ -372,7 +388,7 @@ public WordResponse update(Long id, WordRequest request) {
     WordSnapshot before = WordSnapshot.from(word);      // 바뀌기 전 스냅샷 (반드시 먼저)
     ...
     word.update(request.name(), abbreviation, ...);
-    wordRepository.flush();                              // updatedAt을 응답에 반영하려고 즉시 flush
+    wordRepository.save(word);                           // update 실행 (updatedAt도 함께 갱신된다)
     historyRecorder.recordUpdate(before, WordSnapshot.from(word));   // 바뀐 뒤 스냅샷과 함께 기록
     return WordResponse.from(word);
 }`}
@@ -434,9 +450,10 @@ boolean allowed = required.stream().anyMatch(r -> permissions.can(r.menuPath(), 
               검사한다. 가장 빠르고 많이 쓴다.
             </>,
             <>
-              <b>리포지토리</b>(<code>WordRepositoryTest</code>): <code>@DataJpaTest</code> + 실제 쿼리(Querydsl 검색
-              조건)를 DB에 대고 검사한다. <code>@AutoConfigureTestDatabase(replace = NONE)</code>를 꼭 붙인다(빼면
-              MySQL 모드가 아닌 임베디드 H2로 바뀐다).
+              <b>리포지토리</b>(<code>WordRepositoryTest</code>): <code>@MybatisTest</code> + 실제 SQL(매퍼 XML의 검색
+              조건)을 DB에 대고 검사한다. <code>@AutoConfigureTestDatabase(replace = NONE)</code>를 꼭 붙이고(빼면
+              MySQL 모드가 아닌 임베디드 H2로 바뀐다), <code>@Import</code>에 <code>MyBatisConfig</code>와 쓰는
+              리포지토리를 적는다.
             </>,
             <>
               <b>통합</b>(<code>WordApiIntegrationTest</code>): <code>support.IntegrationTest</code>를 상속해 실제
@@ -485,9 +502,9 @@ class WordApiIntegrationTest extends IntegrationTest {
             </>
           }
           points={[
-            <>① 엔티티(<code>Xxx.java</code>) — DB 매핑, 정규화·검증 로직(3번)</>,
+            <>① 엔티티(<code>Xxx.java</code>) — 필드, 정규화·검증 로직(3번)</>,
             <>② Flyway 마이그레이션(<code>V{'{n}'}__create_xxx.sql</code>) — 엔티티와 같은 작업에서 함께</>,
-            <>③ <code>XxxRepository</code>/<code>XxxRepositoryCustom</code>/<code>XxxRepositoryCustomImpl</code> — 기본 CRUD + 동적 검색(5번)</>,
+            <>③ <code>XxxMapper</code> + <code>mapper/.../XxxMapper.xml</code> + <code>XxxRepository</code> — 저장·조회 SQL과 동적 검색(5번)</>,
             <>④ <code>ErrorCode</code>에 이 기능의 오류 추가 — 404/409/400 기준(6번)</>,
             <>⑤ <code>dto/XxxRequest</code>·<code>XxxResponse</code>·<code>XxxSearchCondition</code>(4번)</>,
             <>⑥ <code>XxxService</code> — 중복 검사·참조 차단(7번) + 변경 이력(8번)</>,
@@ -572,7 +589,7 @@ type DemoFilter = 'all' | 'classifier' | 'keyword'
 const FILTER_LABEL: Record<DemoFilter, string> = { all: '전체', classifier: '분류어만', keyword: "'고' 포함" }
 
 /** 5번 데모: 조건을 바꿔 가며 실제 호출해 totalElements가 달라지는 것을 보여준다 */
-function QuerydslDemo() {
+function DynamicSearchDemo() {
   const [filter, setFilter] = useState<DemoFilter>('all')
   const query = $api.useQuery('get', '/api/words', {
     params: {

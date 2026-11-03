@@ -43,6 +43,13 @@ public class MenuInitializer implements ApplicationRunner {
             new TopMenu("업무", "audit", List.of(
                     new SubMenu("신청/승인", "/requests", "audit"),
                     new SubMenu("변경 이력", "/histories", "history"))),
+            // 약제 업무(13단계): 처방 → 조제 → 검수 → 불출 → 반납 순서대로 둔다.
+            new TopMenu("약제", "database", List.of(
+                    new SubMenu("처방", "/prescriptions", "file"),
+                    new SubMenu("조제", "/dispensings", "appstore"),
+                    new SubMenu("검수", "/inspections", "file-search"),
+                    new SubMenu("불출", "/issues", "folder"),
+                    new SubMenu("반납", "/returns", "history"))),
             new TopMenu("관리", "setting", List.of(
                     new SubMenu("사용자 관리", "/users", "team"),
                     new SubMenu("역할 관리", "/roles", "safety"),

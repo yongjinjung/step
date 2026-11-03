@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  조제 (phm_dispensing) + 조제 품목 (phm_dispensing_item).
+  조제 → 처방(p_), 조제 품목 → 처방 품목(pi_). 컬럼 조각 사용법은 PrescriptionMapper.xml 머리말 참고.
+-->
+<mapper namespace="com.step.dictionary.pharmacy.dispensing.DispensingMapper">
+
+    <resultMap id="dispensing" type="com.step.dictionary.pharmacy.dispensing.Dispensing" autoMapping="true">
+        <id property="id" column="id"/>
+        <association property="prescription" columnPrefix="p_"
+                     resultMap="com.step.dictionary.pharmacy.prescription.PrescriptionMapper.prescription"/>
+    </resultMap>
+
+    <resultMap id="dispensingItem" type="com.step.dictionary.pharmacy.dispensing.DispensingItem" autoMapping="true">
+        <id property="id" column="id"/>
+        <association property="prescriptionItem" columnPrefix="pi_"
+                     resultMap="com.step.dictionary.pharmacy.prescription.PrescriptionMapper.prescriptionItem"/>
+    </resultMap>
+
+    <!-- 조제(별칭 a, 접두사 p) + 처방(별칭 ${a}_p, 접두사 ${p}p_). FROM 절에 처방을 ${a}_p로 조인해야 한다. -->
+    <sql id="dispensingColumns">
+        ${a}.id AS ${p}id, ${a}.status AS ${p}status, ${a}.dispensed_by AS ${p}dispensed_by,
+        ${a}.dispensed_at AS ${p}dispensed_at, ${a}.remark AS ${p}remark,
+        ${a}.created_at AS ${p}created_at, ${a}.updated_at AS ${p}updated_at,
+        <include refid="com.step.dictionary.pharmacy.prescription.PrescriptionMapper.prescriptionColumns">
+            <property name="a" value="${a}_p"/><property name="p" value="${p}p_"/>
+        </include>
+    </sql>
+
+    <!-- 조제 품목(별칭 a, 접두사 p) + 처방 품목(별칭 ${a}_pi, 접두사 ${p}pi_). -->
+    <sql id="dispensingItemColumns">
+        ${a}.id AS ${p}id, ${a}.quantity AS ${p}quantity, ${a}.lot_no AS ${p}lot_no,
+        ${a}.expiry_date AS ${p}expiry_date,
+        <include refid="com.step.dictionary.pharmacy.prescription.PrescriptionMapper.prescriptionItemColumns">
+            <property name="a" value="${a}_pi"/><property name="p" value="${p}pi_"/>
+        </include>
+    </sql>
+
+    <sql id="from">
+        FROM phm_dispensing d
+        JOIN phm_prescription d_p ON d_p.id = d.prescription_id
+    </sql>
+
+    <select id="findById" resultMap="dispensing">
+        SELECT
+        <include refid="dispensingColumns"><property name="a" value="d"/><property name="p" value=""/></include>
+        <include refid="from"/>
+        WHERE d.id = #{id}
+    </select>
+
+    <select id="findItemsByDispensingId" resultMap="dispensingItem">
+        SELECT
+        <include refid="dispensingItemColumns"><property name="a" value="di"/><property name="p" value=""/></include>
+        FROM phm_dispensing_item di
+        JOIN phm_prescription_item di_pi ON di_pi.id = di.prescription_item_id
+        WHERE di.dispensing_id = #{dispensingId}
+        ORDER BY di.id ASC
+    </select>
+
+    <select id="countByPrescriptionIdAndStatusNot" resultType="long">
+        SELECT COUNT(*) FROM phm_dispensing WHERE prescription_id = #{prescriptionId} AND status &lt;&gt; #{status}
+    </select>
+
+    <sql id="searchWhere">
+        <where>
+            <include refid="com.step.dictionary.pharmacy.prescription.PrescriptionMapper.keywordCondition">
+                <property name="a" value="d_p"/>
+            </include>
+            <if test="c.prescriptionId != null">AND d.prescription_id = #{c.prescriptionId}</if>
+            <if test="c.status != null">AND d.status = #{c.status}</if>
+            <include refid="com.step.dictionary.pharmacy.prescription.PrescriptionMapper.periodCondition">
+                <property name="col" value="d.dispensed_at"/>
+            </include>
+        </where>
+    </sql>
+
+    <select id="search" resultMap="dispensing">
+        SELECT
+        <include refid="dispensingColumns"><property name="a" value="d"/><property name="p" value=""/></include>
+        <include refid="from"/>
+        <include refid="searchWhere"/>
+        ORDER BY d.dispensed_at DESC, d.id DESC
+        LIMIT #{p.pageSize} OFFSET #{p.offset}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*) <include refid="from"/>
+        <include refid="searchWhere"/>
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO phm_dispensing (prescription_id, status, dispensed_by, dispensed_at, remark, created_at, updated_at)
+        VALUES (#{prescription.id}, #{status}, #{dispensedBy}, #{dispensedAt}, #{remark}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <insert id="insertItem" useGeneratedKeys="true" keyProperty="item.id" keyColumn="id">
+        INSERT INTO phm_dispensing_item (dispensing_id, prescription_item_id, quantity, lot_no, expiry_date)
+        VALUES (#{dispensingId}, #{item.prescriptionItem.id}, #{item.quantity}, #{item.lotNo}, #{item.expiryDate})
+    </insert>
+
+    <update id="updateStatus">
+        UPDATE phm_dispensing SET status = #{status}, updated_at = #{updatedAt} WHERE id = #{id}
+    </update>
+</mapper>

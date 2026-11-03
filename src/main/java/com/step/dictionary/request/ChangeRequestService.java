@@ -145,8 +145,8 @@ public class ChangeRequestService {
 
         request.approve(getUser(reviewerUsername), form == null ? null : form.comment(),
                 LocalDateTime.now(clock), appliedTargetId);
-        // 즉시 update를 실행해 갱신된 updatedAt으로 응답한다.
-        requestRepository.flush();
+        // MyBatis는 변경 감지가 없으므로 직접 update한다. updatedAt도 함께 갱신되어 응답에 쓰인다.
+        requestRepository.save(request);
         return toResponse(request);
     }
 
@@ -161,7 +161,7 @@ public class ChangeRequestService {
         requirePending(request);
 
         request.reject(getUser(reviewerUsername), form.comment(), LocalDateTime.now(clock));
-        requestRepository.flush();
+        requestRepository.save(request);
         return toResponse(request);
     }
 
@@ -180,7 +180,7 @@ public class ChangeRequestService {
         requirePending(request);
 
         request.cancel(LocalDateTime.now(clock));
-        requestRepository.flush();
+        requestRepository.save(request);
         return toResponse(request);
     }
 
