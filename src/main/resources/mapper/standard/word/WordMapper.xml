@@ -6,6 +6,8 @@
     'Y'/'N' 컬럼은 YesNoTypeHandler가 boolean으로 바꾼다.
   - 동적 조건: <where> 안의 <if>가 값이 있을 때만 붙고, 첫 AND는 <where>가 지운다.
   - 부분 일치: Likes.contains로 %, _ 를 이스케이프한 패턴을 만들고 ESCAPE '!'를 붙인다.
+    컬럼에 함수(LOWER 등)를 씌우지 않는다(인덱스를 못 쓴다). 대소문자는 DB 정렬 규칙이 구분하지 않고,
+    대문자로 저장하는 컬럼(영문약어)은 검색어도 대문자로 바꾼다(containsUpper).
   - 이 SQL은 MySQL 8.4와 테스트용 H2(MODE=MySQL) 양쪽에서 실행된다. 양쪽에 있는 문법만 쓴다.
 -->
 <mapper namespace="com.step.dictionary.standard.word.WordMapper">
@@ -44,14 +46,15 @@
         <if test="excludeId != null">AND id &lt;&gt; #{excludeId}</if>
     </select>
 
-    <!-- 검색 조건. search와 count가 같이 쓴다. 키워드는 단어명 OR 영문약어 OR 영문명 (영문은 대소문자 무시). -->
+    <!-- 검색 조건. search와 count가 같이 쓴다. 키워드는 단어명 OR 영문약어 OR 영문명 부분 일치. -->
     <sql id="searchWhere">
         <bind name="keyword" value="@com.step.dictionary.global.mybatis.Likes@contains(c.keyword)"/>
+        <bind name="keywordUpper" value="@com.step.dictionary.global.mybatis.Likes@containsUpper(c.keyword)"/>
         <where>
             <if test="keyword != null">
                 AND (w.name LIKE #{keyword} ESCAPE '!'
-                     OR LOWER(w.abbreviation) LIKE LOWER(#{keyword}) ESCAPE '!'
-                     OR LOWER(w.english_name) LIKE LOWER(#{keyword}) ESCAPE '!')
+                     OR w.abbreviation LIKE #{keywordUpper} ESCAPE '!'
+                     OR w.english_name LIKE #{keyword} ESCAPE '!')
             </if>
             <if test="c.classifier != null">AND w.classifier = #{c.classifier}</if>
         </where>

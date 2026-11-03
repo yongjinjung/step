@@ -76,12 +76,13 @@
         SELECT COUNT(DISTINCT term_id) FROM std_term_word WHERE word_id = #{wordId}
     </select>
 
-    <!-- 키워드는 용어명 OR 영문약어(대소문자 무시). wordId는 그 단어를 구성 단어로 가진 용어. -->
+    <!-- 키워드는 용어명 OR 영문약어(대문자로 저장 → 검색어도 대문자). wordId는 그 단어를 구성 단어로 가진 용어. -->
     <sql id="searchWhere">
         <bind name="keyword" value="@com.step.dictionary.global.mybatis.Likes@contains(c.keyword)"/>
+        <bind name="keywordUpper" value="@com.step.dictionary.global.mybatis.Likes@containsUpper(c.keyword)"/>
         <where>
             <if test="keyword != null">
-                AND (t.name LIKE #{keyword} ESCAPE '!' OR LOWER(t.abbreviation) LIKE LOWER(#{keyword}) ESCAPE '!')
+                AND (t.name LIKE #{keyword} ESCAPE '!' OR t.abbreviation LIKE #{keywordUpper} ESCAPE '!')
             </if>
             <if test="c.domainId != null">AND t.domain_id = #{c.domainId}</if>
             <if test="c.wordId != null">

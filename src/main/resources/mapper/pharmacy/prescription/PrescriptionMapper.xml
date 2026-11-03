@@ -59,13 +59,20 @@
         pi.days AS pi_days, pi.total_quantity AS pi_total_quantity, pi.usage_note AS pi_usage_note
     </sql>
 
-    <!-- 약제 목록 공통 검색어: 처방전번호(대소문자 무시)·환자번호·환자명 부분 일치. 처방 별칭 p, 키워드 c.keyword. -->
+    <!--
+      약제 목록 공통 검색어: 처방전번호·환자번호·환자명 앞부분 일치. 처방 별칭 p, 키워드 c.keyword.
+      약제 데이터는 계속 쌓이므로 인덱스를 타게 앞부분 일치(키워드%)만 쓴다. OR 조건 중 하나라도 %키워드%면
+      OR 전체가 인덱스를 못 쓰므로 세 조건 모두 앞부분 일치여야 한다. 세 컬럼 모두 인덱스가 있다
+      (uk_phm_prescription_no, ix_phm_prescription_patient, ix_phm_prescription_patient_name).
+      처방전번호는 대문자로 저장하므로 검색어도 대문자로 바꾼다. 컬럼에 함수를 씌우지 않는다.
+    -->
     <sql id="keywordCondition">
-        <bind name="keyword" value="@com.step.dictionary.global.mybatis.Likes@contains(c.keyword)"/>
-        <if test="keyword != null">
-            AND (LOWER(p.prescription_no) LIKE LOWER(#{keyword}) ESCAPE '!'
-                 OR p.patient_no LIKE #{keyword} ESCAPE '!'
-                 OR p.patient_name LIKE #{keyword} ESCAPE '!')
+        <bind name="keywordPrefix" value="@com.step.dictionary.global.mybatis.Likes@startsWith(c.keyword)"/>
+        <bind name="keywordPrefixUpper" value="@com.step.dictionary.global.mybatis.Likes@startsWithUpper(c.keyword)"/>
+        <if test="keywordPrefix != null">
+            AND (p.prescription_no LIKE #{keywordPrefixUpper} ESCAPE '!'
+                 OR p.patient_no LIKE #{keywordPrefix} ESCAPE '!'
+                 OR p.patient_name LIKE #{keywordPrefix} ESCAPE '!')
         </if>
     </sql>
 

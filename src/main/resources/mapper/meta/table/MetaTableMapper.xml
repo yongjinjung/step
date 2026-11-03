@@ -22,12 +22,13 @@
         <if test="excludeId != null">AND id &lt;&gt; #{excludeId}</if>
     </select>
 
-    <!-- 키워드는 물리명(대소문자 무시) OR 논리명. -->
+    <!-- 키워드는 물리명(대문자로 저장 → 검색어도 대문자) OR 논리명 부분 일치. -->
     <sql id="searchWhere">
         <bind name="keyword" value="@com.step.dictionary.global.mybatis.Likes@contains(c.keyword)"/>
+        <bind name="keywordUpper" value="@com.step.dictionary.global.mybatis.Likes@containsUpper(c.keyword)"/>
         <where>
             <if test="keyword != null">
-                AND (LOWER(mt.physical_name) LIKE LOWER(#{keyword}) ESCAPE '!'
+                AND (mt.physical_name LIKE #{keywordUpper} ESCAPE '!'
                      OR mt.logical_name LIKE #{keyword} ESCAPE '!')
             </if>
         </where>

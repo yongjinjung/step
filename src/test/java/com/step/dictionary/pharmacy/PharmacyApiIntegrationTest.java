@@ -74,7 +74,7 @@ class PharmacyApiIntegrationTest extends IntegrationTest {
     }
 
     @Test
-    @DisplayName("키워드·상태·기간으로 처방을 검색하고 처방 일시 최신순으로 정렬한다")
+    @DisplayName("키워드(앞부분 일치)·상태·기간으로 처방을 검색하고 처방 일시 최신순으로 정렬한다")
     void searchPrescriptions() {
         createPrescription("RX-001", "P001", "홍길동", "2026-11-01T09:00:00");
         createPrescription("RX-002", "P002", "김철수", "2026-11-02T09:00:00");
@@ -86,6 +86,19 @@ class PharmacyApiIntegrationTest extends IntegrationTest {
         .then()
                 .statusCode(200)
                 .body("content.prescriptionNo", equalTo(List.of("RX-003", "RX-001")));
+        // 검색어는 앞부분 일치다 (인덱스를 타도록). 처방전번호는 대소문자를 구분하지 않고, 중간 글자로는 찾지 않는다.
+        given().queryParam("keyword", "rx-00")
+        .when().get("/api/prescriptions")
+        .then().body("content.prescriptionNo", equalTo(List.of("RX-003", "RX-002", "RX-001")));
+        given().queryParam("keyword", "P002")
+        .when().get("/api/prescriptions")
+        .then().body("content.prescriptionNo", equalTo(List.of("RX-002")));
+        given().queryParam("keyword", "길동")
+        .when().get("/api/prescriptions")
+        .then().body("totalElements", equalTo(0));
+        given().queryParam("keyword", "001")
+        .when().get("/api/prescriptions")
+        .then().body("totalElements", equalTo(0));
 
         given().queryParam("status", "ORDERED").queryParam("from", "2026-11-02").queryParam("to", "2026-11-02")
         .when().get("/api/prescriptions")

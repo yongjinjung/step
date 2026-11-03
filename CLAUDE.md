@@ -84,7 +84,8 @@ com.step.dictionary
   - 연관(다대일)은 SQL에서 조인해 `<association columnPrefix>`로 채운다. 접두사는 중첩될수록 이어 붙는다(용어 → 도메인 `d_` → 분류어 `d_cw_`). 다른 매퍼의 `resultMap`·`<sql>` 조각은 네임스페이스 전체 이름으로 참조한다. 3단계 이상 중첩되는 약제 매퍼는 접두사를 쌓지 않고 결과 매핑에 고정 열 이름을 직접 적는다.
   - 일대다·다대다(용어의 구성 단어, 사용자의 역할, 약제 품목)는 조인하면 행이 늘어 LIMIT 페이징이 깨지므로 따로 읽어 리포지토리가 붙인다(`Term.loadWords`, `AppUser.loadRoles`, `loadItems`). 목록은 IN 쿼리 한 번으로 모은다. 저장은 리포지토리가 함께 한다(조인 테이블은 지우고 다시 넣는다).
   - 동적 검색은 `<where>` + `<if>`로 쓰고 `search`(`LIMIT #{p.pageSize} OFFSET #{p.offset}`)와 `count`가 같은 `<sql id="searchWhere">`를 쓴다. 리포지토리는 `Pages.of(content, pageable, count)`로 묶는다(필요할 때만 count 실행).
-  - 부분 일치는 `<bind value="@...Likes@contains(c.keyword)">` + `LIKE #{keyword} ESCAPE '!'`로 쓴다(`%`, `_` 이스케이프). 대소문자 무시는 `LOWER(col) LIKE LOWER(#{keyword})`. 아이디·코드 정규화와 기간(`from`/`to` → 0시/다음 날 0시)은 `SqlParams`를 쓴다.
+  - 검색은 `<bind value="@...Likes@contains(c.keyword)">` + `LIKE #{keyword} ESCAPE '!'`로 쓴다(`%`, `_` 이스케이프). **컬럼에 함수(`LOWER()` 등)를 씌우지 않는다**(인덱스를 못 쓴다). 대소문자는 DB 정렬 규칙(MySQL `utf8mb4_0900_ai_ci`, 테스트 H2 `IGNORECASE=TRUE`)이 구분하지 않고, 대·소문자로 정규화해 저장하는 컬럼은 검색어도 `containsUpper`/`containsLower`/`startsWithUpper`로 맞춘다.
+  - `%키워드%`(`contains`)는 앞에 `%`가 있어 인덱스를 못 탄다. 데이터가 적은 표준 사전·관리 화면에만 쓰고, 계속 쌓이는 약제 데이터는 `키워드%`(`startsWith`, 앞부분 일치)와 인덱스를 쓴다. OR로 묶은 조건은 하나라도 인덱스를 못 쓰면 전체가 전체 스캔이므로 모두 앞부분 일치여야 한다. 실행 계획은 MySQL `EXPLAIN`으로 확인한다. 아이디·코드 정규화와 기간(`from`/`to` → 0시/다음 날 0시)은 `SqlParams`를 쓴다.
   - 생성·수정 일시는 `AuditingInterceptor`가 insert/update 직전에 채운다(`BaseTimeEntity`, 수정 일시가 없는 테이블은 `CreatedAtAware`). insert/update SQL에 `#{createdAt}`, `#{updatedAt}`을 넣어야 한다.
   - 존재 여부는 `COUNT(*)`를 `long`으로 받아 비교한다(전역 boolean 타입 핸들러가 Y/N을 기대하므로 SQL 결과를 boolean으로 받지 않는다). 연관이 null일 수 있는 값은 `#{term.id}`처럼 써도 null로 들어간다.
   - 세션 1차 캐시는 끄고(`local-cache-scope: statement`) 조회마다 새 객체가 나온다. 객체 동일성(`==`)이 아니라 ID로 비교한다.
@@ -112,7 +113,7 @@ com.step.dictionary
 ## 설정 / 프로파일
 
 - `application.yml`의 기본 프로파일은 `local`(MySQL)이다. **스프링 컨텍스트를 띄우는 모든 테스트는 `@ActiveProfiles("test")`가 필요하다.** 없으면 MySQL 접속을 시도하다 실패한다.
-- `test` 프로파일은 H2 in-memory(`MODE=MySQL;DATABASE_TO_LOWER=TRUE`)를 쓰고, 테스트에서도 Flyway 마이그레이션이 실행된다. 마이그레이션 SQL은 MySQL과 H2 양쪽에서 동작해야 한다. `ENGINE=`, 테이블/컬럼 `COMMENT` 같은 MySQL 전용 구문은 쓰지 않는다.
+- `test` 프로파일은 H2 in-memory(`MODE=MySQL;DATABASE_TO_LOWER=TRUE;IGNORECASE=TRUE`, 문자열 비교에서 대소문자를 구분하지 않아 MySQL 기본 정렬 규칙과 같다)를 쓰고, 테스트에서도 Flyway 마이그레이션이 실행된다. 마이그레이션 SQL은 MySQL과 H2 양쪽에서 동작해야 한다. `ENGINE=`, 테이블/컬럼 `COMMENT` 같은 MySQL 전용 구문은 쓰지 않는다.
 - 스키마는 Flyway만 관리한다. MyBatis는 스키마를 검사하지 않으므로, 컬럼을 바꾸면 매퍼 XML의 SQL도 함께 고치고 테스트로 확인한다.
 - **SQL 로그:** `decorator.datasource.enabled`(기본 `false`, local만 `true`)로 켠다. P6Spy가 실제 실행 SQL에 파라미터 값을 채우고 `global/logging/P6SpySqlFormatter`가 줄바꿈·들여쓰기해 `p6spy` 로거(INFO)로 남긴다. 형식 지정은 `src/main/resources/spy.properties`(`logMessageFormat`)에 있다. 값이 그대로 찍히므로(비밀번호 해시 포함) 운영에서는 켜지 않는다.
 - `app.jwt.secret`(32바이트 이상)이 없으면 기동에 실패한다. 기본 `application.yml`은 환경변수 `JWT_SECRET`을 쓰고, `local`/`test` 프로파일 yml에 개발용 키가 있다. `@ConfigurationProperties` record는 `@ConfigurationPropertiesScan`으로 등록된다.

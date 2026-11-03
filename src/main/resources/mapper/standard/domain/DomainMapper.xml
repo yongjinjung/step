@@ -46,7 +46,7 @@
     <sql id="searchWhere">
         <bind name="keyword" value="@com.step.dictionary.global.mybatis.Likes@contains(c.keyword)"/>
         <where>
-            <if test="keyword != null">AND LOWER(d.name) LIKE LOWER(#{keyword}) ESCAPE '!'</if>
+            <if test="keyword != null">AND d.name LIKE #{keyword} ESCAPE '!'</if>
             <if test="c.classifierWordId != null">AND d.classifier_word_id = #{c.classifierWordId}</if>
             <if test="c.dataType != null">AND d.data_type = #{c.dataType}</if>
         </where>
