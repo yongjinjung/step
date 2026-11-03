@@ -2,33 +2,41 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <!--
   검수 (phm_inspection) + 검수 품목 (phm_inspection_item). 검수는 수정하지 않는다.
-  검수 → 조제(d_) → 처방(d_p_), 검수 품목 → 조제 품목(di_) → 처방 품목(di_pi_).
+  검수(i) → 조제(d) → 처방(p), 검수 품목(ii) → 조제 품목(di) → 처방 품목(pi).
+  별칭·열 이름 규칙은 PrescriptionMapper.xml 머리말 참고.
 -->
 <mapper namespace="com.step.dictionary.pharmacy.inspection.InspectionMapper">
 
-    <resultMap id="inspection" type="com.step.dictionary.pharmacy.inspection.Inspection" autoMapping="true">
-        <id property="id" column="id"/>
-        <association property="dispensing" columnPrefix="d_"
+    <resultMap id="inspection" type="com.step.dictionary.pharmacy.inspection.Inspection">
+        <id property="id" column="i_id"/>
+        <result property="result" column="i_result"/>
+        <result property="inspectedBy" column="i_inspected_by"/>
+        <result property="inspectedAt" column="i_inspected_at"/>
+        <result property="remark" column="i_remark"/>
+        <result property="createdAt" column="i_created_at"/>
+        <result property="updatedAt" column="i_updated_at"/>
+        <association property="dispensing"
                      resultMap="com.step.dictionary.pharmacy.dispensing.DispensingMapper.dispensing"/>
     </resultMap>
 
-    <resultMap id="inspectionItem" type="com.step.dictionary.pharmacy.inspection.InspectionItem" autoMapping="true">
-        <id property="id" column="id"/>
-        <association property="dispensingItem" columnPrefix="di_"
+    <resultMap id="inspectionItem" type="com.step.dictionary.pharmacy.inspection.InspectionItem">
+        <id property="id" column="ii_id"/>
+        <result property="result" column="ii_result"/>
+        <result property="defectReason" column="ii_defect_reason"/>
+        <association property="dispensingItem"
                      resultMap="com.step.dictionary.pharmacy.dispensing.DispensingMapper.dispensingItem"/>
     </resultMap>
 
     <sql id="columns">
-        i.id, i.result, i.inspected_by, i.inspected_at, i.remark, i.created_at, i.updated_at,
-        <include refid="com.step.dictionary.pharmacy.dispensing.DispensingMapper.dispensingColumns">
-            <property name="a" value="i_d"/><property name="p" value="d_"/>
-        </include>
+        i.id AS i_id, i.result AS i_result, i.inspected_by AS i_inspected_by, i.inspected_at AS i_inspected_at,
+        i.remark AS i_remark, i.created_at AS i_created_at, i.updated_at AS i_updated_at,
+        <include refid="com.step.dictionary.pharmacy.dispensing.DispensingMapper.dispensingColumns"/>
     </sql>
 
     <sql id="from">
         FROM phm_inspection i
-        JOIN phm_dispensing i_d ON i_d.id = i.dispensing_id
-        JOIN phm_prescription i_d_p ON i_d_p.id = i_d.prescription_id
+        JOIN phm_dispensing d ON d.id = i.dispensing_id
+        JOIN phm_prescription p ON p.id = d.prescription_id
     </sql>
 
     <select id="findById" resultMap="inspection">
@@ -36,26 +44,24 @@
     </select>
 
     <select id="findItemsByInspectionId" resultMap="inspectionItem">
-        SELECT ii.id, ii.result, ii.defect_reason,
-        <include refid="com.step.dictionary.pharmacy.dispensing.DispensingMapper.dispensingItemColumns">
-            <property name="a" value="ii_di"/><property name="p" value="di_"/>
-        </include>
+        SELECT ii.id AS ii_id, ii.result AS ii_result, ii.defect_reason AS ii_defect_reason,
+               <include refid="com.step.dictionary.pharmacy.dispensing.DispensingMapper.dispensingItemColumns"/>
         FROM phm_inspection_item ii
-        JOIN phm_dispensing_item ii_di ON ii_di.id = ii.dispensing_item_id
-        JOIN phm_prescription_item ii_di_pi ON ii_di_pi.id = ii_di.prescription_item_id
+        JOIN phm_dispensing_item di ON di.id = ii.dispensing_item_id
+        JOIN phm_prescription_item pi ON pi.id = di.prescription_item_id
         WHERE ii.inspection_id = #{inspectionId}
         ORDER BY ii.id ASC
     </select>
 
+    <!-- from/to는 검수 일자(양 끝 포함). -->
     <sql id="searchWhere">
+        <bind name="fromAt" value="@com.step.dictionary.global.mybatis.SqlParams@startOfDay(c.from)"/>
+        <bind name="toBefore" value="@com.step.dictionary.global.mybatis.SqlParams@startOfNextDay(c.to)"/>
         <where>
-            <include refid="com.step.dictionary.pharmacy.prescription.PrescriptionMapper.keywordCondition">
-                <property name="a" value="i_d_p"/>
-            </include>
+            <include refid="com.step.dictionary.pharmacy.prescription.PrescriptionMapper.keywordCondition"/>
             <if test="c.result != null">AND i.result = #{c.result}</if>
-            <include refid="com.step.dictionary.pharmacy.prescription.PrescriptionMapper.periodCondition">
-                <property name="col" value="i.inspected_at"/>
-            </include>
+            <if test="fromAt != null">AND i.inspected_at &gt;= #{fromAt}</if>
+            <if test="toBefore != null">AND i.inspected_at &lt; #{toBefore}</if>
         </where>
     </sql>
 

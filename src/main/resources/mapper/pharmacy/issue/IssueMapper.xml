@@ -2,80 +2,82 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <!--
   불출 (phm_issue) + 불출 품목 (phm_issue_item). 불출은 수정하지 않는다.
-  불출 → 조제(d_) → 처방(d_p_), 불출 품목 → 조제 품목(di_) → 처방 품목(di_pi_).
+  불출(s) → 조제(d) → 처방(p), 불출 품목(si) → 조제 품목(di) → 처방 품목(pi).
+  별칭·열 이름 규칙은 PrescriptionMapper.xml 머리말 참고. 이 파일의 결과 매핑과 열 조각은 반납 매퍼도 쓴다.
 -->
 <mapper namespace="com.step.dictionary.pharmacy.issue.IssueMapper">
 
-    <resultMap id="issue" type="com.step.dictionary.pharmacy.issue.Issue" autoMapping="true">
-        <id property="id" column="id"/>
-        <association property="dispensing" columnPrefix="d_"
+    <resultMap id="issue" type="com.step.dictionary.pharmacy.issue.Issue">
+        <id property="id" column="s_id"/>
+        <result property="destinationCode" column="s_destination_code"/>
+        <result property="destinationName" column="s_destination_name"/>
+        <result property="receiverName" column="s_receiver_name"/>
+        <result property="issuedBy" column="s_issued_by"/>
+        <result property="issuedAt" column="s_issued_at"/>
+        <result property="remark" column="s_remark"/>
+        <result property="createdAt" column="s_created_at"/>
+        <result property="updatedAt" column="s_updated_at"/>
+        <association property="dispensing"
                      resultMap="com.step.dictionary.pharmacy.dispensing.DispensingMapper.dispensing"/>
     </resultMap>
 
-    <resultMap id="issueItem" type="com.step.dictionary.pharmacy.issue.IssueItem" autoMapping="true">
-        <id property="id" column="id"/>
-        <association property="dispensingItem" columnPrefix="di_"
+    <resultMap id="issueItem" type="com.step.dictionary.pharmacy.issue.IssueItem">
+        <id property="id" column="si_id"/>
+        <result property="quantity" column="si_quantity"/>
+        <association property="dispensingItem"
                      resultMap="com.step.dictionary.pharmacy.dispensing.DispensingMapper.dispensingItem"/>
     </resultMap>
 
-    <!-- 불출(별칭 a, 접두사 p) + 조제(${a}_d, ${p}d_) + 처방(${a}_d_p, ${p}d_p_). -->
+    <!-- 불출(s) + 조제(d) + 처방(p) 열. -->
     <sql id="issueColumns">
-        ${a}.id AS ${p}id, ${a}.destination_code AS ${p}destination_code,
-        ${a}.destination_name AS ${p}destination_name, ${a}.receiver_name AS ${p}receiver_name,
-        ${a}.issued_by AS ${p}issued_by, ${a}.issued_at AS ${p}issued_at, ${a}.remark AS ${p}remark,
-        ${a}.created_at AS ${p}created_at, ${a}.updated_at AS ${p}updated_at,
-        <include refid="com.step.dictionary.pharmacy.dispensing.DispensingMapper.dispensingColumns">
-            <property name="a" value="${a}_d"/><property name="p" value="${p}d_"/>
-        </include>
+        s.id AS s_id, s.destination_code AS s_destination_code, s.destination_name AS s_destination_name,
+        s.receiver_name AS s_receiver_name, s.issued_by AS s_issued_by, s.issued_at AS s_issued_at,
+        s.remark AS s_remark, s.created_at AS s_created_at, s.updated_at AS s_updated_at,
+        <include refid="com.step.dictionary.pharmacy.dispensing.DispensingMapper.dispensingColumns"/>
     </sql>
 
-    <!-- 불출 품목(별칭 a, 접두사 p) + 조제 품목(${a}_di, ${p}di_) + 처방 품목(${a}_di_pi, ${p}di_pi_). -->
+    <!-- 불출 품목(si) + 조제 품목(di) + 처방 품목(pi) 열. -->
     <sql id="issueItemColumns">
-        ${a}.id AS ${p}id, ${a}.quantity AS ${p}quantity,
-        <include refid="com.step.dictionary.pharmacy.dispensing.DispensingMapper.dispensingItemColumns">
-            <property name="a" value="${a}_di"/><property name="p" value="${p}di_"/>
-        </include>
+        si.id AS si_id, si.quantity AS si_quantity,
+        <include refid="com.step.dictionary.pharmacy.dispensing.DispensingMapper.dispensingItemColumns"/>
     </sql>
 
     <sql id="from">
         FROM phm_issue s
-        JOIN phm_dispensing s_d ON s_d.id = s.dispensing_id
-        JOIN phm_prescription s_d_p ON s_d_p.id = s_d.prescription_id
+        JOIN phm_dispensing d ON d.id = s.dispensing_id
+        JOIN phm_prescription p ON p.id = d.prescription_id
     </sql>
 
     <select id="findById" resultMap="issue">
-        SELECT
-        <include refid="issueColumns"><property name="a" value="s"/><property name="p" value=""/></include>
+        SELECT <include refid="issueColumns"/>
         <include refid="from"/>
         WHERE s.id = #{id}
     </select>
 
     <select id="findItemsByIssueId" resultMap="issueItem">
-        SELECT
-        <include refid="issueItemColumns"><property name="a" value="si"/><property name="p" value=""/></include>
+        SELECT <include refid="issueItemColumns"/>
         FROM phm_issue_item si
-        JOIN phm_dispensing_item si_di ON si_di.id = si.dispensing_item_id
-        JOIN phm_prescription_item si_di_pi ON si_di_pi.id = si_di.prescription_item_id
+        JOIN phm_dispensing_item di ON di.id = si.dispensing_item_id
+        JOIN phm_prescription_item pi ON pi.id = di.prescription_item_id
         WHERE si.issue_id = #{issueId}
         ORDER BY si.id ASC
     </select>
 
+    <!-- 불출처 코드는 대문자로 정확히 일치, from/to는 불출 일자(양 끝 포함). -->
     <sql id="searchWhere">
         <bind name="destinationCode" value="@com.step.dictionary.global.mybatis.SqlParams@upper(c.destinationCode)"/>
+        <bind name="fromAt" value="@com.step.dictionary.global.mybatis.SqlParams@startOfDay(c.from)"/>
+        <bind name="toBefore" value="@com.step.dictionary.global.mybatis.SqlParams@startOfNextDay(c.to)"/>
         <where>
-            <include refid="com.step.dictionary.pharmacy.prescription.PrescriptionMapper.keywordCondition">
-                <property name="a" value="s_d_p"/>
-            </include>
+            <include refid="com.step.dictionary.pharmacy.prescription.PrescriptionMapper.keywordCondition"/>
             <if test="destinationCode != null">AND s.destination_code = #{destinationCode}</if>
-            <include refid="com.step.dictionary.pharmacy.prescription.PrescriptionMapper.periodCondition">
-                <property name="col" value="s.issued_at"/>
-            </include>
+            <if test="fromAt != null">AND s.issued_at &gt;= #{fromAt}</if>
+            <if test="toBefore != null">AND s.issued_at &lt; #{toBefore}</if>
         </where>
     </sql>
 
     <select id="search" resultMap="issue">
-        SELECT
-        <include refid="issueColumns"><property name="a" value="s"/><property name="p" value=""/></include>
+        SELECT <include refid="issueColumns"/>
         <include refid="from"/>
         <include refid="searchWhere"/>
         ORDER BY s.issued_at DESC, s.id DESC

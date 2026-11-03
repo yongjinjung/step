@@ -79,7 +79,8 @@ com.step.dictionary
 - **MyBatis 데이터 접근 (JPA에서 전환):**
   - 서비스는 매퍼를 직접 쓰지 않고 `XxxRepository`를 쓴다. 리포지토리 메서드 이름은 `save`/`findById`/`existsBy...`/`search`/`delete`로 통일한다. `save()`는 ID가 없으면 insert(생성된 ID가 `useGeneratedKeys`로 채워진다), 있으면 update다.
   - **변경 감지가 없다.** 엔티티를 바꾸는 메서드(`update()`, `cancel()`, 상태 전이 등)를 부른 뒤 반드시 `repository.save(entity)`를 호출한다. 다른 서비스의 엔티티 상태를 바꿀 때는 그 서비스의 메서드를 거친다(`PrescriptionService.markDispensed`, `DispensingService.applyInspection`/`markIssued`).
-  - 연관(다대일)은 SQL에서 조인해 `<association columnPrefix>`로 채운다. 접두사는 중첩될수록 이어 붙는다(용어 → 도메인 `d_` → 분류어 `d_cw_`). 다른 매퍼의 `resultMap`·`<sql>` 조각은 네임스페이스 전체 이름으로 참조한다.
+  - **보안: 매퍼 XML에서 `${}`(문자열 치환)를 쓰지 않는다.** 값은 모두 `#{}` 바인딩으로 넘긴다. `<include>`의 property 치환도 `${}`라 쓰지 않는다. 재사용할 열 조각이 필요하면 테이블 별칭과 결과 열 이름을 고정한다(약제 매퍼: 처방 `p`/`p_id`, 조제 `d`/`d_id` …, `PrescriptionMapper.xml` 머리말). `MapperXmlRuleTest`가 검사한다.
+  - 연관(다대일)은 SQL에서 조인해 `<association columnPrefix>`로 채운다. 접두사는 중첩될수록 이어 붙는다(용어 → 도메인 `d_` → 분류어 `d_cw_`). 다른 매퍼의 `resultMap`·`<sql>` 조각은 네임스페이스 전체 이름으로 참조한다. 3단계 이상 중첩되는 약제 매퍼는 접두사를 쌓지 않고 결과 매핑에 고정 열 이름을 직접 적는다.
   - 일대다·다대다(용어의 구성 단어, 사용자의 역할, 약제 품목)는 조인하면 행이 늘어 LIMIT 페이징이 깨지므로 따로 읽어 리포지토리가 붙인다(`Term.loadWords`, `AppUser.loadRoles`, `loadItems`). 목록은 IN 쿼리 한 번으로 모은다. 저장은 리포지토리가 함께 한다(조인 테이블은 지우고 다시 넣는다).
   - 동적 검색은 `<where>` + `<if>`로 쓰고 `search`(`LIMIT #{p.pageSize} OFFSET #{p.offset}`)와 `count`가 같은 `<sql id="searchWhere">`를 쓴다. 리포지토리는 `Pages.of(content, pageable, count)`로 묶는다(필요할 때만 count 실행).
   - 부분 일치는 `<bind value="@...Likes@contains(c.keyword)">` + `LIKE #{keyword} ESCAPE '!'`로 쓴다(`%`, `_` 이스케이프). 대소문자 무시는 `LOWER(col) LIKE LOWER(#{keyword})`. 아이디·코드 정규화와 기간(`from`/`to` → 0시/다음 날 0시)은 `SqlParams`를 쓴다.

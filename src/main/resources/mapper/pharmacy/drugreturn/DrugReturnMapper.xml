@@ -2,35 +2,40 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <!--
   반납 (phm_return) + 반납 품목 (phm_return_item). 반납은 수정하지 않는다.
-  반납 → 불출(s_) → 조제(s_d_) → 처방(s_d_p_),
-  반납 품목 → 불출 품목(si_) → 조제 품목(si_di_) → 처방 품목(si_di_pi_).
+  반납(r) → 불출(s) → 조제(d) → 처방(p), 반납 품목(ri) → 불출 품목(si) → 조제 품목(di) → 처방 품목(pi).
+  별칭·열 이름 규칙은 PrescriptionMapper.xml 머리말 참고.
 -->
 <mapper namespace="com.step.dictionary.pharmacy.drugreturn.DrugReturnMapper">
 
-    <resultMap id="drugReturn" type="com.step.dictionary.pharmacy.drugreturn.DrugReturn" autoMapping="true">
-        <id property="id" column="id"/>
-        <association property="issue" columnPrefix="s_"
-                     resultMap="com.step.dictionary.pharmacy.issue.IssueMapper.issue"/>
+    <resultMap id="drugReturn" type="com.step.dictionary.pharmacy.drugreturn.DrugReturn">
+        <id property="id" column="r_id"/>
+        <result property="reason" column="r_reason"/>
+        <result property="returnedBy" column="r_returned_by"/>
+        <result property="returnedAt" column="r_returned_at"/>
+        <result property="remark" column="r_remark"/>
+        <result property="createdAt" column="r_created_at"/>
+        <result property="updatedAt" column="r_updated_at"/>
+        <association property="issue" resultMap="com.step.dictionary.pharmacy.issue.IssueMapper.issue"/>
     </resultMap>
 
-    <resultMap id="drugReturnItem" type="com.step.dictionary.pharmacy.drugreturn.DrugReturnItem" autoMapping="true">
-        <id property="id" column="id"/>
-        <association property="issueItem" columnPrefix="si_"
-                     resultMap="com.step.dictionary.pharmacy.issue.IssueMapper.issueItem"/>
+    <resultMap id="drugReturnItem" type="com.step.dictionary.pharmacy.drugreturn.DrugReturnItem">
+        <id property="id" column="ri_id"/>
+        <result property="quantity" column="ri_quantity"/>
+        <result property="disposition" column="ri_disposition"/>
+        <association property="issueItem" resultMap="com.step.dictionary.pharmacy.issue.IssueMapper.issueItem"/>
     </resultMap>
 
     <sql id="columns">
-        r.id, r.reason, r.returned_by, r.returned_at, r.remark, r.created_at, r.updated_at,
-        <include refid="com.step.dictionary.pharmacy.issue.IssueMapper.issueColumns">
-            <property name="a" value="r_s"/><property name="p" value="s_"/>
-        </include>
+        r.id AS r_id, r.reason AS r_reason, r.returned_by AS r_returned_by, r.returned_at AS r_returned_at,
+        r.remark AS r_remark, r.created_at AS r_created_at, r.updated_at AS r_updated_at,
+        <include refid="com.step.dictionary.pharmacy.issue.IssueMapper.issueColumns"/>
     </sql>
 
     <sql id="from">
         FROM phm_return r
-        JOIN phm_issue r_s ON r_s.id = r.issue_id
-        JOIN phm_dispensing r_s_d ON r_s_d.id = r_s.dispensing_id
-        JOIN phm_prescription r_s_d_p ON r_s_d_p.id = r_s_d.prescription_id
+        JOIN phm_issue s ON s.id = r.issue_id
+        JOIN phm_dispensing d ON d.id = s.dispensing_id
+        JOIN phm_prescription p ON p.id = d.prescription_id
     </sql>
 
     <select id="findById" resultMap="drugReturn">
@@ -38,14 +43,12 @@
     </select>
 
     <select id="findItemsByReturnId" resultMap="drugReturnItem">
-        SELECT ri.id, ri.quantity, ri.disposition,
-        <include refid="com.step.dictionary.pharmacy.issue.IssueMapper.issueItemColumns">
-            <property name="a" value="ri_si"/><property name="p" value="si_"/>
-        </include>
+        SELECT ri.id AS ri_id, ri.quantity AS ri_quantity, ri.disposition AS ri_disposition,
+               <include refid="com.step.dictionary.pharmacy.issue.IssueMapper.issueItemColumns"/>
         FROM phm_return_item ri
-        JOIN phm_issue_item ri_si ON ri_si.id = ri.issue_item_id
-        JOIN phm_dispensing_item ri_si_di ON ri_si_di.id = ri_si.dispensing_item_id
-        JOIN phm_prescription_item ri_si_di_pi ON ri_si_di_pi.id = ri_si_di.prescription_item_id
+        JOIN phm_issue_item si ON si.id = ri.issue_item_id
+        JOIN phm_dispensing_item di ON di.id = si.dispensing_item_id
+        JOIN phm_prescription_item pi ON pi.id = di.prescription_item_id
         WHERE ri.return_id = #{returnId}
         ORDER BY ri.id ASC
     </select>
@@ -63,15 +66,15 @@
         GROUP BY ri.issue_item_id
     </select>
 
+    <!-- from/to는 반납 일자(양 끝 포함). -->
     <sql id="searchWhere">
+        <bind name="fromAt" value="@com.step.dictionary.global.mybatis.SqlParams@startOfDay(c.from)"/>
+        <bind name="toBefore" value="@com.step.dictionary.global.mybatis.SqlParams@startOfNextDay(c.to)"/>
         <where>
-            <include refid="com.step.dictionary.pharmacy.prescription.PrescriptionMapper.keywordCondition">
-                <property name="a" value="r_s_d_p"/>
-            </include>
+            <include refid="com.step.dictionary.pharmacy.prescription.PrescriptionMapper.keywordCondition"/>
             <if test="c.issueId != null">AND r.issue_id = #{c.issueId}</if>
-            <include refid="com.step.dictionary.pharmacy.prescription.PrescriptionMapper.periodCondition">
-                <property name="col" value="r.returned_at"/>
-            </include>
+            <if test="fromAt != null">AND r.returned_at &gt;= #{fromAt}</if>
+            <if test="toBefore != null">AND r.returned_at &lt; #{toBefore}</if>
         </where>
     </sql>
 

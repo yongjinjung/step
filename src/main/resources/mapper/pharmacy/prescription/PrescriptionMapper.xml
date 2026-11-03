@@ -3,67 +3,80 @@
 <!--
   처방 (phm_prescription) + 처방 품목 (phm_prescription_item).
 
-  약제 매퍼 공통 조각: 컬럼 조각은 <include>의 property로 테이블 별칭(a)과 결과 접두사(p)를 받는다.
-    <include refid="com.step.dictionary.pharmacy.prescription.PrescriptionMapper.prescriptionColumns">
-        <property name="a" value="p"/><property name="p" value="p_"/>
-    </include>
-  접두사는 결과 매핑의 columnPrefix와 맞춘다. 중첩 매핑의 접두사는 이어 붙는다(예: d_ 안의 p_ → d_p_).
+  약제 매퍼 공통 규칙 (문자열 치환 없이 #{} 바인딩만 쓴다):
+  - 테이블 별칭을 고정한다. 처방 p, 처방 품목 pi, 조제 d, 조제 품목 di, 검수 i, 검수 품목 ii,
+    불출 s, 불출 품목 si, 반납 r, 반납 품목 ri.
+  - 결과 열 이름도 별칭_컬럼으로 고정한다(p_id, d_status ...). 그래서 결과 매핑은 columnPrefix 없이
+    열 이름을 직접 적고, 다른 매퍼의 결과 매핑·열 조각을 그대로 재사용할 수 있다.
+  - 이 파일의 prescriptionColumns, prescriptionItemColumns, keywordCondition은 다른 약제 매퍼도 쓴다.
 -->
 <mapper namespace="com.step.dictionary.pharmacy.prescription.PrescriptionMapper">
 
-    <resultMap id="prescription" type="com.step.dictionary.pharmacy.prescription.Prescription" autoMapping="true">
-        <id property="id" column="id"/>
+    <resultMap id="prescription" type="com.step.dictionary.pharmacy.prescription.Prescription">
+        <id property="id" column="p_id"/>
+        <result property="prescriptionNo" column="p_prescription_no"/>
+        <result property="patientNo" column="p_patient_no"/>
+        <result property="patientName" column="p_patient_name"/>
+        <result property="departmentCode" column="p_department_code"/>
+        <result property="prescriberName" column="p_prescriber_name"/>
+        <result property="prescriptionType" column="p_prescription_type"/>
+        <result property="status" column="p_status"/>
+        <result property="prescribedAt" column="p_prescribed_at"/>
+        <result property="remark" column="p_remark"/>
+        <result property="cancelledAt" column="p_cancelled_at"/>
+        <result property="cancelReason" column="p_cancel_reason"/>
+        <result property="createdAt" column="p_created_at"/>
+        <result property="updatedAt" column="p_updated_at"/>
     </resultMap>
 
-    <resultMap id="prescriptionItem" type="com.step.dictionary.pharmacy.prescription.PrescriptionItem"
-               autoMapping="true">
-        <id property="id" column="id"/>
+    <resultMap id="prescriptionItem" type="com.step.dictionary.pharmacy.prescription.PrescriptionItem">
+        <id property="id" column="pi_id"/>
+        <result property="lineNo" column="pi_line_no"/>
+        <result property="drugCode" column="pi_drug_code"/>
+        <result property="drugName" column="pi_drug_name"/>
+        <result property="dose" column="pi_dose"/>
+        <result property="doseUnit" column="pi_dose_unit"/>
+        <result property="route" column="pi_route"/>
+        <result property="frequency" column="pi_frequency"/>
+        <result property="days" column="pi_days"/>
+        <result property="totalQuantity" column="pi_total_quantity"/>
+        <result property="usageNote" column="pi_usage_note"/>
     </resultMap>
 
+    <!-- 처방 열 (별칭 p). -->
     <sql id="prescriptionColumns">
-        ${a}.id AS ${p}id, ${a}.prescription_no AS ${p}prescription_no, ${a}.patient_no AS ${p}patient_no,
-        ${a}.patient_name AS ${p}patient_name, ${a}.department_code AS ${p}department_code,
-        ${a}.prescriber_name AS ${p}prescriber_name, ${a}.prescription_type AS ${p}prescription_type,
-        ${a}.status AS ${p}status, ${a}.prescribed_at AS ${p}prescribed_at, ${a}.remark AS ${p}remark,
-        ${a}.cancelled_at AS ${p}cancelled_at, ${a}.cancel_reason AS ${p}cancel_reason,
-        ${a}.created_at AS ${p}created_at, ${a}.updated_at AS ${p}updated_at
+        p.id AS p_id, p.prescription_no AS p_prescription_no, p.patient_no AS p_patient_no,
+        p.patient_name AS p_patient_name, p.department_code AS p_department_code,
+        p.prescriber_name AS p_prescriber_name, p.prescription_type AS p_prescription_type, p.status AS p_status,
+        p.prescribed_at AS p_prescribed_at, p.remark AS p_remark, p.cancelled_at AS p_cancelled_at,
+        p.cancel_reason AS p_cancel_reason, p.created_at AS p_created_at, p.updated_at AS p_updated_at
     </sql>
 
+    <!-- 처방 품목 열 (별칭 pi). -->
     <sql id="prescriptionItemColumns">
-        ${a}.id AS ${p}id, ${a}.line_no AS ${p}line_no, ${a}.drug_code AS ${p}drug_code,
-        ${a}.drug_name AS ${p}drug_name, ${a}.dose AS ${p}dose, ${a}.dose_unit AS ${p}dose_unit,
-        ${a}.route AS ${p}route, ${a}.frequency AS ${p}frequency, ${a}.days AS ${p}days,
-        ${a}.total_quantity AS ${p}total_quantity, ${a}.usage_note AS ${p}usage_note
+        pi.id AS pi_id, pi.line_no AS pi_line_no, pi.drug_code AS pi_drug_code, pi.drug_name AS pi_drug_name,
+        pi.dose AS pi_dose, pi.dose_unit AS pi_dose_unit, pi.route AS pi_route, pi.frequency AS pi_frequency,
+        pi.days AS pi_days, pi.total_quantity AS pi_total_quantity, pi.usage_note AS pi_usage_note
     </sql>
 
-    <!-- 약제 목록 공통 검색어: 처방전번호(대소문자 무시)·환자번호·환자명 부분 일치. 처방 별칭 a, 키워드 c.keyword. -->
+    <!-- 약제 목록 공통 검색어: 처방전번호(대소문자 무시)·환자번호·환자명 부분 일치. 처방 별칭 p, 키워드 c.keyword. -->
     <sql id="keywordCondition">
         <bind name="keyword" value="@com.step.dictionary.global.mybatis.Likes@contains(c.keyword)"/>
         <if test="keyword != null">
-            AND (LOWER(${a}.prescription_no) LIKE LOWER(#{keyword}) ESCAPE '!'
-                 OR ${a}.patient_no LIKE #{keyword} ESCAPE '!'
-                 OR ${a}.patient_name LIKE #{keyword} ESCAPE '!')
+            AND (LOWER(p.prescription_no) LIKE LOWER(#{keyword}) ESCAPE '!'
+                 OR p.patient_no LIKE #{keyword} ESCAPE '!'
+                 OR p.patient_name LIKE #{keyword} ESCAPE '!')
         </if>
     </sql>
 
-    <!-- 약제 목록 공통 기간 조건: 일시 컬럼 ${col}이 c.from 0시 이후, c.to 다음 날 0시 전. -->
-    <sql id="periodCondition">
-        <bind name="fromAt" value="@com.step.dictionary.global.mybatis.SqlParams@startOfDay(c.from)"/>
-        <bind name="toBefore" value="@com.step.dictionary.global.mybatis.SqlParams@startOfNextDay(c.to)"/>
-        <if test="fromAt != null">AND ${col} &gt;= #{fromAt}</if>
-        <if test="toBefore != null">AND ${col} &lt; #{toBefore}</if>
-    </sql>
-
     <select id="findById" resultMap="prescription">
-        SELECT
-        <include refid="prescriptionColumns"><property name="a" value="p"/><property name="p" value=""/></include>
+        SELECT <include refid="prescriptionColumns"/>
         FROM phm_prescription p
         WHERE p.id = #{id}
     </select>
 
     <select id="findItemsByPrescriptionId" resultMap="prescriptionItem">
-        SELECT
-        <include refid="prescriptionItemColumns"><property name="a" value="pi"/><property name="p" value=""/></include>
+        SELECT <include refid="prescriptionItemColumns"/>
         FROM phm_prescription_item pi
         WHERE pi.prescription_id = #{prescriptionId}
         ORDER BY pi.line_no ASC
@@ -73,20 +86,23 @@
         SELECT COUNT(*) FROM phm_prescription WHERE prescription_no = #{prescriptionNo}
     </select>
 
+    <!-- from/to는 처방 일자(양 끝 포함): 시작일 0시 이후, 종료일 다음 날 0시 전. -->
     <sql id="searchWhere">
         <bind name="departmentCode" value="@com.step.dictionary.global.mybatis.SqlParams@upper(c.departmentCode)"/>
+        <bind name="fromAt" value="@com.step.dictionary.global.mybatis.SqlParams@startOfDay(c.from)"/>
+        <bind name="toBefore" value="@com.step.dictionary.global.mybatis.SqlParams@startOfNextDay(c.to)"/>
         <where>
-            <include refid="keywordCondition"><property name="a" value="p"/></include>
+            <include refid="keywordCondition"/>
             <if test="c.status != null">AND p.status = #{c.status}</if>
             <if test="c.prescriptionType != null">AND p.prescription_type = #{c.prescriptionType}</if>
             <if test="departmentCode != null">AND p.department_code = #{departmentCode}</if>
-            <include refid="periodCondition"><property name="col" value="p.prescribed_at"/></include>
+            <if test="fromAt != null">AND p.prescribed_at &gt;= #{fromAt}</if>
+            <if test="toBefore != null">AND p.prescribed_at &lt; #{toBefore}</if>
         </where>
     </sql>
 
     <select id="search" resultMap="prescription">
-        SELECT
-        <include refid="prescriptionColumns"><property name="a" value="p"/><property name="p" value=""/></include>
+        SELECT <include refid="prescriptionColumns"/>
         FROM phm_prescription p
         <include refid="searchWhere"/>
         ORDER BY p.prescribed_at DESC, p.id DESC
