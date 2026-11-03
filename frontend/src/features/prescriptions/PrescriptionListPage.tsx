@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { PrescriptionDetailDrawer } from './PrescriptionDetailDrawer'
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons' // ⑤ ReloadOutlined
 import { keepPreviousData } from '@tanstack/react-query'
 import { Alert, Button, Card, Input, Select, Space, Table, Tag, Typography, type TableColumnsType } from 'antd' // ⑤ Input·Select·Space·Typography
@@ -64,13 +66,19 @@ export function PrescriptionListPage() {
 
     /** ⑤ 조건 하나만 바꾸고 나머지는 유지한다 (setFilters는 넘기지 않은 조건을 지운다). */
     const updateFilter = (patch: Partial<typeof filters>) => setFilters({ ...filters, ...patch })
+    /** 상세 드로어에 보여줄 처방 ID. null이면 닫힘 */
+    const [detailId, setDetailId] = useState<number | null>(null)
 
     const columns: TableColumnsType<PrescriptionSummaryResponse> = [
         {
             title: '처방전번호',
             dataIndex: 'prescriptionNo',
             width: 160,
-            render: (value: string) => <span className="mono">{value}</span>,
+            render: (value: string, record) => (
+                <Typography.Link className="mono" onClick={() => record.id !== undefined && setDetailId(record.id)}>
+                    {value}
+                </Typography.Link>
+            )
         },
         { title: '환자번호', dataIndex: 'patientNo', width: 120 },
         { title: '환자명', dataIndex: 'patientName', width: 110 },
@@ -113,7 +121,7 @@ export function PrescriptionListPage() {
                     <Input.Search
                         key={filters.keyword ?? ''}
                         defaultValue={filters.keyword}
-                        placeholder="처방전번호 · 환자번호 · 환자명"
+                        placeholder="처방전번호 · 환자번호 · 환자명 (앞부분)"
                         allowClear
                         enterButton
                         className="search-input"
@@ -177,6 +185,8 @@ export function PrescriptionListPage() {
                         onChange: setPaging,
                     }}
                 />
+
+                <PrescriptionDetailDrawer prescriptionId={detailId} onClose={() => setDetailId(null)} />
             </Card>
         </>
     )

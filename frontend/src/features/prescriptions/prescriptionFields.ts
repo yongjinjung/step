@@ -32,3 +32,20 @@ export const PRESCRIPTION_TYPES: Record<PrescriptionType, TagSpec> = {
     DISCHARGE: { label: '퇴원', color: 'cyan' },
     EMERGENCY: { label: '응급', color: 'red' },
 }
+
+// ------ 3) 상세 (GET /api/prescriptions/{id}) -----
+/** 처방 상세 (품목 포함) */
+export type PrescriptionResponse = components['schemas']['PrescriptionResponse']
+
+/** 처방 목록 한 출 */
+export type PrescriptionItemResponse = components['schemas']['PrescriptionItemResponse']
+
+/** 수량 표시 서버는 소수 3자리(30.000)로 주지만 화면에는 필요한 자리만 쉼표와 함께 보여준다.*/
+export function formatQuantity(value: number | undefined): string{
+    return value === undefined ? '-' : value.toLocaleString('ko-KR',{
+        maximumFractionDigits: 3
+    })
+}
+
+
+
