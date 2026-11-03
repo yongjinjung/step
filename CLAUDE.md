@@ -113,7 +113,7 @@ com.step.dictionary
 ## 설정 / 프로파일
 
 - `application.yml`의 기본 프로파일은 `local`(MySQL)이다. **스프링 컨텍스트를 띄우는 모든 테스트는 `@ActiveProfiles("test")`가 필요하다.** 없으면 MySQL 접속을 시도하다 실패한다.
-- `test` 프로파일은 H2 in-memory(`MODE=MySQL;DATABASE_TO_LOWER=TRUE;IGNORECASE=TRUE`, 문자열 비교에서 대소문자를 구분하지 않아 MySQL 기본 정렬 규칙과 같다)를 쓰고, 테스트에서도 Flyway 마이그레이션이 실행된다. 마이그레이션 SQL은 MySQL과 H2 양쪽에서 동작해야 한다. `ENGINE=`, 테이블/컬럼 `COMMENT` 같은 MySQL 전용 구문은 쓰지 않는다.
+- `test` 프로파일은 H2 in-memory(`MODE=MySQL;DATABASE_TO_LOWER=TRUE;IGNORECASE=TRUE`, 문자열 비교에서 대소문자를 구분하지 않아 MySQL 기본 정렬 규칙과 같다)를 쓰고, 테스트에서도 Flyway 마이그레이션이 실행된다. `db/migration`의 마이그레이션 SQL은 MySQL과 H2 양쪽에서 동작해야 한다. `ENGINE=`, 테이블/컬럼 `COMMENT` 같은 MySQL 전용 구문은 여기에 쓰지 않는다(설명은 아래 Flyway 절의 DB 종류별 경로에 둔다).
 - 스키마는 Flyway만 관리한다. MyBatis는 스키마를 검사하지 않으므로, 컬럼을 바꾸면 매퍼 XML의 SQL도 함께 고치고 테스트로 확인한다.
 - **SQL 로그:** `decorator.datasource.enabled`(기본 `false`, local만 `true`)로 켠다. P6Spy가 실제 실행 SQL에 파라미터 값을 채우고 `global/logging/P6SpySqlFormatter`가 줄바꿈·들여쓰기해 `p6spy` 로거(INFO)로 남긴다. 형식 지정은 `src/main/resources/spy.properties`(`logMessageFormat`)에 있다. 값이 그대로 찍히므로(비밀번호 해시 포함) 운영에서는 켜지 않는다.
 - `app.jwt.secret`(32바이트 이상)이 없으면 기동에 실패한다. 기본 `application.yml`은 환경변수 `JWT_SECRET`을 쓰고, `local`/`test` 프로파일 yml에 개발용 키가 있다. `@ConfigurationProperties` record는 `@ConfigurationPropertiesScan`으로 등록된다.
@@ -122,7 +122,8 @@ com.step.dictionary
 
 ## Flyway
 
-- `src/main/resources/db/migration/V{번호}__{설명}.sql`
+- `src/main/resources/db/migration/V{번호}__{설명}.sql` (MySQL·H2 공통). 문법이 DB마다 다른 SQL만 `db/vendor/{vendor}/`(`mysql`, `h2`)에 같은 버전 번호로 둔다(`spring.flyway.locations`). 버전 번호는 두 경로를 합쳐 겹치지 않게 매긴다.
+- **테이블·컬럼 설명(Description):** 모든 테이블과 컬럼에 한글 설명을 단다(V14). MySQL은 `db/vendor/mysql`에 `ALTER TABLE ... COMMENT = '설명'` + `MODIFY COLUMN 컬럼 타입 NULL여부 [AUTO_INCREMENT] COMMENT '설명'`(정의 전체를 그대로 다시 적는다. 다르게 적으면 컬럼 정의가 바뀐다), H2는 `db/vendor/h2`에 `COMMENT ON TABLE/COLUMN ... IS '설명'`으로 같은 내용을 쓴다. 테이블·컬럼을 추가하는 마이그레이션을 만들면 새 버전으로 두 vendor 파일에도 설명을 넣는다. 빠뜨리면 `SchemaCommentTest`(H2 기준)가 실패한다.
 - 이미 적용된 파일은 수정하지 않고 새 버전 파일을 추가한다.
 - 긴 문자열 컬럼에 `TEXT`를 쓰지 않는다(MySQL과 H2의 타입 차이를 피한다). `VARCHAR(n)`을 쓴다(`std_request.payload`는 4000).
 - 엔티티를 바꾸면 같은 작업 안에서 마이그레이션과 매퍼 XML도 고친다.
