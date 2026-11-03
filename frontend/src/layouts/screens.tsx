@@ -27,6 +27,7 @@ import { MyPage } from '@/pages/MyPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
 import { useMenus } from './MenuContext'
+import { PrescriptionListPage } from '@/features/prescriptions/PrescriptionListPage'
 
 /**
  * 화면 경로 → 화면.
@@ -49,7 +50,8 @@ const PAGES: Record<string, ReactElement> = {
   '/roles': <RoleListPage />,
   '/menus': <MenuManagePage />,
   '/menu-permissions': <MenuPermissionPage />,
-  // 개발 참고용 샘플 화면. 업무 데이터를 다루지 않고 화면 안에서만 동작한다.
+  '/prescriptions': <PrescriptionListPage />,
+    // 개발 참고용 샘플 화면. 업무 데이터를 다루지 않고 화면 안에서만 동작한다.
   '/react': <ReactSamplePage />,
   '/typescript': <TypeScriptSamplePage />,
   '/vite': <ViteSamplePage />,
