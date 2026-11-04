@@ -497,3 +497,8 @@ body {
 .sample-form-gap-top {
   margin-top: 12px;
 }
+
+.item-line-no {
+  display: inline-block;
+  line-height: 32px;
+}

@@ -47,5 +47,27 @@ export function formatQuantity(value: number | undefined): string{
     })
 }
 
+// ------ 4) 등록 (POST /api/prescriptions) -----
+
+/** 처방 등록 요청 (품목 포함) */
+export type PrescriptionRequest = components['schemas']['PrescriptionRequest']
+
+/** 처방 품목 한 줄 요청 */
+export type PrescriptionItemRequest = components['schemas']['PrescriptionItemRequest']
+
+/** 처방 구분 선택 박스 항목 (외래·입원·퇴원·응급 ) */
+export const PRESCRIPTION_TYPE_OPTIONS = Object.entries(PRESCRIPTION_TYPES).map(([value, {label}])=> ({value, label}))
+
+/** 업무 오류코드 → 그 오류를 보여줄 폼 필드 */
+export const PRESCRIPTION_ERROR_FIELDS: Record<string, string> = {DUPLICATE_PRESCRIPTION_NO : 'prescriptionNo'}
+
+/** 지금 시각을 <input type="datetime-local"> 값 형식 (yyyy-MM-ddTHH:mm, 내 PC 시간대)으로*/
+export function nowForDateTimeInput(): string {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${now.getFullYear()}-${now.getMonth()+1}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+
+
 
 

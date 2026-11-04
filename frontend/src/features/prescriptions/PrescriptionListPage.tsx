@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { PrescriptionDetailDrawer } from './PrescriptionDetailDrawer'
+import { PrescriptionFormModal } from './PrescriptionFormModal'
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons' // ⑤ ReloadOutlined
 import { keepPreviousData } from '@tanstack/react-query'
 import { Alert, Button, Card, Input, Select, Space, Table, Tag, Typography, type TableColumnsType } from 'antd' // ⑤ Input·Select·Space·Typography
@@ -68,7 +69,7 @@ export function PrescriptionListPage() {
     const updateFilter = (patch: Partial<typeof filters>) => setFilters({ ...filters, ...patch })
     /** 상세 드로어에 보여줄 처방 ID. null이면 닫힘 */
     const [detailId, setDetailId] = useState<number | null>(null)
-
+    const [formOpen, setFormOpen] = useState(false)
     const columns: TableColumnsType<PrescriptionSummaryResponse> = [
         {
             title: '처방전번호',
@@ -109,7 +110,7 @@ export function PrescriptionListPage() {
                 title="처방"
                 extra={
                     canCreate && (
-                        <Button type="primary" icon={<PlusOutlined />}>
+                        <Button type="primary" icon={<PlusOutlined />} onClick={() => setFormOpen(true)}>
                             처방 등록
                         </Button>
                     )
@@ -187,6 +188,7 @@ export function PrescriptionListPage() {
                 />
 
                 <PrescriptionDetailDrawer prescriptionId={detailId} onClose={() => setDetailId(null)} />
+                <PrescriptionFormModal open={formOpen} onClose={() => setFormOpen(false)} />
             </Card>
         </>
     )

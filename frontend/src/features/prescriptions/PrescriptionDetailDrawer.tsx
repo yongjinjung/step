@@ -1,6 +1,10 @@
-import {Alert, Descriptions, Drawer, Skeleton, Table, Tag, Typography, type TableColumnsType} from 'antd'
+import { Alert, App, Button, Descriptions, Drawer, Skeleton, Table, Tag, Typography, type TableColumnsType } from 'antd'
+import { useState } from 'react'
 import { $api } from '@/api/client'
-import { errorMessage } from '@/api/errors'
+import { errorMessage, isApiError } from '@/api/errors'
+import { ReasonModal } from '@/components/ReasonModal'
+import { useInvalidateApi } from '@/hooks/useInvalidateApi'
+import { useMenus } from '@/layouts/MenuContext'
 import { formatDateTime } from '@/utils/format'
 import {
     PRESCRIPTION_STATUSES,
@@ -46,12 +50,53 @@ export function PrescriptionDetailDrawer({ prescriptionId, onClose }: Prescripti
     )
     const prescription = detailQuery.data
 
+    const { message } = App.useApp()
+    const { can } = useMenus()
+    const invalidate = useInvalidateApi()
+    const [cancelOpen, setCancelOpen] = useState(false)
+    const cancelPrescription = $api.useMutation('post', '/api/prescriptions/{id}/cancel')
+
+    // 버튼 표시 조건: 수정 권한 + 조제 전(ORDERED). 최종 검사는 서버가 한다.
+    const cancellable = can('/prescriptions', 'update') && prescription?.status === 'ORDERED'
+
+    const handleCancel = (reason: string | undefined) => {
+        if (prescriptionId === null || !reason) {
+            return
+        }
+        cancelPrescription.mutate(
+            { params: { path: { id: prescriptionId } }, body: { reason } },
+            {
+                onSuccess: () => {
+                    message.success('처방을 취소했습니다.')
+                    setCancelOpen(false)
+                    // 목록(상태 열)과 이 상세(취소 안내)를 함께 새로 고친다.
+                    invalidate('/api/prescriptions', '/api/prescriptions/{id}')
+                },
+                onError: (error: unknown) => {
+                    message.error(errorMessage(error))
+                    // 그사이 조제된 경우: 화면의 상태가 낡았으므로 새로 불러온다.
+                    if (isApiError(error) && error.code === 'PRESCRIPTION_NOT_CANCELLABLE') {
+                        setCancelOpen(false)
+                        invalidate('/api/prescriptions', '/api/prescriptions/{id}')
+                    }
+                },
+            },
+        )
+    }
+
     return (
         <Drawer
             open={open}
             onClose={onClose}
             size="large"
             title={prescription ? `처방 ${prescription.prescriptionNo}` : '처방 상세'}
+            extra={
+                cancellable && (
+                    <Button danger onClick={() => setCancelOpen(true)}>
+                        처방 취소
+                    </Button>
+                )
+            }
         >
             {detailQuery.isPending && open ? (
                 <Skeleton active />
@@ -115,6 +160,23 @@ export function PrescriptionDetailDrawer({ prescriptionId, onClose }: Prescripti
                     </>
                 )
             )}
+            <ReasonModal
+                open={cancelOpen}
+                title="처방 취소"
+                description={
+                    <Typography.Paragraph type="secondary">
+                        {prescription?.prescriptionNo} ({prescription?.patientName}) 처방을 취소합니다. 취소한 처방은 되돌릴 수 없고 조제할 수 없습니다.
+                    </Typography.Paragraph>
+                }
+                okText="취소 처리"
+                label="취소 사유"
+                placeholder="예: 처방 변경으로 재처방"
+                required
+                danger
+                confirmLoading={cancelPrescription.isPending}
+                onSubmit={handleCancel}
+                onCancel={() => setCancelOpen(false)}
+            />
         </Drawer>
     )
 }
