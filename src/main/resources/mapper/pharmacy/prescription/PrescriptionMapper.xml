@@ -113,7 +113,7 @@
         FROM phm_prescription p
         <include refid="searchWhere"/>
         ORDER BY p.prescribed_at DESC, p.id DESC
-        LIMIT #{p.pageSize} OFFSET #{p.offset}
+        OFFSET #{p.offset} ROWS FETCH NEXT #{p.pageSize} ROWS ONLY
     </select>
 
     <select id="count" resultType="long">

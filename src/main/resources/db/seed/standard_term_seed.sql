@@ -8,3753 +8,3756 @@
 -- Flyway 마이그레이션이 아니다. Flyway는 `db/migration`만 읽으므로 이 파일은 자동 실행되지 않는다.
 -- (자동 실행되면 테스트용 H2에도 들어가 검색 결과를 기대하는 테스트가 깨진다.)
 --
--- 넣는 방법 (로컬 MySQL, Git Bash):
---   docker exec -i dictionary-mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" --default-character-set=utf8mb4 dictionary' \
+-- 넣는 방법 (로컬 Oracle, Git Bash). NLS_LANG으로 UTF-8을 지정해야 한글이 깨지지 않는다:
+--   docker exec -i -e NLS_LANG=AMERICAN_AMERICA.AL32UTF8 pharmacy-oracle sqlplus -s pharmacy/pharmacy@XEPDB1 \
 --     < src/main/resources/db/seed/standard_term_seed.sql
 --
 -- 주의:
 --   - 단어·도메인·용어가 비어 있는 DB에 한 번만 실행한다. 같은 이름·약어가 있으면 유일 제약에 걸려
---     트랜잭션 전체가 실패한다(일부만 들어가지 않는다).
+--     트랜잭션 전체가 실패한다(오류가 나면 sqlplus가 롤백하고 끝낸다)(일부만 들어가지 않는다).
 --   - SQL로 직접 넣으므로 변경 이력(change_history)은 남지 않는다.
 --   - ID는 자동 증가에 맡기고, 참조는 이름·약어로 찾아 연결한다.
 -- =====================================================================
 
-START TRANSACTION;
+-- sqlplus 설정: & 치환 끄기, 문장 안 빈 줄 허용, 오류 시 롤백하고 종료.
+SET DEFINE OFF
+SET SQLBLANKLINES ON
+SET FEEDBACK OFF
+WHENEVER SQLERROR EXIT FAILURE ROLLBACK
+
+-- 임시 작업 테이블. Oracle은 DDL이 자동 커밋되므로 데이터를 넣기 전에 먼저 만든다.
+-- 앞선 실행이 중간에 실패해 남아 있으면 먼저 지운다 (Oracle 21c에는 DROP TABLE IF EXISTS가 없다).
+BEGIN EXECUTE IMMEDIATE 'DROP TABLE tmp_seed_term PURGE'; EXCEPTION WHEN OTHERS THEN NULL; END;
+/
+BEGIN EXECUTE IMMEDIATE 'DROP TABLE tmp_seed_term_word PURGE'; EXCEPTION WHEN OTHERS THEN NULL; END;
+/
+CREATE TABLE tmp_seed_term (name VARCHAR2(200 CHAR), abbreviation VARCHAR2(64 CHAR), domain_name VARCHAR2(100 CHAR), description VARCHAR2(1000 CHAR));
+CREATE TABLE tmp_seed_term_word (term_abbreviation VARCHAR2(64 CHAR), seq NUMBER(10), word_abbreviation VARCHAR2(50 CHAR));
 
 -- 1) 표준 단어 (분류어 17개 포함)
-INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES
-  ('고객', 'CUST', 'Customer', NULL, 'N', NOW(6), NOW(6)),
-  ('회원', 'MBR', 'Member', NULL, 'N', NOW(6), NOW(6)),
-  ('사용자', 'USER', 'User', NULL, 'N', NOW(6), NOW(6)),
-  ('직원', 'EMP', 'Employee', NULL, 'N', NOW(6), NOW(6)),
-  ('담당자', 'PIC', 'Person In Charge', NULL, 'N', NOW(6), NOW(6)),
-  ('거래처', 'BCNC', 'Business Connection', NULL, 'N', NOW(6), NOW(6)),
-  ('공급사', 'SPLR', 'Supplier', NULL, 'N', NOW(6), NOW(6)),
-  ('협력사', 'PTNR', 'Partner', NULL, 'N', NOW(6), NOW(6)),
-  ('신청인', 'APLCNT', 'Applicant', NULL, 'N', NOW(6), NOW(6)),
-  ('부서', 'DEPT', 'Department', NULL, 'N', NOW(6), NOW(6)),
-  ('조직', 'ORG', 'Organization', NULL, 'N', NOW(6), NOW(6)),
-  ('상품', 'PRDT', 'Product', NULL, 'N', NOW(6), NOW(6)),
-  ('품목', 'ITEM', 'Item', NULL, 'N', NOW(6), NOW(6)),
-  ('매장', 'STOR', 'Store', NULL, 'N', NOW(6), NOW(6)),
-  ('창고', 'WRHS', 'Warehouse', NULL, 'N', NOW(6), NOW(6)),
-  ('메뉴', 'MENU', 'Menu', NULL, 'N', NOW(6), NOW(6)),
-  ('권한', 'AUTH', 'Authority', NULL, 'N', NOW(6), NOW(6)),
-  ('역할', 'ROLE', 'Role', NULL, 'N', NOW(6), NOW(6)),
-  ('프로그램', 'PGM', 'Program', NULL, 'N', NOW(6), NOW(6)),
-  ('파일', 'FILE', 'File', NULL, 'N', NOW(6), NOW(6)),
-  ('게시판', 'BBS', 'Bulletin Board', NULL, 'N', NOW(6), NOW(6)),
-  ('게시물', 'PST', 'Post', NULL, 'N', NOW(6), NOW(6)),
-  ('공지', 'NTC', 'Notice', NULL, 'N', NOW(6), NOW(6)),
-  ('쿠폰', 'CPN', 'Coupon', NULL, 'N', NOW(6), NOW(6)),
-  ('이벤트', 'EVT', 'Event', NULL, 'N', NOW(6), NOW(6)),
-  ('프로젝트', 'PRJ', 'Project', NULL, 'N', NOW(6), NOW(6)),
-  ('과제', 'TASK', 'Task', NULL, 'N', NOW(6), NOW(6)),
-  ('자산', 'ASST', 'Asset', NULL, 'N', NOW(6), NOW(6)),
-  ('설비', 'EQPMNT', 'Equipment', NULL, 'N', NOW(6), NOW(6)),
-  ('차량', 'VHCL', 'Vehicle', NULL, 'N', NOW(6), NOW(6)),
-  ('교육', 'EDU', 'Education', NULL, 'N', NOW(6), NOW(6)),
-  ('계정', 'ACNT', 'Account', NULL, 'N', NOW(6), NOW(6)),
-  ('예산', 'BGT', 'Budget', NULL, 'N', NOW(6), NOW(6)),
-  ('계좌', 'BACNT', 'Bank Account', NULL, 'N', NOW(6), NOW(6)),
-  ('카드', 'CARD', 'Card', NULL, 'N', NOW(6), NOW(6)),
-  ('약관', 'TRMS', 'Terms', NULL, 'N', NOW(6), NOW(6)),
-  ('주문', 'ORDR', 'Order', NULL, 'N', NOW(6), NOW(6)),
-  ('결제', 'STLM', 'Settlement Payment', NULL, 'N', NOW(6), NOW(6)),
-  ('배송', 'DLVR', 'Delivery', NULL, 'N', NOW(6), NOW(6)),
-  ('계약', 'CTRT', 'Contract', NULL, 'N', NOW(6), NOW(6)),
-  ('청구', 'CLM', 'Claim', NULL, 'N', NOW(6), NOW(6)),
-  ('수납', 'RCPT', 'Receipt', NULL, 'N', NOW(6), NOW(6)),
-  ('거래', 'TRSC', 'Transaction', NULL, 'N', NOW(6), NOW(6)),
-  ('입고', 'WRHSNG', 'Warehousing', NULL, 'N', NOW(6), NOW(6)),
-  ('출고', 'RLS', 'Release', NULL, 'N', NOW(6), NOW(6)),
-  ('구매', 'PRCHS', 'Purchase', NULL, 'N', NOW(6), NOW(6)),
-  ('판매', 'SLS', 'Sales', NULL, 'N', NOW(6), NOW(6)),
-  ('견적', 'ESTMT', 'Estimate', NULL, 'N', NOW(6), NOW(6)),
-  ('정산', 'CLCLN', 'Calculation', NULL, 'N', NOW(6), NOW(6)),
-  ('반품', 'RTGD', 'Returned Goods', NULL, 'N', NOW(6), NOW(6)),
-  ('환불', 'RFND', 'Refund', NULL, 'N', NOW(6), NOW(6)),
-  ('문의', 'INQ', 'Inquiry', NULL, 'N', NOW(6), NOW(6)),
-  ('신청', 'APLY', 'Application', NULL, 'N', NOW(6), NOW(6)),
-  ('급여', 'SLRY', 'Salary', NULL, 'N', NOW(6), NOW(6)),
-  ('휴가', 'VCTN', 'Vacation', NULL, 'N', NOW(6), NOW(6)),
-  ('평가', 'EVL', 'Evaluation', NULL, 'N', NOW(6), NOW(6)),
-  ('비용', 'CST', 'Cost', NULL, 'N', NOW(6), NOW(6)),
-  ('전표', 'SLIP', 'Slip', NULL, 'N', NOW(6), NOW(6)),
-  ('재고', 'INVNTRY', 'Inventory', NULL, 'N', NOW(6), NOW(6)),
-  ('포인트', 'PNT', 'Point', NULL, 'N', NOW(6), NOW(6)),
-  ('유형', 'TYPE', 'Type', NULL, 'N', NOW(6), NOW(6)),
-  ('상태', 'STTS', 'Status', NULL, 'N', NOW(6), NOW(6)),
-  ('구분', 'SE', 'Section', NULL, 'N', NOW(6), NOW(6)),
-  ('등록', 'REG', 'Registration', NULL, 'N', NOW(6), NOW(6)),
-  ('수정', 'MDFCN', 'Modification', NULL, 'N', NOW(6), NOW(6)),
-  ('시작', 'BGNG', 'Beginning', NULL, 'N', NOW(6), NOW(6)),
-  ('종료', 'END', 'End', NULL, 'N', NOW(6), NOW(6)),
-  ('사용', 'USE', 'Use', NULL, 'N', NOW(6), NOW(6)),
-  ('삭제', 'DEL', 'Deletion', NULL, 'N', NOW(6), NOW(6)),
-  ('승인', 'APRV', 'Approval', NULL, 'N', NOW(6), NOW(6)),
-  ('요청', 'REQ', 'Request', NULL, 'N', NOW(6), NOW(6)),
-  ('처리', 'PRCS', 'Process', NULL, 'N', NOW(6), NOW(6)),
-  ('취소', 'CNCL', 'Cancel', NULL, 'N', NOW(6), NOW(6)),
-  ('총', 'TOT', 'Total', NULL, 'N', NOW(6), NOW(6)),
-  ('단가', 'UNTPRC', 'Unit Price', NULL, 'N', NOW(6), NOW(6)),
-  ('할인', 'DSCNT', 'Discount', NULL, 'N', NOW(6), NOW(6)),
-  ('세', 'TAX', 'Tax', NULL, 'N', NOW(6), NOW(6)),
-  ('비고', 'RMRK', 'Remark', NULL, 'N', NOW(6), NOW(6)),
-  ('상세', 'DTL', 'Detail', NULL, 'N', NOW(6), NOW(6)),
-  ('대표', 'RPRS', 'Representative', NULL, 'N', NOW(6), NOW(6)),
-  ('휴대', 'MBL', 'Mobile', NULL, 'N', NOW(6), NOW(6)),
-  ('우편', 'ZIP', 'Zip', NULL, 'N', NOW(6), NOW(6)),
-  ('가입', 'JOIN', 'Join', NULL, 'N', NOW(6), NOW(6)),
-  ('탈퇴', 'WHDWL', 'Withdrawal', NULL, 'N', NOW(6), NOW(6)),
-  ('만료', 'EXPRY', 'Expiry', NULL, 'N', NOW(6), NOW(6)),
-  ('정렬', 'SORT', 'Sort', NULL, 'N', NOW(6), NOW(6)),
-  ('표시', 'INDCT', 'Indication', NULL, 'N', NOW(6), NOW(6)),
-  ('상위', 'UPPER', 'Upper', NULL, 'N', NOW(6), NOW(6)),
-  ('번호', 'NO', 'Number', '분류어: 번호', 'Y', NOW(6), NOW(6)),
-  ('명', 'NM', 'Name', '분류어: 명', 'Y', NOW(6), NOW(6)),
-  ('코드', 'CD', 'Code', '분류어: 코드', 'Y', NOW(6), NOW(6)),
-  ('일자', 'YMD', 'Date', '분류어: 일자', 'Y', NOW(6), NOW(6)),
-  ('일시', 'DT', 'Date Time', '분류어: 일시', 'Y', NOW(6), NOW(6)),
-  ('금액', 'AMT', 'Amount', '분류어: 금액', 'Y', NOW(6), NOW(6)),
-  ('수량', 'QTY', 'Quantity', '분류어: 수량', 'Y', NOW(6), NOW(6)),
-  ('율', 'RT', 'Rate', '분류어: 율', 'Y', NOW(6), NOW(6)),
-  ('여부', 'YN', 'Yes or No', '분류어: 여부', 'Y', NOW(6), NOW(6)),
-  ('내용', 'CN', 'Contents', '분류어: 내용', 'Y', NOW(6), NOW(6)),
-  ('순번', 'SN', 'Serial Number', '분류어: 순번', 'Y', NOW(6), NOW(6)),
-  ('건수', 'CNT', 'Count', '분류어: 건수', 'Y', NOW(6), NOW(6)),
-  ('아이디', 'ID', 'Identifier', '분류어: 아이디', 'Y', NOW(6), NOW(6)),
-  ('전화번호', 'TELNO', 'Telephone Number', '분류어: 전화번호', 'Y', NOW(6), NOW(6)),
-  ('이메일', 'EML', 'Email', '분류어: 이메일', 'Y', NOW(6), NOW(6)),
-  ('주소', 'ADDR', 'Address', '분류어: 주소', 'Y', NOW(6), NOW(6)),
-  ('생년월일', 'BRDT', 'Birth Date', '분류어: 생년월일', 'Y', NOW(6), NOW(6));
-
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('고객', 'CUST', 'Customer', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('회원', 'MBR', 'Member', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사용자', 'USER', 'User', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('직원', 'EMP', 'Employee', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('담당자', 'PIC', 'Person In Charge', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('거래처', 'BCNC', 'Business Connection', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('공급사', 'SPLR', 'Supplier', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('협력사', 'PTNR', 'Partner', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('신청인', 'APLCNT', 'Applicant', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부서', 'DEPT', 'Department', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조직', 'ORG', 'Organization', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('상품', 'PRDT', 'Product', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('품목', 'ITEM', 'Item', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('매장', 'STOR', 'Store', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('창고', 'WRHS', 'Warehouse', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메뉴', 'MENU', 'Menu', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('권한', 'AUTH', 'Authority', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('역할', 'ROLE', 'Role', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프로그램', 'PGM', 'Program', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('파일', 'FILE', 'File', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('게시판', 'BBS', 'Bulletin Board', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('게시물', 'PST', 'Post', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('공지', 'NTC', 'Notice', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('쿠폰', 'CPN', 'Coupon', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이벤트', 'EVT', 'Event', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프로젝트', 'PRJ', 'Project', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('과제', 'TASK', 'Task', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('자산', 'ASST', 'Asset', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('설비', 'EQPMNT', 'Equipment', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('차량', 'VHCL', 'Vehicle', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('교육', 'EDU', 'Education', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('계정', 'ACNT', 'Account', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('예산', 'BGT', 'Budget', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('계좌', 'BACNT', 'Bank Account', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카드', 'CARD', 'Card', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약관', 'TRMS', 'Terms', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주문', 'ORDR', 'Order', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('결제', 'STLM', 'Settlement Payment', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('배송', 'DLVR', 'Delivery', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('계약', 'CTRT', 'Contract', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('청구', 'CLM', 'Claim', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수납', 'RCPT', 'Receipt', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('거래', 'TRSC', 'Transaction', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('입고', 'WRHSNG', 'Warehousing', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('출고', 'RLS', 'Release', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('구매', 'PRCHS', 'Purchase', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('판매', 'SLS', 'Sales', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('견적', 'ESTMT', 'Estimate', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정산', 'CLCLN', 'Calculation', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반품', 'RTGD', 'Returned Goods', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('환불', 'RFND', 'Refund', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('문의', 'INQ', 'Inquiry', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('신청', 'APLY', 'Application', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('급여', 'SLRY', 'Salary', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('휴가', 'VCTN', 'Vacation', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('평가', 'EVL', 'Evaluation', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비용', 'CST', 'Cost', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전표', 'SLIP', 'Slip', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재고', 'INVNTRY', 'Inventory', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('포인트', 'PNT', 'Point', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('유형', 'TYPE', 'Type', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('상태', 'STTS', 'Status', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('구분', 'SE', 'Section', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('등록', 'REG', 'Registration', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수정', 'MDFCN', 'Modification', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시작', 'BGNG', 'Beginning', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('종료', 'END', 'End', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사용', 'USE', 'Use', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('삭제', 'DEL', 'Deletion', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('승인', 'APRV', 'Approval', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('요청', 'REQ', 'Request', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처리', 'PRCS', 'Process', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('취소', 'CNCL', 'Cancel', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('총', 'TOT', 'Total', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('단가', 'UNTPRC', 'Unit Price', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('할인', 'DSCNT', 'Discount', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세', 'TAX', 'Tax', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비고', 'RMRK', 'Remark', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('상세', 'DTL', 'Detail', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대표', 'RPRS', 'Representative', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('휴대', 'MBL', 'Mobile', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('우편', 'ZIP', 'Zip', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('가입', 'JOIN', 'Join', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('탈퇴', 'WHDWL', 'Withdrawal', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('만료', 'EXPRY', 'Expiry', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정렬', 'SORT', 'Sort', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('표시', 'INDCT', 'Indication', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('상위', 'UPPER', 'Upper', NULL, 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('번호', 'NO', 'Number', '분류어: 번호', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('명', 'NM', 'Name', '분류어: 명', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('코드', 'CD', 'Code', '분류어: 코드', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일자', 'YMD', 'Date', '분류어: 일자', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일시', 'DT', 'Date Time', '분류어: 일시', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('금액', 'AMT', 'Amount', '분류어: 금액', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수량', 'QTY', 'Quantity', '분류어: 수량', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('율', 'RT', 'Rate', '분류어: 율', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('여부', 'YN', 'Yes or No', '분류어: 여부', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('내용', 'CN', 'Contents', '분류어: 내용', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('순번', 'SN', 'Serial Number', '분류어: 순번', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('건수', 'CNT', 'Count', '분류어: 건수', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아이디', 'ID', 'Identifier', '분류어: 아이디', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전화번호', 'TELNO', 'Telephone Number', '분류어: 전화번호', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이메일', 'EML', 'Email', '분류어: 이메일', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주소', 'ADDR', 'Address', '분류어: 주소', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('생년월일', 'BRDT', 'Birth Date', '분류어: 생년월일', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
 -- 2) 표준 도메인 (분류어마다 하나)
+-- UNION ALL로 묶으면 같은 이름의 열(LOCALTIMESTAMP)이 겹쳐 ORA-00918이 나므로 한 행씩 넣는다.
 INSERT INTO std_domain (name, classifier_word_id, data_type, data_length, data_scale, description, created_at, updated_at)
-SELECT '번호V20', id, 'VARCHAR', 20, NULL, '식별 번호', NOW(6), NOW(6) FROM std_word WHERE name = '번호'
-UNION ALL SELECT '명V100', id, 'VARCHAR', 100, NULL, '이름', NOW(6), NOW(6) FROM std_word WHERE name = '명'
-UNION ALL SELECT '코드V20', id, 'VARCHAR', 20, NULL, '공통 코드값', NOW(6), NOW(6) FROM std_word WHERE name = '코드'
-UNION ALL SELECT '일자D', id, 'DATE', NULL, NULL, '연월일', NOW(6), NOW(6) FROM std_word WHERE name = '일자'
-UNION ALL SELECT '일시DT', id, 'DATETIME', NULL, NULL, '연월일 시분초', NOW(6), NOW(6) FROM std_word WHERE name = '일시'
-UNION ALL SELECT '금액N18', id, 'DECIMAL', 18, 0, '원 단위 금액', NOW(6), NOW(6) FROM std_word WHERE name = '금액'
-UNION ALL SELECT '수량N10', id, 'DECIMAL', 10, 0, '개수 단위 수량', NOW(6), NOW(6) FROM std_word WHERE name = '수량'
-UNION ALL SELECT '율N5_2', id, 'DECIMAL', 5, 2, '백분율(소수 둘째 자리)', NOW(6), NOW(6) FROM std_word WHERE name = '율'
-UNION ALL SELECT '여부C1', id, 'CHAR', 1, NULL, 'Y 또는 N', NOW(6), NOW(6) FROM std_word WHERE name = '여부'
-UNION ALL SELECT '내용V4000', id, 'VARCHAR', 4000, NULL, '긴 서술형 내용', NOW(6), NOW(6) FROM std_word WHERE name = '내용'
-UNION ALL SELECT '순번I', id, 'INTEGER', NULL, NULL, '1부터 시작하는 순서', NOW(6), NOW(6) FROM std_word WHERE name = '순번'
-UNION ALL SELECT '건수I', id, 'INTEGER', NULL, NULL, '건 단위 개수', NOW(6), NOW(6) FROM std_word WHERE name = '건수'
-UNION ALL SELECT '아이디V50', id, 'VARCHAR', 50, NULL, '로그인 아이디', NOW(6), NOW(6) FROM std_word WHERE name = '아이디'
-UNION ALL SELECT '전화번호V20', id, 'VARCHAR', 20, NULL, '하이픈 포함 전화번호', NOW(6), NOW(6) FROM std_word WHERE name = '전화번호'
-UNION ALL SELECT '이메일V100', id, 'VARCHAR', 100, NULL, '이메일 주소', NOW(6), NOW(6) FROM std_word WHERE name = '이메일'
-UNION ALL SELECT '주소V200', id, 'VARCHAR', 200, NULL, '도로명 주소', NOW(6), NOW(6) FROM std_word WHERE name = '주소'
-UNION ALL SELECT '생년월일C8', id, 'CHAR', 8, NULL, 'yyyyMMdd', NOW(6), NOW(6) FROM std_word WHERE name = '생년월일';
-
+SELECT '번호V20', id, 'VARCHAR', 20, NULL, '식별 번호', LOCALTIMESTAMP, LOCALTIMESTAMP FROM std_word WHERE name = '번호';
+INSERT INTO std_domain (name, classifier_word_id, data_type, data_length, data_scale, description, created_at, updated_at)
+SELECT '명V100', id, 'VARCHAR', 100, NULL, '이름', LOCALTIMESTAMP, LOCALTIMESTAMP FROM std_word WHERE name = '명';
+INSERT INTO std_domain (name, classifier_word_id, data_type, data_length, data_scale, description, created_at, updated_at)
+SELECT '코드V20', id, 'VARCHAR', 20, NULL, '공통 코드값', LOCALTIMESTAMP, LOCALTIMESTAMP FROM std_word WHERE name = '코드';
+INSERT INTO std_domain (name, classifier_word_id, data_type, data_length, data_scale, description, created_at, updated_at)
+SELECT '일자D', id, 'DATE', NULL, NULL, '연월일', LOCALTIMESTAMP, LOCALTIMESTAMP FROM std_word WHERE name = '일자';
+INSERT INTO std_domain (name, classifier_word_id, data_type, data_length, data_scale, description, created_at, updated_at)
+SELECT '일시DT', id, 'DATETIME', NULL, NULL, '연월일 시분초', LOCALTIMESTAMP, LOCALTIMESTAMP FROM std_word WHERE name = '일시';
+INSERT INTO std_domain (name, classifier_word_id, data_type, data_length, data_scale, description, created_at, updated_at)
+SELECT '금액N18', id, 'DECIMAL', 18, 0, '원 단위 금액', LOCALTIMESTAMP, LOCALTIMESTAMP FROM std_word WHERE name = '금액';
+INSERT INTO std_domain (name, classifier_word_id, data_type, data_length, data_scale, description, created_at, updated_at)
+SELECT '수량N10', id, 'DECIMAL', 10, 0, '개수 단위 수량', LOCALTIMESTAMP, LOCALTIMESTAMP FROM std_word WHERE name = '수량';
+INSERT INTO std_domain (name, classifier_word_id, data_type, data_length, data_scale, description, created_at, updated_at)
+SELECT '율N5_2', id, 'DECIMAL', 5, 2, '백분율(소수 둘째 자리)', LOCALTIMESTAMP, LOCALTIMESTAMP FROM std_word WHERE name = '율';
+INSERT INTO std_domain (name, classifier_word_id, data_type, data_length, data_scale, description, created_at, updated_at)
+SELECT '여부C1', id, 'CHAR', 1, NULL, 'Y 또는 N', LOCALTIMESTAMP, LOCALTIMESTAMP FROM std_word WHERE name = '여부';
+INSERT INTO std_domain (name, classifier_word_id, data_type, data_length, data_scale, description, created_at, updated_at)
+SELECT '내용V4000', id, 'VARCHAR', 4000, NULL, '긴 서술형 내용', LOCALTIMESTAMP, LOCALTIMESTAMP FROM std_word WHERE name = '내용';
+INSERT INTO std_domain (name, classifier_word_id, data_type, data_length, data_scale, description, created_at, updated_at)
+SELECT '순번I', id, 'INTEGER', NULL, NULL, '1부터 시작하는 순서', LOCALTIMESTAMP, LOCALTIMESTAMP FROM std_word WHERE name = '순번';
+INSERT INTO std_domain (name, classifier_word_id, data_type, data_length, data_scale, description, created_at, updated_at)
+SELECT '건수I', id, 'INTEGER', NULL, NULL, '건 단위 개수', LOCALTIMESTAMP, LOCALTIMESTAMP FROM std_word WHERE name = '건수';
+INSERT INTO std_domain (name, classifier_word_id, data_type, data_length, data_scale, description, created_at, updated_at)
+SELECT '아이디V50', id, 'VARCHAR', 50, NULL, '로그인 아이디', LOCALTIMESTAMP, LOCALTIMESTAMP FROM std_word WHERE name = '아이디';
+INSERT INTO std_domain (name, classifier_word_id, data_type, data_length, data_scale, description, created_at, updated_at)
+SELECT '전화번호V20', id, 'VARCHAR', 20, NULL, '하이픈 포함 전화번호', LOCALTIMESTAMP, LOCALTIMESTAMP FROM std_word WHERE name = '전화번호';
+INSERT INTO std_domain (name, classifier_word_id, data_type, data_length, data_scale, description, created_at, updated_at)
+SELECT '이메일V100', id, 'VARCHAR', 100, NULL, '이메일 주소', LOCALTIMESTAMP, LOCALTIMESTAMP FROM std_word WHERE name = '이메일';
+INSERT INTO std_domain (name, classifier_word_id, data_type, data_length, data_scale, description, created_at, updated_at)
+SELECT '주소V200', id, 'VARCHAR', 200, NULL, '도로명 주소', LOCALTIMESTAMP, LOCALTIMESTAMP FROM std_word WHERE name = '주소';
+INSERT INTO std_domain (name, classifier_word_id, data_type, data_length, data_scale, description, created_at, updated_at)
+SELECT '생년월일C8', id, 'CHAR', 8, NULL, 'yyyyMMdd', LOCALTIMESTAMP, LOCALTIMESTAMP FROM std_word WHERE name = '생년월일';
 -- 3) 표준 용어 1000건과 구성 단어
-CREATE TEMPORARY TABLE tmp_seed_term (name VARCHAR(200), abbreviation VARCHAR(64), domain_name VARCHAR(100), description VARCHAR(1000));
-CREATE TEMPORARY TABLE tmp_seed_term_word (term_abbreviation VARCHAR(64), seq INT, word_abbreviation VARCHAR(50));
-
-INSERT INTO tmp_seed_term VALUES
-  ('고객번호', 'CUST_NO', '번호V20', '고객의 번호'),
-  ('회원번호', 'MBR_NO', '번호V20', '회원의 번호'),
-  ('사용자번호', 'USER_NO', '번호V20', '사용자의 번호'),
-  ('직원번호', 'EMP_NO', '번호V20', '직원의 번호'),
-  ('담당자번호', 'PIC_NO', '번호V20', '담당자의 번호'),
-  ('거래처번호', 'BCNC_NO', '번호V20', '거래처의 번호'),
-  ('공급사번호', 'SPLR_NO', '번호V20', '공급사의 번호'),
-  ('협력사번호', 'PTNR_NO', '번호V20', '협력사의 번호'),
-  ('신청인번호', 'APLCNT_NO', '번호V20', '신청인의 번호'),
-  ('부서번호', 'DEPT_NO', '번호V20', '부서의 번호'),
-  ('조직번호', 'ORG_NO', '번호V20', '조직의 번호'),
-  ('상품번호', 'PRDT_NO', '번호V20', '상품의 번호'),
-  ('품목번호', 'ITEM_NO', '번호V20', '품목의 번호'),
-  ('매장번호', 'STOR_NO', '번호V20', '매장의 번호'),
-  ('창고번호', 'WRHS_NO', '번호V20', '창고의 번호'),
-  ('메뉴번호', 'MENU_NO', '번호V20', '메뉴의 번호'),
-  ('권한번호', 'AUTH_NO', '번호V20', '권한의 번호'),
-  ('역할번호', 'ROLE_NO', '번호V20', '역할의 번호'),
-  ('프로그램번호', 'PGM_NO', '번호V20', '프로그램의 번호'),
-  ('파일번호', 'FILE_NO', '번호V20', '파일의 번호'),
-  ('게시판번호', 'BBS_NO', '번호V20', '게시판의 번호'),
-  ('게시물번호', 'PST_NO', '번호V20', '게시물의 번호'),
-  ('공지번호', 'NTC_NO', '번호V20', '공지의 번호'),
-  ('쿠폰번호', 'CPN_NO', '번호V20', '쿠폰의 번호'),
-  ('이벤트번호', 'EVT_NO', '번호V20', '이벤트의 번호'),
-  ('프로젝트번호', 'PRJ_NO', '번호V20', '프로젝트의 번호'),
-  ('과제번호', 'TASK_NO', '번호V20', '과제의 번호'),
-  ('자산번호', 'ASST_NO', '번호V20', '자산의 번호'),
-  ('설비번호', 'EQPMNT_NO', '번호V20', '설비의 번호'),
-  ('차량번호', 'VHCL_NO', '번호V20', '차량의 번호'),
-  ('교육번호', 'EDU_NO', '번호V20', '교육의 번호'),
-  ('계정번호', 'ACNT_NO', '번호V20', '계정의 번호'),
-  ('예산번호', 'BGT_NO', '번호V20', '예산의 번호'),
-  ('계좌번호', 'BACNT_NO', '번호V20', '계좌의 번호'),
-  ('카드번호', 'CARD_NO', '번호V20', '카드의 번호'),
-  ('약관번호', 'TRMS_NO', '번호V20', '약관의 번호'),
-  ('주문번호', 'ORDR_NO', '번호V20', '주문의 번호'),
-  ('결제번호', 'STLM_NO', '번호V20', '결제의 번호'),
-  ('배송번호', 'DLVR_NO', '번호V20', '배송의 번호'),
-  ('계약번호', 'CTRT_NO', '번호V20', '계약의 번호'),
-  ('청구번호', 'CLM_NO', '번호V20', '청구의 번호'),
-  ('수납번호', 'RCPT_NO', '번호V20', '수납의 번호'),
-  ('거래번호', 'TRSC_NO', '번호V20', '거래의 번호'),
-  ('입고번호', 'WRHSNG_NO', '번호V20', '입고의 번호'),
-  ('출고번호', 'RLS_NO', '번호V20', '출고의 번호'),
-  ('구매번호', 'PRCHS_NO', '번호V20', '구매의 번호'),
-  ('판매번호', 'SLS_NO', '번호V20', '판매의 번호'),
-  ('견적번호', 'ESTMT_NO', '번호V20', '견적의 번호'),
-  ('정산번호', 'CLCLN_NO', '번호V20', '정산의 번호'),
-  ('반품번호', 'RTGD_NO', '번호V20', '반품의 번호'),
-  ('환불번호', 'RFND_NO', '번호V20', '환불의 번호'),
-  ('문의번호', 'INQ_NO', '번호V20', '문의의 번호'),
-  ('신청번호', 'APLY_NO', '번호V20', '신청의 번호'),
-  ('급여번호', 'SLRY_NO', '번호V20', '급여의 번호'),
-  ('휴가번호', 'VCTN_NO', '번호V20', '휴가의 번호'),
-  ('평가번호', 'EVL_NO', '번호V20', '평가의 번호'),
-  ('비용번호', 'CST_NO', '번호V20', '비용의 번호'),
-  ('전표번호', 'SLIP_NO', '번호V20', '전표의 번호'),
-  ('재고번호', 'INVNTRY_NO', '번호V20', '재고의 번호'),
-  ('포인트번호', 'PNT_NO', '번호V20', '포인트의 번호'),
-  ('고객명', 'CUST_NM', '명V100', '고객의 명'),
-  ('회원명', 'MBR_NM', '명V100', '회원의 명'),
-  ('사용자명', 'USER_NM', '명V100', '사용자의 명'),
-  ('직원명', 'EMP_NM', '명V100', '직원의 명'),
-  ('담당자명', 'PIC_NM', '명V100', '담당자의 명'),
-  ('거래처명', 'BCNC_NM', '명V100', '거래처의 명'),
-  ('공급사명', 'SPLR_NM', '명V100', '공급사의 명'),
-  ('협력사명', 'PTNR_NM', '명V100', '협력사의 명'),
-  ('신청인명', 'APLCNT_NM', '명V100', '신청인의 명'),
-  ('부서명', 'DEPT_NM', '명V100', '부서의 명'),
-  ('조직명', 'ORG_NM', '명V100', '조직의 명'),
-  ('상품명', 'PRDT_NM', '명V100', '상품의 명'),
-  ('품목명', 'ITEM_NM', '명V100', '품목의 명'),
-  ('매장명', 'STOR_NM', '명V100', '매장의 명'),
-  ('창고명', 'WRHS_NM', '명V100', '창고의 명'),
-  ('메뉴명', 'MENU_NM', '명V100', '메뉴의 명'),
-  ('권한명', 'AUTH_NM', '명V100', '권한의 명'),
-  ('역할명', 'ROLE_NM', '명V100', '역할의 명'),
-  ('프로그램명', 'PGM_NM', '명V100', '프로그램의 명'),
-  ('파일명', 'FILE_NM', '명V100', '파일의 명'),
-  ('게시판명', 'BBS_NM', '명V100', '게시판의 명'),
-  ('게시물명', 'PST_NM', '명V100', '게시물의 명'),
-  ('공지명', 'NTC_NM', '명V100', '공지의 명'),
-  ('쿠폰명', 'CPN_NM', '명V100', '쿠폰의 명'),
-  ('이벤트명', 'EVT_NM', '명V100', '이벤트의 명'),
-  ('프로젝트명', 'PRJ_NM', '명V100', '프로젝트의 명'),
-  ('과제명', 'TASK_NM', '명V100', '과제의 명'),
-  ('자산명', 'ASST_NM', '명V100', '자산의 명'),
-  ('설비명', 'EQPMNT_NM', '명V100', '설비의 명'),
-  ('차량명', 'VHCL_NM', '명V100', '차량의 명'),
-  ('교육명', 'EDU_NM', '명V100', '교육의 명'),
-  ('계정명', 'ACNT_NM', '명V100', '계정의 명'),
-  ('예산명', 'BGT_NM', '명V100', '예산의 명'),
-  ('계좌명', 'BACNT_NM', '명V100', '계좌의 명'),
-  ('카드명', 'CARD_NM', '명V100', '카드의 명'),
-  ('약관명', 'TRMS_NM', '명V100', '약관의 명'),
-  ('주문명', 'ORDR_NM', '명V100', '주문의 명'),
-  ('결제명', 'STLM_NM', '명V100', '결제의 명'),
-  ('배송명', 'DLVR_NM', '명V100', '배송의 명'),
-  ('계약명', 'CTRT_NM', '명V100', '계약의 명'),
-  ('청구명', 'CLM_NM', '명V100', '청구의 명'),
-  ('수납명', 'RCPT_NM', '명V100', '수납의 명'),
-  ('거래명', 'TRSC_NM', '명V100', '거래의 명'),
-  ('입고명', 'WRHSNG_NM', '명V100', '입고의 명'),
-  ('출고명', 'RLS_NM', '명V100', '출고의 명'),
-  ('구매명', 'PRCHS_NM', '명V100', '구매의 명'),
-  ('판매명', 'SLS_NM', '명V100', '판매의 명'),
-  ('견적명', 'ESTMT_NM', '명V100', '견적의 명'),
-  ('정산명', 'CLCLN_NM', '명V100', '정산의 명'),
-  ('반품명', 'RTGD_NM', '명V100', '반품의 명'),
-  ('환불명', 'RFND_NM', '명V100', '환불의 명'),
-  ('문의명', 'INQ_NM', '명V100', '문의의 명'),
-  ('신청명', 'APLY_NM', '명V100', '신청의 명'),
-  ('급여명', 'SLRY_NM', '명V100', '급여의 명'),
-  ('휴가명', 'VCTN_NM', '명V100', '휴가의 명'),
-  ('평가명', 'EVL_NM', '명V100', '평가의 명'),
-  ('비용명', 'CST_NM', '명V100', '비용의 명'),
-  ('전표명', 'SLIP_NM', '명V100', '전표의 명'),
-  ('재고명', 'INVNTRY_NM', '명V100', '재고의 명'),
-  ('포인트명', 'PNT_NM', '명V100', '포인트의 명'),
-  ('고객코드', 'CUST_CD', '코드V20', '고객의 코드'),
-  ('회원코드', 'MBR_CD', '코드V20', '회원의 코드'),
-  ('사용자코드', 'USER_CD', '코드V20', '사용자의 코드'),
-  ('직원코드', 'EMP_CD', '코드V20', '직원의 코드'),
-  ('담당자코드', 'PIC_CD', '코드V20', '담당자의 코드'),
-  ('거래처코드', 'BCNC_CD', '코드V20', '거래처의 코드'),
-  ('공급사코드', 'SPLR_CD', '코드V20', '공급사의 코드'),
-  ('협력사코드', 'PTNR_CD', '코드V20', '협력사의 코드'),
-  ('신청인코드', 'APLCNT_CD', '코드V20', '신청인의 코드'),
-  ('부서코드', 'DEPT_CD', '코드V20', '부서의 코드'),
-  ('조직코드', 'ORG_CD', '코드V20', '조직의 코드'),
-  ('상품코드', 'PRDT_CD', '코드V20', '상품의 코드'),
-  ('품목코드', 'ITEM_CD', '코드V20', '품목의 코드'),
-  ('매장코드', 'STOR_CD', '코드V20', '매장의 코드'),
-  ('창고코드', 'WRHS_CD', '코드V20', '창고의 코드'),
-  ('메뉴코드', 'MENU_CD', '코드V20', '메뉴의 코드'),
-  ('권한코드', 'AUTH_CD', '코드V20', '권한의 코드'),
-  ('역할코드', 'ROLE_CD', '코드V20', '역할의 코드'),
-  ('프로그램코드', 'PGM_CD', '코드V20', '프로그램의 코드'),
-  ('파일코드', 'FILE_CD', '코드V20', '파일의 코드'),
-  ('게시판코드', 'BBS_CD', '코드V20', '게시판의 코드'),
-  ('게시물코드', 'PST_CD', '코드V20', '게시물의 코드'),
-  ('공지코드', 'NTC_CD', '코드V20', '공지의 코드'),
-  ('쿠폰코드', 'CPN_CD', '코드V20', '쿠폰의 코드'),
-  ('이벤트코드', 'EVT_CD', '코드V20', '이벤트의 코드'),
-  ('프로젝트코드', 'PRJ_CD', '코드V20', '프로젝트의 코드'),
-  ('과제코드', 'TASK_CD', '코드V20', '과제의 코드'),
-  ('자산코드', 'ASST_CD', '코드V20', '자산의 코드'),
-  ('설비코드', 'EQPMNT_CD', '코드V20', '설비의 코드'),
-  ('차량코드', 'VHCL_CD', '코드V20', '차량의 코드'),
-  ('교육코드', 'EDU_CD', '코드V20', '교육의 코드'),
-  ('계정코드', 'ACNT_CD', '코드V20', '계정의 코드'),
-  ('예산코드', 'BGT_CD', '코드V20', '예산의 코드'),
-  ('계좌코드', 'BACNT_CD', '코드V20', '계좌의 코드'),
-  ('카드코드', 'CARD_CD', '코드V20', '카드의 코드'),
-  ('약관코드', 'TRMS_CD', '코드V20', '약관의 코드'),
-  ('주문코드', 'ORDR_CD', '코드V20', '주문의 코드'),
-  ('결제코드', 'STLM_CD', '코드V20', '결제의 코드'),
-  ('배송코드', 'DLVR_CD', '코드V20', '배송의 코드'),
-  ('계약코드', 'CTRT_CD', '코드V20', '계약의 코드'),
-  ('청구코드', 'CLM_CD', '코드V20', '청구의 코드'),
-  ('수납코드', 'RCPT_CD', '코드V20', '수납의 코드'),
-  ('거래코드', 'TRSC_CD', '코드V20', '거래의 코드'),
-  ('입고코드', 'WRHSNG_CD', '코드V20', '입고의 코드'),
-  ('출고코드', 'RLS_CD', '코드V20', '출고의 코드'),
-  ('구매코드', 'PRCHS_CD', '코드V20', '구매의 코드'),
-  ('판매코드', 'SLS_CD', '코드V20', '판매의 코드'),
-  ('견적코드', 'ESTMT_CD', '코드V20', '견적의 코드'),
-  ('정산코드', 'CLCLN_CD', '코드V20', '정산의 코드'),
-  ('반품코드', 'RTGD_CD', '코드V20', '반품의 코드'),
-  ('환불코드', 'RFND_CD', '코드V20', '환불의 코드'),
-  ('문의코드', 'INQ_CD', '코드V20', '문의의 코드'),
-  ('신청코드', 'APLY_CD', '코드V20', '신청의 코드'),
-  ('급여코드', 'SLRY_CD', '코드V20', '급여의 코드'),
-  ('휴가코드', 'VCTN_CD', '코드V20', '휴가의 코드'),
-  ('평가코드', 'EVL_CD', '코드V20', '평가의 코드'),
-  ('비용코드', 'CST_CD', '코드V20', '비용의 코드'),
-  ('전표코드', 'SLIP_CD', '코드V20', '전표의 코드'),
-  ('재고코드', 'INVNTRY_CD', '코드V20', '재고의 코드'),
-  ('포인트코드', 'PNT_CD', '코드V20', '포인트의 코드'),
-  ('고객유형코드', 'CUST_TYPE_CD', '코드V20', '고객의 유형코드'),
-  ('회원유형코드', 'MBR_TYPE_CD', '코드V20', '회원의 유형코드'),
-  ('사용자유형코드', 'USER_TYPE_CD', '코드V20', '사용자의 유형코드'),
-  ('직원유형코드', 'EMP_TYPE_CD', '코드V20', '직원의 유형코드'),
-  ('담당자유형코드', 'PIC_TYPE_CD', '코드V20', '담당자의 유형코드'),
-  ('거래처유형코드', 'BCNC_TYPE_CD', '코드V20', '거래처의 유형코드'),
-  ('공급사유형코드', 'SPLR_TYPE_CD', '코드V20', '공급사의 유형코드'),
-  ('협력사유형코드', 'PTNR_TYPE_CD', '코드V20', '협력사의 유형코드'),
-  ('신청인유형코드', 'APLCNT_TYPE_CD', '코드V20', '신청인의 유형코드'),
-  ('부서유형코드', 'DEPT_TYPE_CD', '코드V20', '부서의 유형코드'),
-  ('조직유형코드', 'ORG_TYPE_CD', '코드V20', '조직의 유형코드'),
-  ('상품유형코드', 'PRDT_TYPE_CD', '코드V20', '상품의 유형코드'),
-  ('품목유형코드', 'ITEM_TYPE_CD', '코드V20', '품목의 유형코드'),
-  ('매장유형코드', 'STOR_TYPE_CD', '코드V20', '매장의 유형코드'),
-  ('창고유형코드', 'WRHS_TYPE_CD', '코드V20', '창고의 유형코드'),
-  ('메뉴유형코드', 'MENU_TYPE_CD', '코드V20', '메뉴의 유형코드'),
-  ('권한유형코드', 'AUTH_TYPE_CD', '코드V20', '권한의 유형코드'),
-  ('역할유형코드', 'ROLE_TYPE_CD', '코드V20', '역할의 유형코드'),
-  ('프로그램유형코드', 'PGM_TYPE_CD', '코드V20', '프로그램의 유형코드'),
-  ('파일유형코드', 'FILE_TYPE_CD', '코드V20', '파일의 유형코드');
-
-INSERT INTO tmp_seed_term VALUES
-  ('게시판유형코드', 'BBS_TYPE_CD', '코드V20', '게시판의 유형코드'),
-  ('게시물유형코드', 'PST_TYPE_CD', '코드V20', '게시물의 유형코드'),
-  ('공지유형코드', 'NTC_TYPE_CD', '코드V20', '공지의 유형코드'),
-  ('쿠폰유형코드', 'CPN_TYPE_CD', '코드V20', '쿠폰의 유형코드'),
-  ('이벤트유형코드', 'EVT_TYPE_CD', '코드V20', '이벤트의 유형코드'),
-  ('프로젝트유형코드', 'PRJ_TYPE_CD', '코드V20', '프로젝트의 유형코드'),
-  ('과제유형코드', 'TASK_TYPE_CD', '코드V20', '과제의 유형코드'),
-  ('자산유형코드', 'ASST_TYPE_CD', '코드V20', '자산의 유형코드'),
-  ('설비유형코드', 'EQPMNT_TYPE_CD', '코드V20', '설비의 유형코드'),
-  ('차량유형코드', 'VHCL_TYPE_CD', '코드V20', '차량의 유형코드'),
-  ('교육유형코드', 'EDU_TYPE_CD', '코드V20', '교육의 유형코드'),
-  ('계정유형코드', 'ACNT_TYPE_CD', '코드V20', '계정의 유형코드'),
-  ('예산유형코드', 'BGT_TYPE_CD', '코드V20', '예산의 유형코드'),
-  ('계좌유형코드', 'BACNT_TYPE_CD', '코드V20', '계좌의 유형코드'),
-  ('카드유형코드', 'CARD_TYPE_CD', '코드V20', '카드의 유형코드'),
-  ('약관유형코드', 'TRMS_TYPE_CD', '코드V20', '약관의 유형코드'),
-  ('주문유형코드', 'ORDR_TYPE_CD', '코드V20', '주문의 유형코드'),
-  ('결제유형코드', 'STLM_TYPE_CD', '코드V20', '결제의 유형코드'),
-  ('배송유형코드', 'DLVR_TYPE_CD', '코드V20', '배송의 유형코드'),
-  ('계약유형코드', 'CTRT_TYPE_CD', '코드V20', '계약의 유형코드'),
-  ('청구유형코드', 'CLM_TYPE_CD', '코드V20', '청구의 유형코드'),
-  ('수납유형코드', 'RCPT_TYPE_CD', '코드V20', '수납의 유형코드'),
-  ('거래유형코드', 'TRSC_TYPE_CD', '코드V20', '거래의 유형코드'),
-  ('입고유형코드', 'WRHSNG_TYPE_CD', '코드V20', '입고의 유형코드'),
-  ('출고유형코드', 'RLS_TYPE_CD', '코드V20', '출고의 유형코드'),
-  ('구매유형코드', 'PRCHS_TYPE_CD', '코드V20', '구매의 유형코드'),
-  ('판매유형코드', 'SLS_TYPE_CD', '코드V20', '판매의 유형코드'),
-  ('견적유형코드', 'ESTMT_TYPE_CD', '코드V20', '견적의 유형코드'),
-  ('정산유형코드', 'CLCLN_TYPE_CD', '코드V20', '정산의 유형코드'),
-  ('반품유형코드', 'RTGD_TYPE_CD', '코드V20', '반품의 유형코드'),
-  ('환불유형코드', 'RFND_TYPE_CD', '코드V20', '환불의 유형코드'),
-  ('문의유형코드', 'INQ_TYPE_CD', '코드V20', '문의의 유형코드'),
-  ('신청유형코드', 'APLY_TYPE_CD', '코드V20', '신청의 유형코드'),
-  ('급여유형코드', 'SLRY_TYPE_CD', '코드V20', '급여의 유형코드'),
-  ('휴가유형코드', 'VCTN_TYPE_CD', '코드V20', '휴가의 유형코드'),
-  ('평가유형코드', 'EVL_TYPE_CD', '코드V20', '평가의 유형코드'),
-  ('비용유형코드', 'CST_TYPE_CD', '코드V20', '비용의 유형코드'),
-  ('전표유형코드', 'SLIP_TYPE_CD', '코드V20', '전표의 유형코드'),
-  ('재고유형코드', 'INVNTRY_TYPE_CD', '코드V20', '재고의 유형코드'),
-  ('포인트유형코드', 'PNT_TYPE_CD', '코드V20', '포인트의 유형코드'),
-  ('고객상태코드', 'CUST_STTS_CD', '코드V20', '고객의 상태코드'),
-  ('회원상태코드', 'MBR_STTS_CD', '코드V20', '회원의 상태코드'),
-  ('사용자상태코드', 'USER_STTS_CD', '코드V20', '사용자의 상태코드'),
-  ('직원상태코드', 'EMP_STTS_CD', '코드V20', '직원의 상태코드'),
-  ('담당자상태코드', 'PIC_STTS_CD', '코드V20', '담당자의 상태코드'),
-  ('거래처상태코드', 'BCNC_STTS_CD', '코드V20', '거래처의 상태코드'),
-  ('공급사상태코드', 'SPLR_STTS_CD', '코드V20', '공급사의 상태코드'),
-  ('협력사상태코드', 'PTNR_STTS_CD', '코드V20', '협력사의 상태코드'),
-  ('신청인상태코드', 'APLCNT_STTS_CD', '코드V20', '신청인의 상태코드'),
-  ('부서상태코드', 'DEPT_STTS_CD', '코드V20', '부서의 상태코드'),
-  ('조직상태코드', 'ORG_STTS_CD', '코드V20', '조직의 상태코드'),
-  ('상품상태코드', 'PRDT_STTS_CD', '코드V20', '상품의 상태코드'),
-  ('품목상태코드', 'ITEM_STTS_CD', '코드V20', '품목의 상태코드'),
-  ('매장상태코드', 'STOR_STTS_CD', '코드V20', '매장의 상태코드'),
-  ('창고상태코드', 'WRHS_STTS_CD', '코드V20', '창고의 상태코드'),
-  ('메뉴상태코드', 'MENU_STTS_CD', '코드V20', '메뉴의 상태코드'),
-  ('권한상태코드', 'AUTH_STTS_CD', '코드V20', '권한의 상태코드'),
-  ('역할상태코드', 'ROLE_STTS_CD', '코드V20', '역할의 상태코드'),
-  ('프로그램상태코드', 'PGM_STTS_CD', '코드V20', '프로그램의 상태코드'),
-  ('파일상태코드', 'FILE_STTS_CD', '코드V20', '파일의 상태코드'),
-  ('게시판상태코드', 'BBS_STTS_CD', '코드V20', '게시판의 상태코드'),
-  ('게시물상태코드', 'PST_STTS_CD', '코드V20', '게시물의 상태코드'),
-  ('공지상태코드', 'NTC_STTS_CD', '코드V20', '공지의 상태코드'),
-  ('쿠폰상태코드', 'CPN_STTS_CD', '코드V20', '쿠폰의 상태코드'),
-  ('이벤트상태코드', 'EVT_STTS_CD', '코드V20', '이벤트의 상태코드'),
-  ('프로젝트상태코드', 'PRJ_STTS_CD', '코드V20', '프로젝트의 상태코드'),
-  ('과제상태코드', 'TASK_STTS_CD', '코드V20', '과제의 상태코드'),
-  ('자산상태코드', 'ASST_STTS_CD', '코드V20', '자산의 상태코드'),
-  ('설비상태코드', 'EQPMNT_STTS_CD', '코드V20', '설비의 상태코드'),
-  ('차량상태코드', 'VHCL_STTS_CD', '코드V20', '차량의 상태코드'),
-  ('교육상태코드', 'EDU_STTS_CD', '코드V20', '교육의 상태코드'),
-  ('계정상태코드', 'ACNT_STTS_CD', '코드V20', '계정의 상태코드'),
-  ('예산상태코드', 'BGT_STTS_CD', '코드V20', '예산의 상태코드'),
-  ('계좌상태코드', 'BACNT_STTS_CD', '코드V20', '계좌의 상태코드'),
-  ('카드상태코드', 'CARD_STTS_CD', '코드V20', '카드의 상태코드'),
-  ('약관상태코드', 'TRMS_STTS_CD', '코드V20', '약관의 상태코드'),
-  ('주문상태코드', 'ORDR_STTS_CD', '코드V20', '주문의 상태코드'),
-  ('결제상태코드', 'STLM_STTS_CD', '코드V20', '결제의 상태코드'),
-  ('배송상태코드', 'DLVR_STTS_CD', '코드V20', '배송의 상태코드'),
-  ('계약상태코드', 'CTRT_STTS_CD', '코드V20', '계약의 상태코드'),
-  ('청구상태코드', 'CLM_STTS_CD', '코드V20', '청구의 상태코드'),
-  ('수납상태코드', 'RCPT_STTS_CD', '코드V20', '수납의 상태코드'),
-  ('거래상태코드', 'TRSC_STTS_CD', '코드V20', '거래의 상태코드'),
-  ('입고상태코드', 'WRHSNG_STTS_CD', '코드V20', '입고의 상태코드'),
-  ('출고상태코드', 'RLS_STTS_CD', '코드V20', '출고의 상태코드'),
-  ('구매상태코드', 'PRCHS_STTS_CD', '코드V20', '구매의 상태코드'),
-  ('판매상태코드', 'SLS_STTS_CD', '코드V20', '판매의 상태코드'),
-  ('견적상태코드', 'ESTMT_STTS_CD', '코드V20', '견적의 상태코드'),
-  ('정산상태코드', 'CLCLN_STTS_CD', '코드V20', '정산의 상태코드'),
-  ('반품상태코드', 'RTGD_STTS_CD', '코드V20', '반품의 상태코드'),
-  ('환불상태코드', 'RFND_STTS_CD', '코드V20', '환불의 상태코드'),
-  ('문의상태코드', 'INQ_STTS_CD', '코드V20', '문의의 상태코드'),
-  ('신청상태코드', 'APLY_STTS_CD', '코드V20', '신청의 상태코드'),
-  ('급여상태코드', 'SLRY_STTS_CD', '코드V20', '급여의 상태코드'),
-  ('휴가상태코드', 'VCTN_STTS_CD', '코드V20', '휴가의 상태코드'),
-  ('평가상태코드', 'EVL_STTS_CD', '코드V20', '평가의 상태코드'),
-  ('비용상태코드', 'CST_STTS_CD', '코드V20', '비용의 상태코드'),
-  ('전표상태코드', 'SLIP_STTS_CD', '코드V20', '전표의 상태코드'),
-  ('재고상태코드', 'INVNTRY_STTS_CD', '코드V20', '재고의 상태코드'),
-  ('포인트상태코드', 'PNT_STTS_CD', '코드V20', '포인트의 상태코드'),
-  ('고객구분코드', 'CUST_SE_CD', '코드V20', '고객의 구분코드'),
-  ('회원구분코드', 'MBR_SE_CD', '코드V20', '회원의 구분코드'),
-  ('사용자구분코드', 'USER_SE_CD', '코드V20', '사용자의 구분코드'),
-  ('직원구분코드', 'EMP_SE_CD', '코드V20', '직원의 구분코드'),
-  ('담당자구분코드', 'PIC_SE_CD', '코드V20', '담당자의 구분코드'),
-  ('거래처구분코드', 'BCNC_SE_CD', '코드V20', '거래처의 구분코드'),
-  ('공급사구분코드', 'SPLR_SE_CD', '코드V20', '공급사의 구분코드'),
-  ('협력사구분코드', 'PTNR_SE_CD', '코드V20', '협력사의 구분코드'),
-  ('신청인구분코드', 'APLCNT_SE_CD', '코드V20', '신청인의 구분코드'),
-  ('부서구분코드', 'DEPT_SE_CD', '코드V20', '부서의 구분코드'),
-  ('조직구분코드', 'ORG_SE_CD', '코드V20', '조직의 구분코드'),
-  ('상품구분코드', 'PRDT_SE_CD', '코드V20', '상품의 구분코드'),
-  ('품목구분코드', 'ITEM_SE_CD', '코드V20', '품목의 구분코드'),
-  ('매장구분코드', 'STOR_SE_CD', '코드V20', '매장의 구분코드'),
-  ('창고구분코드', 'WRHS_SE_CD', '코드V20', '창고의 구분코드'),
-  ('메뉴구분코드', 'MENU_SE_CD', '코드V20', '메뉴의 구분코드'),
-  ('권한구분코드', 'AUTH_SE_CD', '코드V20', '권한의 구분코드'),
-  ('역할구분코드', 'ROLE_SE_CD', '코드V20', '역할의 구분코드'),
-  ('프로그램구분코드', 'PGM_SE_CD', '코드V20', '프로그램의 구분코드'),
-  ('파일구분코드', 'FILE_SE_CD', '코드V20', '파일의 구분코드'),
-  ('게시판구분코드', 'BBS_SE_CD', '코드V20', '게시판의 구분코드'),
-  ('게시물구분코드', 'PST_SE_CD', '코드V20', '게시물의 구분코드'),
-  ('공지구분코드', 'NTC_SE_CD', '코드V20', '공지의 구분코드'),
-  ('쿠폰구분코드', 'CPN_SE_CD', '코드V20', '쿠폰의 구분코드'),
-  ('이벤트구분코드', 'EVT_SE_CD', '코드V20', '이벤트의 구분코드'),
-  ('프로젝트구분코드', 'PRJ_SE_CD', '코드V20', '프로젝트의 구분코드'),
-  ('과제구분코드', 'TASK_SE_CD', '코드V20', '과제의 구분코드'),
-  ('자산구분코드', 'ASST_SE_CD', '코드V20', '자산의 구분코드'),
-  ('설비구분코드', 'EQPMNT_SE_CD', '코드V20', '설비의 구분코드'),
-  ('차량구분코드', 'VHCL_SE_CD', '코드V20', '차량의 구분코드'),
-  ('교육구분코드', 'EDU_SE_CD', '코드V20', '교육의 구분코드'),
-  ('계정구분코드', 'ACNT_SE_CD', '코드V20', '계정의 구분코드'),
-  ('예산구분코드', 'BGT_SE_CD', '코드V20', '예산의 구분코드'),
-  ('계좌구분코드', 'BACNT_SE_CD', '코드V20', '계좌의 구분코드'),
-  ('카드구분코드', 'CARD_SE_CD', '코드V20', '카드의 구분코드'),
-  ('약관구분코드', 'TRMS_SE_CD', '코드V20', '약관의 구분코드'),
-  ('주문구분코드', 'ORDR_SE_CD', '코드V20', '주문의 구분코드'),
-  ('결제구분코드', 'STLM_SE_CD', '코드V20', '결제의 구분코드'),
-  ('배송구분코드', 'DLVR_SE_CD', '코드V20', '배송의 구분코드'),
-  ('계약구분코드', 'CTRT_SE_CD', '코드V20', '계약의 구분코드'),
-  ('청구구분코드', 'CLM_SE_CD', '코드V20', '청구의 구분코드'),
-  ('수납구분코드', 'RCPT_SE_CD', '코드V20', '수납의 구분코드'),
-  ('거래구분코드', 'TRSC_SE_CD', '코드V20', '거래의 구분코드'),
-  ('입고구분코드', 'WRHSNG_SE_CD', '코드V20', '입고의 구분코드'),
-  ('출고구분코드', 'RLS_SE_CD', '코드V20', '출고의 구분코드'),
-  ('구매구분코드', 'PRCHS_SE_CD', '코드V20', '구매의 구분코드'),
-  ('판매구분코드', 'SLS_SE_CD', '코드V20', '판매의 구분코드'),
-  ('견적구분코드', 'ESTMT_SE_CD', '코드V20', '견적의 구분코드'),
-  ('정산구분코드', 'CLCLN_SE_CD', '코드V20', '정산의 구분코드'),
-  ('반품구분코드', 'RTGD_SE_CD', '코드V20', '반품의 구분코드'),
-  ('환불구분코드', 'RFND_SE_CD', '코드V20', '환불의 구분코드'),
-  ('문의구분코드', 'INQ_SE_CD', '코드V20', '문의의 구분코드'),
-  ('신청구분코드', 'APLY_SE_CD', '코드V20', '신청의 구분코드'),
-  ('급여구분코드', 'SLRY_SE_CD', '코드V20', '급여의 구분코드'),
-  ('휴가구분코드', 'VCTN_SE_CD', '코드V20', '휴가의 구분코드'),
-  ('평가구분코드', 'EVL_SE_CD', '코드V20', '평가의 구분코드'),
-  ('비용구분코드', 'CST_SE_CD', '코드V20', '비용의 구분코드'),
-  ('전표구분코드', 'SLIP_SE_CD', '코드V20', '전표의 구분코드'),
-  ('재고구분코드', 'INVNTRY_SE_CD', '코드V20', '재고의 구분코드'),
-  ('포인트구분코드', 'PNT_SE_CD', '코드V20', '포인트의 구분코드'),
-  ('고객내용', 'CUST_CN', '내용V4000', '고객의 내용'),
-  ('회원내용', 'MBR_CN', '내용V4000', '회원의 내용'),
-  ('사용자내용', 'USER_CN', '내용V4000', '사용자의 내용'),
-  ('직원내용', 'EMP_CN', '내용V4000', '직원의 내용'),
-  ('담당자내용', 'PIC_CN', '내용V4000', '담당자의 내용'),
-  ('거래처내용', 'BCNC_CN', '내용V4000', '거래처의 내용'),
-  ('공급사내용', 'SPLR_CN', '내용V4000', '공급사의 내용'),
-  ('협력사내용', 'PTNR_CN', '내용V4000', '협력사의 내용'),
-  ('신청인내용', 'APLCNT_CN', '내용V4000', '신청인의 내용'),
-  ('부서내용', 'DEPT_CN', '내용V4000', '부서의 내용'),
-  ('조직내용', 'ORG_CN', '내용V4000', '조직의 내용'),
-  ('상품내용', 'PRDT_CN', '내용V4000', '상품의 내용'),
-  ('품목내용', 'ITEM_CN', '내용V4000', '품목의 내용'),
-  ('매장내용', 'STOR_CN', '내용V4000', '매장의 내용'),
-  ('창고내용', 'WRHS_CN', '내용V4000', '창고의 내용'),
-  ('메뉴내용', 'MENU_CN', '내용V4000', '메뉴의 내용'),
-  ('권한내용', 'AUTH_CN', '내용V4000', '권한의 내용'),
-  ('역할내용', 'ROLE_CN', '내용V4000', '역할의 내용'),
-  ('프로그램내용', 'PGM_CN', '내용V4000', '프로그램의 내용'),
-  ('파일내용', 'FILE_CN', '내용V4000', '파일의 내용'),
-  ('게시판내용', 'BBS_CN', '내용V4000', '게시판의 내용'),
-  ('게시물내용', 'PST_CN', '내용V4000', '게시물의 내용'),
-  ('공지내용', 'NTC_CN', '내용V4000', '공지의 내용'),
-  ('쿠폰내용', 'CPN_CN', '내용V4000', '쿠폰의 내용'),
-  ('이벤트내용', 'EVT_CN', '내용V4000', '이벤트의 내용'),
-  ('프로젝트내용', 'PRJ_CN', '내용V4000', '프로젝트의 내용'),
-  ('과제내용', 'TASK_CN', '내용V4000', '과제의 내용'),
-  ('자산내용', 'ASST_CN', '내용V4000', '자산의 내용'),
-  ('설비내용', 'EQPMNT_CN', '내용V4000', '설비의 내용'),
-  ('차량내용', 'VHCL_CN', '내용V4000', '차량의 내용'),
-  ('교육내용', 'EDU_CN', '내용V4000', '교육의 내용'),
-  ('계정내용', 'ACNT_CN', '내용V4000', '계정의 내용'),
-  ('예산내용', 'BGT_CN', '내용V4000', '예산의 내용'),
-  ('계좌내용', 'BACNT_CN', '내용V4000', '계좌의 내용'),
-  ('카드내용', 'CARD_CN', '내용V4000', '카드의 내용'),
-  ('약관내용', 'TRMS_CN', '내용V4000', '약관의 내용'),
-  ('주문내용', 'ORDR_CN', '내용V4000', '주문의 내용'),
-  ('결제내용', 'STLM_CN', '내용V4000', '결제의 내용'),
-  ('배송내용', 'DLVR_CN', '내용V4000', '배송의 내용'),
-  ('계약내용', 'CTRT_CN', '내용V4000', '계약의 내용');
-
-INSERT INTO tmp_seed_term VALUES
-  ('청구내용', 'CLM_CN', '내용V4000', '청구의 내용'),
-  ('수납내용', 'RCPT_CN', '내용V4000', '수납의 내용'),
-  ('거래내용', 'TRSC_CN', '내용V4000', '거래의 내용'),
-  ('입고내용', 'WRHSNG_CN', '내용V4000', '입고의 내용'),
-  ('출고내용', 'RLS_CN', '내용V4000', '출고의 내용'),
-  ('구매내용', 'PRCHS_CN', '내용V4000', '구매의 내용'),
-  ('판매내용', 'SLS_CN', '내용V4000', '판매의 내용'),
-  ('견적내용', 'ESTMT_CN', '내용V4000', '견적의 내용'),
-  ('정산내용', 'CLCLN_CN', '내용V4000', '정산의 내용'),
-  ('반품내용', 'RTGD_CN', '내용V4000', '반품의 내용'),
-  ('환불내용', 'RFND_CN', '내용V4000', '환불의 내용'),
-  ('문의내용', 'INQ_CN', '내용V4000', '문의의 내용'),
-  ('신청내용', 'APLY_CN', '내용V4000', '신청의 내용'),
-  ('급여내용', 'SLRY_CN', '내용V4000', '급여의 내용'),
-  ('휴가내용', 'VCTN_CN', '내용V4000', '휴가의 내용'),
-  ('평가내용', 'EVL_CN', '내용V4000', '평가의 내용'),
-  ('비용내용', 'CST_CN', '내용V4000', '비용의 내용'),
-  ('전표내용', 'SLIP_CN', '내용V4000', '전표의 내용'),
-  ('재고내용', 'INVNTRY_CN', '내용V4000', '재고의 내용'),
-  ('포인트내용', 'PNT_CN', '내용V4000', '포인트의 내용'),
-  ('고객등록일시', 'CUST_REG_DT', '일시DT', '고객의 등록일시'),
-  ('회원등록일시', 'MBR_REG_DT', '일시DT', '회원의 등록일시'),
-  ('사용자등록일시', 'USER_REG_DT', '일시DT', '사용자의 등록일시'),
-  ('직원등록일시', 'EMP_REG_DT', '일시DT', '직원의 등록일시'),
-  ('담당자등록일시', 'PIC_REG_DT', '일시DT', '담당자의 등록일시'),
-  ('거래처등록일시', 'BCNC_REG_DT', '일시DT', '거래처의 등록일시'),
-  ('공급사등록일시', 'SPLR_REG_DT', '일시DT', '공급사의 등록일시'),
-  ('협력사등록일시', 'PTNR_REG_DT', '일시DT', '협력사의 등록일시'),
-  ('신청인등록일시', 'APLCNT_REG_DT', '일시DT', '신청인의 등록일시'),
-  ('부서등록일시', 'DEPT_REG_DT', '일시DT', '부서의 등록일시'),
-  ('조직등록일시', 'ORG_REG_DT', '일시DT', '조직의 등록일시'),
-  ('상품등록일시', 'PRDT_REG_DT', '일시DT', '상품의 등록일시'),
-  ('품목등록일시', 'ITEM_REG_DT', '일시DT', '품목의 등록일시'),
-  ('매장등록일시', 'STOR_REG_DT', '일시DT', '매장의 등록일시'),
-  ('창고등록일시', 'WRHS_REG_DT', '일시DT', '창고의 등록일시'),
-  ('메뉴등록일시', 'MENU_REG_DT', '일시DT', '메뉴의 등록일시'),
-  ('권한등록일시', 'AUTH_REG_DT', '일시DT', '권한의 등록일시'),
-  ('역할등록일시', 'ROLE_REG_DT', '일시DT', '역할의 등록일시'),
-  ('프로그램등록일시', 'PGM_REG_DT', '일시DT', '프로그램의 등록일시'),
-  ('파일등록일시', 'FILE_REG_DT', '일시DT', '파일의 등록일시'),
-  ('게시판등록일시', 'BBS_REG_DT', '일시DT', '게시판의 등록일시'),
-  ('게시물등록일시', 'PST_REG_DT', '일시DT', '게시물의 등록일시'),
-  ('공지등록일시', 'NTC_REG_DT', '일시DT', '공지의 등록일시'),
-  ('쿠폰등록일시', 'CPN_REG_DT', '일시DT', '쿠폰의 등록일시'),
-  ('이벤트등록일시', 'EVT_REG_DT', '일시DT', '이벤트의 등록일시'),
-  ('프로젝트등록일시', 'PRJ_REG_DT', '일시DT', '프로젝트의 등록일시'),
-  ('과제등록일시', 'TASK_REG_DT', '일시DT', '과제의 등록일시'),
-  ('자산등록일시', 'ASST_REG_DT', '일시DT', '자산의 등록일시'),
-  ('설비등록일시', 'EQPMNT_REG_DT', '일시DT', '설비의 등록일시'),
-  ('차량등록일시', 'VHCL_REG_DT', '일시DT', '차량의 등록일시'),
-  ('교육등록일시', 'EDU_REG_DT', '일시DT', '교육의 등록일시'),
-  ('계정등록일시', 'ACNT_REG_DT', '일시DT', '계정의 등록일시'),
-  ('예산등록일시', 'BGT_REG_DT', '일시DT', '예산의 등록일시'),
-  ('계좌등록일시', 'BACNT_REG_DT', '일시DT', '계좌의 등록일시'),
-  ('카드등록일시', 'CARD_REG_DT', '일시DT', '카드의 등록일시'),
-  ('약관등록일시', 'TRMS_REG_DT', '일시DT', '약관의 등록일시'),
-  ('주문등록일시', 'ORDR_REG_DT', '일시DT', '주문의 등록일시'),
-  ('결제등록일시', 'STLM_REG_DT', '일시DT', '결제의 등록일시'),
-  ('배송등록일시', 'DLVR_REG_DT', '일시DT', '배송의 등록일시'),
-  ('계약등록일시', 'CTRT_REG_DT', '일시DT', '계약의 등록일시'),
-  ('청구등록일시', 'CLM_REG_DT', '일시DT', '청구의 등록일시'),
-  ('수납등록일시', 'RCPT_REG_DT', '일시DT', '수납의 등록일시'),
-  ('거래등록일시', 'TRSC_REG_DT', '일시DT', '거래의 등록일시'),
-  ('입고등록일시', 'WRHSNG_REG_DT', '일시DT', '입고의 등록일시'),
-  ('출고등록일시', 'RLS_REG_DT', '일시DT', '출고의 등록일시'),
-  ('구매등록일시', 'PRCHS_REG_DT', '일시DT', '구매의 등록일시'),
-  ('판매등록일시', 'SLS_REG_DT', '일시DT', '판매의 등록일시'),
-  ('견적등록일시', 'ESTMT_REG_DT', '일시DT', '견적의 등록일시'),
-  ('정산등록일시', 'CLCLN_REG_DT', '일시DT', '정산의 등록일시'),
-  ('반품등록일시', 'RTGD_REG_DT', '일시DT', '반품의 등록일시'),
-  ('환불등록일시', 'RFND_REG_DT', '일시DT', '환불의 등록일시'),
-  ('문의등록일시', 'INQ_REG_DT', '일시DT', '문의의 등록일시'),
-  ('신청등록일시', 'APLY_REG_DT', '일시DT', '신청의 등록일시'),
-  ('급여등록일시', 'SLRY_REG_DT', '일시DT', '급여의 등록일시'),
-  ('휴가등록일시', 'VCTN_REG_DT', '일시DT', '휴가의 등록일시'),
-  ('평가등록일시', 'EVL_REG_DT', '일시DT', '평가의 등록일시'),
-  ('비용등록일시', 'CST_REG_DT', '일시DT', '비용의 등록일시'),
-  ('전표등록일시', 'SLIP_REG_DT', '일시DT', '전표의 등록일시'),
-  ('재고등록일시', 'INVNTRY_REG_DT', '일시DT', '재고의 등록일시'),
-  ('포인트등록일시', 'PNT_REG_DT', '일시DT', '포인트의 등록일시'),
-  ('고객수정일시', 'CUST_MDFCN_DT', '일시DT', '고객의 수정일시'),
-  ('회원수정일시', 'MBR_MDFCN_DT', '일시DT', '회원의 수정일시'),
-  ('사용자수정일시', 'USER_MDFCN_DT', '일시DT', '사용자의 수정일시'),
-  ('직원수정일시', 'EMP_MDFCN_DT', '일시DT', '직원의 수정일시'),
-  ('담당자수정일시', 'PIC_MDFCN_DT', '일시DT', '담당자의 수정일시'),
-  ('거래처수정일시', 'BCNC_MDFCN_DT', '일시DT', '거래처의 수정일시'),
-  ('공급사수정일시', 'SPLR_MDFCN_DT', '일시DT', '공급사의 수정일시'),
-  ('협력사수정일시', 'PTNR_MDFCN_DT', '일시DT', '협력사의 수정일시'),
-  ('신청인수정일시', 'APLCNT_MDFCN_DT', '일시DT', '신청인의 수정일시'),
-  ('부서수정일시', 'DEPT_MDFCN_DT', '일시DT', '부서의 수정일시'),
-  ('조직수정일시', 'ORG_MDFCN_DT', '일시DT', '조직의 수정일시'),
-  ('상품수정일시', 'PRDT_MDFCN_DT', '일시DT', '상품의 수정일시'),
-  ('품목수정일시', 'ITEM_MDFCN_DT', '일시DT', '품목의 수정일시'),
-  ('매장수정일시', 'STOR_MDFCN_DT', '일시DT', '매장의 수정일시'),
-  ('창고수정일시', 'WRHS_MDFCN_DT', '일시DT', '창고의 수정일시'),
-  ('메뉴수정일시', 'MENU_MDFCN_DT', '일시DT', '메뉴의 수정일시'),
-  ('권한수정일시', 'AUTH_MDFCN_DT', '일시DT', '권한의 수정일시'),
-  ('역할수정일시', 'ROLE_MDFCN_DT', '일시DT', '역할의 수정일시'),
-  ('프로그램수정일시', 'PGM_MDFCN_DT', '일시DT', '프로그램의 수정일시'),
-  ('파일수정일시', 'FILE_MDFCN_DT', '일시DT', '파일의 수정일시'),
-  ('게시판수정일시', 'BBS_MDFCN_DT', '일시DT', '게시판의 수정일시'),
-  ('게시물수정일시', 'PST_MDFCN_DT', '일시DT', '게시물의 수정일시'),
-  ('공지수정일시', 'NTC_MDFCN_DT', '일시DT', '공지의 수정일시'),
-  ('쿠폰수정일시', 'CPN_MDFCN_DT', '일시DT', '쿠폰의 수정일시'),
-  ('이벤트수정일시', 'EVT_MDFCN_DT', '일시DT', '이벤트의 수정일시'),
-  ('프로젝트수정일시', 'PRJ_MDFCN_DT', '일시DT', '프로젝트의 수정일시'),
-  ('과제수정일시', 'TASK_MDFCN_DT', '일시DT', '과제의 수정일시'),
-  ('자산수정일시', 'ASST_MDFCN_DT', '일시DT', '자산의 수정일시'),
-  ('설비수정일시', 'EQPMNT_MDFCN_DT', '일시DT', '설비의 수정일시'),
-  ('차량수정일시', 'VHCL_MDFCN_DT', '일시DT', '차량의 수정일시'),
-  ('교육수정일시', 'EDU_MDFCN_DT', '일시DT', '교육의 수정일시'),
-  ('계정수정일시', 'ACNT_MDFCN_DT', '일시DT', '계정의 수정일시'),
-  ('예산수정일시', 'BGT_MDFCN_DT', '일시DT', '예산의 수정일시'),
-  ('계좌수정일시', 'BACNT_MDFCN_DT', '일시DT', '계좌의 수정일시'),
-  ('카드수정일시', 'CARD_MDFCN_DT', '일시DT', '카드의 수정일시'),
-  ('약관수정일시', 'TRMS_MDFCN_DT', '일시DT', '약관의 수정일시'),
-  ('주문수정일시', 'ORDR_MDFCN_DT', '일시DT', '주문의 수정일시'),
-  ('결제수정일시', 'STLM_MDFCN_DT', '일시DT', '결제의 수정일시'),
-  ('배송수정일시', 'DLVR_MDFCN_DT', '일시DT', '배송의 수정일시'),
-  ('계약수정일시', 'CTRT_MDFCN_DT', '일시DT', '계약의 수정일시'),
-  ('청구수정일시', 'CLM_MDFCN_DT', '일시DT', '청구의 수정일시'),
-  ('수납수정일시', 'RCPT_MDFCN_DT', '일시DT', '수납의 수정일시'),
-  ('거래수정일시', 'TRSC_MDFCN_DT', '일시DT', '거래의 수정일시'),
-  ('입고수정일시', 'WRHSNG_MDFCN_DT', '일시DT', '입고의 수정일시'),
-  ('출고수정일시', 'RLS_MDFCN_DT', '일시DT', '출고의 수정일시'),
-  ('구매수정일시', 'PRCHS_MDFCN_DT', '일시DT', '구매의 수정일시'),
-  ('판매수정일시', 'SLS_MDFCN_DT', '일시DT', '판매의 수정일시'),
-  ('견적수정일시', 'ESTMT_MDFCN_DT', '일시DT', '견적의 수정일시'),
-  ('정산수정일시', 'CLCLN_MDFCN_DT', '일시DT', '정산의 수정일시'),
-  ('반품수정일시', 'RTGD_MDFCN_DT', '일시DT', '반품의 수정일시'),
-  ('환불수정일시', 'RFND_MDFCN_DT', '일시DT', '환불의 수정일시'),
-  ('문의수정일시', 'INQ_MDFCN_DT', '일시DT', '문의의 수정일시'),
-  ('신청수정일시', 'APLY_MDFCN_DT', '일시DT', '신청의 수정일시'),
-  ('급여수정일시', 'SLRY_MDFCN_DT', '일시DT', '급여의 수정일시'),
-  ('휴가수정일시', 'VCTN_MDFCN_DT', '일시DT', '휴가의 수정일시'),
-  ('평가수정일시', 'EVL_MDFCN_DT', '일시DT', '평가의 수정일시'),
-  ('비용수정일시', 'CST_MDFCN_DT', '일시DT', '비용의 수정일시'),
-  ('전표수정일시', 'SLIP_MDFCN_DT', '일시DT', '전표의 수정일시'),
-  ('재고수정일시', 'INVNTRY_MDFCN_DT', '일시DT', '재고의 수정일시'),
-  ('포인트수정일시', 'PNT_MDFCN_DT', '일시DT', '포인트의 수정일시'),
-  ('고객사용여부', 'CUST_USE_YN', '여부C1', '고객의 사용여부'),
-  ('회원사용여부', 'MBR_USE_YN', '여부C1', '회원의 사용여부'),
-  ('사용자사용여부', 'USER_USE_YN', '여부C1', '사용자의 사용여부'),
-  ('직원사용여부', 'EMP_USE_YN', '여부C1', '직원의 사용여부'),
-  ('담당자사용여부', 'PIC_USE_YN', '여부C1', '담당자의 사용여부'),
-  ('거래처사용여부', 'BCNC_USE_YN', '여부C1', '거래처의 사용여부'),
-  ('공급사사용여부', 'SPLR_USE_YN', '여부C1', '공급사의 사용여부'),
-  ('협력사사용여부', 'PTNR_USE_YN', '여부C1', '협력사의 사용여부'),
-  ('신청인사용여부', 'APLCNT_USE_YN', '여부C1', '신청인의 사용여부'),
-  ('부서사용여부', 'DEPT_USE_YN', '여부C1', '부서의 사용여부'),
-  ('조직사용여부', 'ORG_USE_YN', '여부C1', '조직의 사용여부'),
-  ('상품사용여부', 'PRDT_USE_YN', '여부C1', '상품의 사용여부'),
-  ('품목사용여부', 'ITEM_USE_YN', '여부C1', '품목의 사용여부'),
-  ('매장사용여부', 'STOR_USE_YN', '여부C1', '매장의 사용여부'),
-  ('창고사용여부', 'WRHS_USE_YN', '여부C1', '창고의 사용여부'),
-  ('메뉴사용여부', 'MENU_USE_YN', '여부C1', '메뉴의 사용여부'),
-  ('권한사용여부', 'AUTH_USE_YN', '여부C1', '권한의 사용여부'),
-  ('역할사용여부', 'ROLE_USE_YN', '여부C1', '역할의 사용여부'),
-  ('프로그램사용여부', 'PGM_USE_YN', '여부C1', '프로그램의 사용여부'),
-  ('파일사용여부', 'FILE_USE_YN', '여부C1', '파일의 사용여부'),
-  ('게시판사용여부', 'BBS_USE_YN', '여부C1', '게시판의 사용여부'),
-  ('게시물사용여부', 'PST_USE_YN', '여부C1', '게시물의 사용여부'),
-  ('공지사용여부', 'NTC_USE_YN', '여부C1', '공지의 사용여부'),
-  ('쿠폰사용여부', 'CPN_USE_YN', '여부C1', '쿠폰의 사용여부'),
-  ('이벤트사용여부', 'EVT_USE_YN', '여부C1', '이벤트의 사용여부'),
-  ('프로젝트사용여부', 'PRJ_USE_YN', '여부C1', '프로젝트의 사용여부'),
-  ('과제사용여부', 'TASK_USE_YN', '여부C1', '과제의 사용여부'),
-  ('자산사용여부', 'ASST_USE_YN', '여부C1', '자산의 사용여부'),
-  ('설비사용여부', 'EQPMNT_USE_YN', '여부C1', '설비의 사용여부'),
-  ('차량사용여부', 'VHCL_USE_YN', '여부C1', '차량의 사용여부'),
-  ('교육사용여부', 'EDU_USE_YN', '여부C1', '교육의 사용여부'),
-  ('계정사용여부', 'ACNT_USE_YN', '여부C1', '계정의 사용여부'),
-  ('예산사용여부', 'BGT_USE_YN', '여부C1', '예산의 사용여부'),
-  ('계좌사용여부', 'BACNT_USE_YN', '여부C1', '계좌의 사용여부'),
-  ('카드사용여부', 'CARD_USE_YN', '여부C1', '카드의 사용여부'),
-  ('약관사용여부', 'TRMS_USE_YN', '여부C1', '약관의 사용여부'),
-  ('주문사용여부', 'ORDR_USE_YN', '여부C1', '주문의 사용여부'),
-  ('결제사용여부', 'STLM_USE_YN', '여부C1', '결제의 사용여부'),
-  ('배송사용여부', 'DLVR_USE_YN', '여부C1', '배송의 사용여부'),
-  ('계약사용여부', 'CTRT_USE_YN', '여부C1', '계약의 사용여부'),
-  ('청구사용여부', 'CLM_USE_YN', '여부C1', '청구의 사용여부'),
-  ('수납사용여부', 'RCPT_USE_YN', '여부C1', '수납의 사용여부'),
-  ('거래사용여부', 'TRSC_USE_YN', '여부C1', '거래의 사용여부'),
-  ('입고사용여부', 'WRHSNG_USE_YN', '여부C1', '입고의 사용여부'),
-  ('출고사용여부', 'RLS_USE_YN', '여부C1', '출고의 사용여부'),
-  ('구매사용여부', 'PRCHS_USE_YN', '여부C1', '구매의 사용여부'),
-  ('판매사용여부', 'SLS_USE_YN', '여부C1', '판매의 사용여부'),
-  ('견적사용여부', 'ESTMT_USE_YN', '여부C1', '견적의 사용여부'),
-  ('정산사용여부', 'CLCLN_USE_YN', '여부C1', '정산의 사용여부'),
-  ('반품사용여부', 'RTGD_USE_YN', '여부C1', '반품의 사용여부'),
-  ('환불사용여부', 'RFND_USE_YN', '여부C1', '환불의 사용여부'),
-  ('문의사용여부', 'INQ_USE_YN', '여부C1', '문의의 사용여부'),
-  ('신청사용여부', 'APLY_USE_YN', '여부C1', '신청의 사용여부'),
-  ('급여사용여부', 'SLRY_USE_YN', '여부C1', '급여의 사용여부'),
-  ('휴가사용여부', 'VCTN_USE_YN', '여부C1', '휴가의 사용여부'),
-  ('평가사용여부', 'EVL_USE_YN', '여부C1', '평가의 사용여부'),
-  ('비용사용여부', 'CST_USE_YN', '여부C1', '비용의 사용여부'),
-  ('전표사용여부', 'SLIP_USE_YN', '여부C1', '전표의 사용여부'),
-  ('재고사용여부', 'INVNTRY_USE_YN', '여부C1', '재고의 사용여부'),
-  ('포인트사용여부', 'PNT_USE_YN', '여부C1', '포인트의 사용여부');
-
-INSERT INTO tmp_seed_term VALUES
-  ('고객삭제여부', 'CUST_DEL_YN', '여부C1', '고객의 삭제여부'),
-  ('회원삭제여부', 'MBR_DEL_YN', '여부C1', '회원의 삭제여부'),
-  ('사용자삭제여부', 'USER_DEL_YN', '여부C1', '사용자의 삭제여부'),
-  ('직원삭제여부', 'EMP_DEL_YN', '여부C1', '직원의 삭제여부'),
-  ('담당자삭제여부', 'PIC_DEL_YN', '여부C1', '담당자의 삭제여부'),
-  ('거래처삭제여부', 'BCNC_DEL_YN', '여부C1', '거래처의 삭제여부'),
-  ('공급사삭제여부', 'SPLR_DEL_YN', '여부C1', '공급사의 삭제여부'),
-  ('협력사삭제여부', 'PTNR_DEL_YN', '여부C1', '협력사의 삭제여부'),
-  ('신청인삭제여부', 'APLCNT_DEL_YN', '여부C1', '신청인의 삭제여부'),
-  ('부서삭제여부', 'DEPT_DEL_YN', '여부C1', '부서의 삭제여부'),
-  ('조직삭제여부', 'ORG_DEL_YN', '여부C1', '조직의 삭제여부'),
-  ('상품삭제여부', 'PRDT_DEL_YN', '여부C1', '상품의 삭제여부'),
-  ('품목삭제여부', 'ITEM_DEL_YN', '여부C1', '품목의 삭제여부'),
-  ('매장삭제여부', 'STOR_DEL_YN', '여부C1', '매장의 삭제여부'),
-  ('창고삭제여부', 'WRHS_DEL_YN', '여부C1', '창고의 삭제여부'),
-  ('메뉴삭제여부', 'MENU_DEL_YN', '여부C1', '메뉴의 삭제여부'),
-  ('권한삭제여부', 'AUTH_DEL_YN', '여부C1', '권한의 삭제여부'),
-  ('역할삭제여부', 'ROLE_DEL_YN', '여부C1', '역할의 삭제여부'),
-  ('프로그램삭제여부', 'PGM_DEL_YN', '여부C1', '프로그램의 삭제여부'),
-  ('파일삭제여부', 'FILE_DEL_YN', '여부C1', '파일의 삭제여부'),
-  ('게시판삭제여부', 'BBS_DEL_YN', '여부C1', '게시판의 삭제여부'),
-  ('게시물삭제여부', 'PST_DEL_YN', '여부C1', '게시물의 삭제여부'),
-  ('공지삭제여부', 'NTC_DEL_YN', '여부C1', '공지의 삭제여부'),
-  ('쿠폰삭제여부', 'CPN_DEL_YN', '여부C1', '쿠폰의 삭제여부'),
-  ('이벤트삭제여부', 'EVT_DEL_YN', '여부C1', '이벤트의 삭제여부'),
-  ('프로젝트삭제여부', 'PRJ_DEL_YN', '여부C1', '프로젝트의 삭제여부'),
-  ('과제삭제여부', 'TASK_DEL_YN', '여부C1', '과제의 삭제여부'),
-  ('자산삭제여부', 'ASST_DEL_YN', '여부C1', '자산의 삭제여부'),
-  ('설비삭제여부', 'EQPMNT_DEL_YN', '여부C1', '설비의 삭제여부'),
-  ('차량삭제여부', 'VHCL_DEL_YN', '여부C1', '차량의 삭제여부'),
-  ('교육삭제여부', 'EDU_DEL_YN', '여부C1', '교육의 삭제여부'),
-  ('계정삭제여부', 'ACNT_DEL_YN', '여부C1', '계정의 삭제여부'),
-  ('예산삭제여부', 'BGT_DEL_YN', '여부C1', '예산의 삭제여부'),
-  ('계좌삭제여부', 'BACNT_DEL_YN', '여부C1', '계좌의 삭제여부'),
-  ('카드삭제여부', 'CARD_DEL_YN', '여부C1', '카드의 삭제여부'),
-  ('약관삭제여부', 'TRMS_DEL_YN', '여부C1', '약관의 삭제여부'),
-  ('주문삭제여부', 'ORDR_DEL_YN', '여부C1', '주문의 삭제여부'),
-  ('결제삭제여부', 'STLM_DEL_YN', '여부C1', '결제의 삭제여부'),
-  ('배송삭제여부', 'DLVR_DEL_YN', '여부C1', '배송의 삭제여부'),
-  ('계약삭제여부', 'CTRT_DEL_YN', '여부C1', '계약의 삭제여부'),
-  ('청구삭제여부', 'CLM_DEL_YN', '여부C1', '청구의 삭제여부'),
-  ('수납삭제여부', 'RCPT_DEL_YN', '여부C1', '수납의 삭제여부'),
-  ('거래삭제여부', 'TRSC_DEL_YN', '여부C1', '거래의 삭제여부'),
-  ('입고삭제여부', 'WRHSNG_DEL_YN', '여부C1', '입고의 삭제여부'),
-  ('출고삭제여부', 'RLS_DEL_YN', '여부C1', '출고의 삭제여부'),
-  ('구매삭제여부', 'PRCHS_DEL_YN', '여부C1', '구매의 삭제여부'),
-  ('판매삭제여부', 'SLS_DEL_YN', '여부C1', '판매의 삭제여부'),
-  ('견적삭제여부', 'ESTMT_DEL_YN', '여부C1', '견적의 삭제여부'),
-  ('정산삭제여부', 'CLCLN_DEL_YN', '여부C1', '정산의 삭제여부'),
-  ('반품삭제여부', 'RTGD_DEL_YN', '여부C1', '반품의 삭제여부'),
-  ('환불삭제여부', 'RFND_DEL_YN', '여부C1', '환불의 삭제여부'),
-  ('문의삭제여부', 'INQ_DEL_YN', '여부C1', '문의의 삭제여부'),
-  ('신청삭제여부', 'APLY_DEL_YN', '여부C1', '신청의 삭제여부'),
-  ('급여삭제여부', 'SLRY_DEL_YN', '여부C1', '급여의 삭제여부'),
-  ('휴가삭제여부', 'VCTN_DEL_YN', '여부C1', '휴가의 삭제여부'),
-  ('평가삭제여부', 'EVL_DEL_YN', '여부C1', '평가의 삭제여부'),
-  ('비용삭제여부', 'CST_DEL_YN', '여부C1', '비용의 삭제여부'),
-  ('전표삭제여부', 'SLIP_DEL_YN', '여부C1', '전표의 삭제여부'),
-  ('재고삭제여부', 'INVNTRY_DEL_YN', '여부C1', '재고의 삭제여부'),
-  ('포인트삭제여부', 'PNT_DEL_YN', '여부C1', '포인트의 삭제여부'),
-  ('고객순번', 'CUST_SN', '순번I', '고객의 순번'),
-  ('회원순번', 'MBR_SN', '순번I', '회원의 순번'),
-  ('사용자순번', 'USER_SN', '순번I', '사용자의 순번'),
-  ('직원순번', 'EMP_SN', '순번I', '직원의 순번'),
-  ('담당자순번', 'PIC_SN', '순번I', '담당자의 순번'),
-  ('거래처순번', 'BCNC_SN', '순번I', '거래처의 순번'),
-  ('공급사순번', 'SPLR_SN', '순번I', '공급사의 순번'),
-  ('협력사순번', 'PTNR_SN', '순번I', '협력사의 순번'),
-  ('신청인순번', 'APLCNT_SN', '순번I', '신청인의 순번'),
-  ('부서순번', 'DEPT_SN', '순번I', '부서의 순번'),
-  ('조직순번', 'ORG_SN', '순번I', '조직의 순번'),
-  ('상품순번', 'PRDT_SN', '순번I', '상품의 순번'),
-  ('품목순번', 'ITEM_SN', '순번I', '품목의 순번'),
-  ('매장순번', 'STOR_SN', '순번I', '매장의 순번'),
-  ('창고순번', 'WRHS_SN', '순번I', '창고의 순번'),
-  ('메뉴순번', 'MENU_SN', '순번I', '메뉴의 순번'),
-  ('권한순번', 'AUTH_SN', '순번I', '권한의 순번'),
-  ('역할순번', 'ROLE_SN', '순번I', '역할의 순번'),
-  ('프로그램순번', 'PGM_SN', '순번I', '프로그램의 순번'),
-  ('파일순번', 'FILE_SN', '순번I', '파일의 순번'),
-  ('게시판순번', 'BBS_SN', '순번I', '게시판의 순번'),
-  ('게시물순번', 'PST_SN', '순번I', '게시물의 순번'),
-  ('공지순번', 'NTC_SN', '순번I', '공지의 순번'),
-  ('쿠폰순번', 'CPN_SN', '순번I', '쿠폰의 순번'),
-  ('이벤트순번', 'EVT_SN', '순번I', '이벤트의 순번'),
-  ('프로젝트순번', 'PRJ_SN', '순번I', '프로젝트의 순번'),
-  ('과제순번', 'TASK_SN', '순번I', '과제의 순번'),
-  ('자산순번', 'ASST_SN', '순번I', '자산의 순번'),
-  ('설비순번', 'EQPMNT_SN', '순번I', '설비의 순번'),
-  ('차량순번', 'VHCL_SN', '순번I', '차량의 순번'),
-  ('교육순번', 'EDU_SN', '순번I', '교육의 순번'),
-  ('계정순번', 'ACNT_SN', '순번I', '계정의 순번'),
-  ('예산순번', 'BGT_SN', '순번I', '예산의 순번'),
-  ('계좌순번', 'BACNT_SN', '순번I', '계좌의 순번'),
-  ('카드순번', 'CARD_SN', '순번I', '카드의 순번'),
-  ('약관순번', 'TRMS_SN', '순번I', '약관의 순번'),
-  ('주문순번', 'ORDR_SN', '순번I', '주문의 순번'),
-  ('결제순번', 'STLM_SN', '순번I', '결제의 순번'),
-  ('배송순번', 'DLVR_SN', '순번I', '배송의 순번'),
-  ('계약순번', 'CTRT_SN', '순번I', '계약의 순번'),
-  ('청구순번', 'CLM_SN', '순번I', '청구의 순번'),
-  ('수납순번', 'RCPT_SN', '순번I', '수납의 순번'),
-  ('거래순번', 'TRSC_SN', '순번I', '거래의 순번'),
-  ('입고순번', 'WRHSNG_SN', '순번I', '입고의 순번'),
-  ('출고순번', 'RLS_SN', '순번I', '출고의 순번'),
-  ('구매순번', 'PRCHS_SN', '순번I', '구매의 순번'),
-  ('판매순번', 'SLS_SN', '순번I', '판매의 순번'),
-  ('견적순번', 'ESTMT_SN', '순번I', '견적의 순번'),
-  ('정산순번', 'CLCLN_SN', '순번I', '정산의 순번'),
-  ('반품순번', 'RTGD_SN', '순번I', '반품의 순번'),
-  ('환불순번', 'RFND_SN', '순번I', '환불의 순번'),
-  ('문의순번', 'INQ_SN', '순번I', '문의의 순번'),
-  ('신청순번', 'APLY_SN', '순번I', '신청의 순번'),
-  ('급여순번', 'SLRY_SN', '순번I', '급여의 순번'),
-  ('휴가순번', 'VCTN_SN', '순번I', '휴가의 순번'),
-  ('평가순번', 'EVL_SN', '순번I', '평가의 순번'),
-  ('비용순번', 'CST_SN', '순번I', '비용의 순번'),
-  ('전표순번', 'SLIP_SN', '순번I', '전표의 순번'),
-  ('재고순번', 'INVNTRY_SN', '순번I', '재고의 순번'),
-  ('포인트순번', 'PNT_SN', '순번I', '포인트의 순번'),
-  ('고객아이디', 'CUST_ID', '아이디V50', '고객의 아이디'),
-  ('회원아이디', 'MBR_ID', '아이디V50', '회원의 아이디'),
-  ('사용자아이디', 'USER_ID', '아이디V50', '사용자의 아이디'),
-  ('직원아이디', 'EMP_ID', '아이디V50', '직원의 아이디'),
-  ('담당자아이디', 'PIC_ID', '아이디V50', '담당자의 아이디'),
-  ('거래처아이디', 'BCNC_ID', '아이디V50', '거래처의 아이디'),
-  ('공급사아이디', 'SPLR_ID', '아이디V50', '공급사의 아이디'),
-  ('협력사아이디', 'PTNR_ID', '아이디V50', '협력사의 아이디'),
-  ('신청인아이디', 'APLCNT_ID', '아이디V50', '신청인의 아이디'),
-  ('부서시작일자', 'DEPT_BGNG_YMD', '일자D', '부서의 시작일자'),
-  ('조직시작일자', 'ORG_BGNG_YMD', '일자D', '조직의 시작일자'),
-  ('상품시작일자', 'PRDT_BGNG_YMD', '일자D', '상품의 시작일자'),
-  ('품목시작일자', 'ITEM_BGNG_YMD', '일자D', '품목의 시작일자'),
-  ('매장시작일자', 'STOR_BGNG_YMD', '일자D', '매장의 시작일자'),
-  ('창고시작일자', 'WRHS_BGNG_YMD', '일자D', '창고의 시작일자'),
-  ('메뉴시작일자', 'MENU_BGNG_YMD', '일자D', '메뉴의 시작일자'),
-  ('권한시작일자', 'AUTH_BGNG_YMD', '일자D', '권한의 시작일자'),
-  ('역할시작일자', 'ROLE_BGNG_YMD', '일자D', '역할의 시작일자'),
-  ('프로그램시작일자', 'PGM_BGNG_YMD', '일자D', '프로그램의 시작일자'),
-  ('파일시작일자', 'FILE_BGNG_YMD', '일자D', '파일의 시작일자'),
-  ('게시판시작일자', 'BBS_BGNG_YMD', '일자D', '게시판의 시작일자'),
-  ('게시물시작일자', 'PST_BGNG_YMD', '일자D', '게시물의 시작일자'),
-  ('공지시작일자', 'NTC_BGNG_YMD', '일자D', '공지의 시작일자'),
-  ('쿠폰시작일자', 'CPN_BGNG_YMD', '일자D', '쿠폰의 시작일자'),
-  ('이벤트시작일자', 'EVT_BGNG_YMD', '일자D', '이벤트의 시작일자'),
-  ('프로젝트시작일자', 'PRJ_BGNG_YMD', '일자D', '프로젝트의 시작일자'),
-  ('과제시작일자', 'TASK_BGNG_YMD', '일자D', '과제의 시작일자'),
-  ('자산시작일자', 'ASST_BGNG_YMD', '일자D', '자산의 시작일자'),
-  ('설비시작일자', 'EQPMNT_BGNG_YMD', '일자D', '설비의 시작일자'),
-  ('차량시작일자', 'VHCL_BGNG_YMD', '일자D', '차량의 시작일자'),
-  ('교육시작일자', 'EDU_BGNG_YMD', '일자D', '교육의 시작일자'),
-  ('계정시작일자', 'ACNT_BGNG_YMD', '일자D', '계정의 시작일자'),
-  ('예산시작일자', 'BGT_BGNG_YMD', '일자D', '예산의 시작일자'),
-  ('계좌시작일자', 'BACNT_BGNG_YMD', '일자D', '계좌의 시작일자'),
-  ('카드시작일자', 'CARD_BGNG_YMD', '일자D', '카드의 시작일자'),
-  ('약관시작일자', 'TRMS_BGNG_YMD', '일자D', '약관의 시작일자'),
-  ('주문일자', 'ORDR_YMD', '일자D', '주문의 일자'),
-  ('결제일자', 'STLM_YMD', '일자D', '결제의 일자'),
-  ('배송일자', 'DLVR_YMD', '일자D', '배송의 일자'),
-  ('계약일자', 'CTRT_YMD', '일자D', '계약의 일자'),
-  ('청구일자', 'CLM_YMD', '일자D', '청구의 일자'),
-  ('수납일자', 'RCPT_YMD', '일자D', '수납의 일자'),
-  ('거래일자', 'TRSC_YMD', '일자D', '거래의 일자'),
-  ('입고일자', 'WRHSNG_YMD', '일자D', '입고의 일자'),
-  ('출고일자', 'RLS_YMD', '일자D', '출고의 일자'),
-  ('구매일자', 'PRCHS_YMD', '일자D', '구매의 일자'),
-  ('판매일자', 'SLS_YMD', '일자D', '판매의 일자'),
-  ('견적일자', 'ESTMT_YMD', '일자D', '견적의 일자'),
-  ('정산일자', 'CLCLN_YMD', '일자D', '정산의 일자'),
-  ('반품일자', 'RTGD_YMD', '일자D', '반품의 일자'),
-  ('환불일자', 'RFND_YMD', '일자D', '환불의 일자'),
-  ('문의일자', 'INQ_YMD', '일자D', '문의의 일자'),
-  ('신청일자', 'APLY_YMD', '일자D', '신청의 일자'),
-  ('급여일자', 'SLRY_YMD', '일자D', '급여의 일자'),
-  ('휴가일자', 'VCTN_YMD', '일자D', '휴가의 일자'),
-  ('평가일자', 'EVL_YMD', '일자D', '평가의 일자'),
-  ('비용일자', 'CST_YMD', '일자D', '비용의 일자'),
-  ('전표일자', 'SLIP_YMD', '일자D', '전표의 일자'),
-  ('재고일자', 'INVNTRY_YMD', '일자D', '재고의 일자'),
-  ('포인트일자', 'PNT_YMD', '일자D', '포인트의 일자'),
-  ('고객전화번호', 'CUST_TELNO', '전화번호V20', '고객의 전화번호'),
-  ('회원전화번호', 'MBR_TELNO', '전화번호V20', '회원의 전화번호'),
-  ('사용자전화번호', 'USER_TELNO', '전화번호V20', '사용자의 전화번호'),
-  ('직원전화번호', 'EMP_TELNO', '전화번호V20', '직원의 전화번호'),
-  ('담당자전화번호', 'PIC_TELNO', '전화번호V20', '담당자의 전화번호'),
-  ('거래처전화번호', 'BCNC_TELNO', '전화번호V20', '거래처의 전화번호'),
-  ('공급사전화번호', 'SPLR_TELNO', '전화번호V20', '공급사의 전화번호'),
-  ('협력사전화번호', 'PTNR_TELNO', '전화번호V20', '협력사의 전화번호'),
-  ('신청인전화번호', 'APLCNT_TELNO', '전화번호V20', '신청인의 전화번호'),
-  ('부서종료일자', 'DEPT_END_YMD', '일자D', '부서의 종료일자'),
-  ('조직종료일자', 'ORG_END_YMD', '일자D', '조직의 종료일자'),
-  ('상품종료일자', 'PRDT_END_YMD', '일자D', '상품의 종료일자'),
-  ('품목종료일자', 'ITEM_END_YMD', '일자D', '품목의 종료일자'),
-  ('매장종료일자', 'STOR_END_YMD', '일자D', '매장의 종료일자'),
-  ('창고종료일자', 'WRHS_END_YMD', '일자D', '창고의 종료일자'),
-  ('메뉴종료일자', 'MENU_END_YMD', '일자D', '메뉴의 종료일자'),
-  ('권한종료일자', 'AUTH_END_YMD', '일자D', '권한의 종료일자'),
-  ('역할종료일자', 'ROLE_END_YMD', '일자D', '역할의 종료일자'),
-  ('프로그램종료일자', 'PGM_END_YMD', '일자D', '프로그램의 종료일자'),
-  ('파일종료일자', 'FILE_END_YMD', '일자D', '파일의 종료일자');
-
-INSERT INTO tmp_seed_term VALUES
-  ('게시판종료일자', 'BBS_END_YMD', '일자D', '게시판의 종료일자'),
-  ('게시물종료일자', 'PST_END_YMD', '일자D', '게시물의 종료일자'),
-  ('공지종료일자', 'NTC_END_YMD', '일자D', '공지의 종료일자'),
-  ('쿠폰종료일자', 'CPN_END_YMD', '일자D', '쿠폰의 종료일자'),
-  ('이벤트종료일자', 'EVT_END_YMD', '일자D', '이벤트의 종료일자'),
-  ('프로젝트종료일자', 'PRJ_END_YMD', '일자D', '프로젝트의 종료일자'),
-  ('과제종료일자', 'TASK_END_YMD', '일자D', '과제의 종료일자'),
-  ('자산종료일자', 'ASST_END_YMD', '일자D', '자산의 종료일자'),
-  ('설비종료일자', 'EQPMNT_END_YMD', '일자D', '설비의 종료일자'),
-  ('차량종료일자', 'VHCL_END_YMD', '일자D', '차량의 종료일자'),
-  ('교육종료일자', 'EDU_END_YMD', '일자D', '교육의 종료일자'),
-  ('계정종료일자', 'ACNT_END_YMD', '일자D', '계정의 종료일자'),
-  ('예산종료일자', 'BGT_END_YMD', '일자D', '예산의 종료일자'),
-  ('계좌종료일자', 'BACNT_END_YMD', '일자D', '계좌의 종료일자'),
-  ('카드종료일자', 'CARD_END_YMD', '일자D', '카드의 종료일자'),
-  ('약관종료일자', 'TRMS_END_YMD', '일자D', '약관의 종료일자'),
-  ('주문일시', 'ORDR_DT', '일시DT', '주문의 일시'),
-  ('결제일시', 'STLM_DT', '일시DT', '결제의 일시'),
-  ('배송일시', 'DLVR_DT', '일시DT', '배송의 일시'),
-  ('계약일시', 'CTRT_DT', '일시DT', '계약의 일시'),
-  ('청구일시', 'CLM_DT', '일시DT', '청구의 일시'),
-  ('수납일시', 'RCPT_DT', '일시DT', '수납의 일시'),
-  ('거래일시', 'TRSC_DT', '일시DT', '거래의 일시'),
-  ('입고일시', 'WRHSNG_DT', '일시DT', '입고의 일시'),
-  ('출고일시', 'RLS_DT', '일시DT', '출고의 일시'),
-  ('구매일시', 'PRCHS_DT', '일시DT', '구매의 일시'),
-  ('판매일시', 'SLS_DT', '일시DT', '판매의 일시'),
-  ('견적일시', 'ESTMT_DT', '일시DT', '견적의 일시'),
-  ('정산일시', 'CLCLN_DT', '일시DT', '정산의 일시'),
-  ('반품일시', 'RTGD_DT', '일시DT', '반품의 일시'),
-  ('환불일시', 'RFND_DT', '일시DT', '환불의 일시'),
-  ('문의일시', 'INQ_DT', '일시DT', '문의의 일시'),
-  ('신청일시', 'APLY_DT', '일시DT', '신청의 일시'),
-  ('급여일시', 'SLRY_DT', '일시DT', '급여의 일시'),
-  ('휴가일시', 'VCTN_DT', '일시DT', '휴가의 일시'),
-  ('평가일시', 'EVL_DT', '일시DT', '평가의 일시'),
-  ('비용일시', 'CST_DT', '일시DT', '비용의 일시'),
-  ('전표일시', 'SLIP_DT', '일시DT', '전표의 일시'),
-  ('재고일시', 'INVNTRY_DT', '일시DT', '재고의 일시'),
-  ('포인트일시', 'PNT_DT', '일시DT', '포인트의 일시'),
-  ('고객휴대전화번호', 'CUST_MBL_TELNO', '전화번호V20', '고객의 휴대전화번호'),
-  ('회원휴대전화번호', 'MBR_MBL_TELNO', '전화번호V20', '회원의 휴대전화번호'),
-  ('사용자휴대전화번호', 'USER_MBL_TELNO', '전화번호V20', '사용자의 휴대전화번호'),
-  ('직원휴대전화번호', 'EMP_MBL_TELNO', '전화번호V20', '직원의 휴대전화번호'),
-  ('담당자휴대전화번호', 'PIC_MBL_TELNO', '전화번호V20', '담당자의 휴대전화번호'),
-  ('거래처휴대전화번호', 'BCNC_MBL_TELNO', '전화번호V20', '거래처의 휴대전화번호'),
-  ('공급사휴대전화번호', 'SPLR_MBL_TELNO', '전화번호V20', '공급사의 휴대전화번호'),
-  ('협력사휴대전화번호', 'PTNR_MBL_TELNO', '전화번호V20', '협력사의 휴대전화번호'),
-  ('신청인휴대전화번호', 'APLCNT_MBL_TELNO', '전화번호V20', '신청인의 휴대전화번호'),
-  ('부서만료일자', 'DEPT_EXPRY_YMD', '일자D', '부서의 만료일자'),
-  ('조직만료일자', 'ORG_EXPRY_YMD', '일자D', '조직의 만료일자'),
-  ('상품만료일자', 'PRDT_EXPRY_YMD', '일자D', '상품의 만료일자'),
-  ('품목만료일자', 'ITEM_EXPRY_YMD', '일자D', '품목의 만료일자'),
-  ('매장만료일자', 'STOR_EXPRY_YMD', '일자D', '매장의 만료일자'),
-  ('창고만료일자', 'WRHS_EXPRY_YMD', '일자D', '창고의 만료일자'),
-  ('메뉴만료일자', 'MENU_EXPRY_YMD', '일자D', '메뉴의 만료일자'),
-  ('권한만료일자', 'AUTH_EXPRY_YMD', '일자D', '권한의 만료일자'),
-  ('역할만료일자', 'ROLE_EXPRY_YMD', '일자D', '역할의 만료일자'),
-  ('프로그램만료일자', 'PGM_EXPRY_YMD', '일자D', '프로그램의 만료일자'),
-  ('파일만료일자', 'FILE_EXPRY_YMD', '일자D', '파일의 만료일자'),
-  ('게시판만료일자', 'BBS_EXPRY_YMD', '일자D', '게시판의 만료일자'),
-  ('게시물만료일자', 'PST_EXPRY_YMD', '일자D', '게시물의 만료일자'),
-  ('공지만료일자', 'NTC_EXPRY_YMD', '일자D', '공지의 만료일자'),
-  ('쿠폰만료일자', 'CPN_EXPRY_YMD', '일자D', '쿠폰의 만료일자'),
-  ('이벤트만료일자', 'EVT_EXPRY_YMD', '일자D', '이벤트의 만료일자'),
-  ('프로젝트만료일자', 'PRJ_EXPRY_YMD', '일자D', '프로젝트의 만료일자'),
-  ('과제만료일자', 'TASK_EXPRY_YMD', '일자D', '과제의 만료일자'),
-  ('자산만료일자', 'ASST_EXPRY_YMD', '일자D', '자산의 만료일자'),
-  ('설비만료일자', 'EQPMNT_EXPRY_YMD', '일자D', '설비의 만료일자'),
-  ('차량만료일자', 'VHCL_EXPRY_YMD', '일자D', '차량의 만료일자'),
-  ('교육만료일자', 'EDU_EXPRY_YMD', '일자D', '교육의 만료일자'),
-  ('계정만료일자', 'ACNT_EXPRY_YMD', '일자D', '계정의 만료일자'),
-  ('예산만료일자', 'BGT_EXPRY_YMD', '일자D', '예산의 만료일자'),
-  ('계좌만료일자', 'BACNT_EXPRY_YMD', '일자D', '계좌의 만료일자'),
-  ('카드만료일자', 'CARD_EXPRY_YMD', '일자D', '카드의 만료일자'),
-  ('약관만료일자', 'TRMS_EXPRY_YMD', '일자D', '약관의 만료일자'),
-  ('주문금액', 'ORDR_AMT', '금액N18', '주문의 금액'),
-  ('결제금액', 'STLM_AMT', '금액N18', '결제의 금액'),
-  ('배송금액', 'DLVR_AMT', '금액N18', '배송의 금액'),
-  ('계약금액', 'CTRT_AMT', '금액N18', '계약의 금액'),
-  ('청구금액', 'CLM_AMT', '금액N18', '청구의 금액'),
-  ('수납금액', 'RCPT_AMT', '금액N18', '수납의 금액'),
-  ('거래금액', 'TRSC_AMT', '금액N18', '거래의 금액'),
-  ('입고금액', 'WRHSNG_AMT', '금액N18', '입고의 금액'),
-  ('출고금액', 'RLS_AMT', '금액N18', '출고의 금액'),
-  ('구매금액', 'PRCHS_AMT', '금액N18', '구매의 금액'),
-  ('판매금액', 'SLS_AMT', '금액N18', '판매의 금액'),
-  ('견적금액', 'ESTMT_AMT', '금액N18', '견적의 금액'),
-  ('정산금액', 'CLCLN_AMT', '금액N18', '정산의 금액'),
-  ('반품금액', 'RTGD_AMT', '금액N18', '반품의 금액'),
-  ('환불금액', 'RFND_AMT', '금액N18', '환불의 금액'),
-  ('문의금액', 'INQ_AMT', '금액N18', '문의의 금액'),
-  ('신청금액', 'APLY_AMT', '금액N18', '신청의 금액'),
-  ('급여금액', 'SLRY_AMT', '금액N18', '급여의 금액'),
-  ('휴가금액', 'VCTN_AMT', '금액N18', '휴가의 금액'),
-  ('평가금액', 'EVL_AMT', '금액N18', '평가의 금액'),
-  ('비용금액', 'CST_AMT', '금액N18', '비용의 금액'),
-  ('전표금액', 'SLIP_AMT', '금액N18', '전표의 금액'),
-  ('재고금액', 'INVNTRY_AMT', '금액N18', '재고의 금액'),
-  ('포인트금액', 'PNT_AMT', '금액N18', '포인트의 금액'),
-  ('고객이메일', 'CUST_EML', '이메일V100', '고객의 이메일'),
-  ('회원이메일', 'MBR_EML', '이메일V100', '회원의 이메일'),
-  ('사용자이메일', 'USER_EML', '이메일V100', '사용자의 이메일'),
-  ('직원이메일', 'EMP_EML', '이메일V100', '직원의 이메일'),
-  ('담당자이메일', 'PIC_EML', '이메일V100', '담당자의 이메일'),
-  ('거래처이메일', 'BCNC_EML', '이메일V100', '거래처의 이메일'),
-  ('공급사이메일', 'SPLR_EML', '이메일V100', '공급사의 이메일'),
-  ('협력사이메일', 'PTNR_EML', '이메일V100', '협력사의 이메일'),
-  ('신청인이메일', 'APLCNT_EML', '이메일V100', '신청인의 이메일'),
-  ('부서정렬순번', 'DEPT_SORT_SN', '순번I', '부서의 정렬순번'),
-  ('조직정렬순번', 'ORG_SORT_SN', '순번I', '조직의 정렬순번'),
-  ('상품정렬순번', 'PRDT_SORT_SN', '순번I', '상품의 정렬순번'),
-  ('품목정렬순번', 'ITEM_SORT_SN', '순번I', '품목의 정렬순번'),
-  ('매장정렬순번', 'STOR_SORT_SN', '순번I', '매장의 정렬순번'),
-  ('창고정렬순번', 'WRHS_SORT_SN', '순번I', '창고의 정렬순번'),
-  ('메뉴정렬순번', 'MENU_SORT_SN', '순번I', '메뉴의 정렬순번'),
-  ('권한정렬순번', 'AUTH_SORT_SN', '순번I', '권한의 정렬순번'),
-  ('역할정렬순번', 'ROLE_SORT_SN', '순번I', '역할의 정렬순번'),
-  ('프로그램정렬순번', 'PGM_SORT_SN', '순번I', '프로그램의 정렬순번'),
-  ('파일정렬순번', 'FILE_SORT_SN', '순번I', '파일의 정렬순번'),
-  ('게시판정렬순번', 'BBS_SORT_SN', '순번I', '게시판의 정렬순번'),
-  ('게시물정렬순번', 'PST_SORT_SN', '순번I', '게시물의 정렬순번'),
-  ('공지정렬순번', 'NTC_SORT_SN', '순번I', '공지의 정렬순번'),
-  ('쿠폰정렬순번', 'CPN_SORT_SN', '순번I', '쿠폰의 정렬순번'),
-  ('이벤트정렬순번', 'EVT_SORT_SN', '순번I', '이벤트의 정렬순번'),
-  ('프로젝트정렬순번', 'PRJ_SORT_SN', '순번I', '프로젝트의 정렬순번'),
-  ('과제정렬순번', 'TASK_SORT_SN', '순번I', '과제의 정렬순번'),
-  ('자산정렬순번', 'ASST_SORT_SN', '순번I', '자산의 정렬순번'),
-  ('설비정렬순번', 'EQPMNT_SORT_SN', '순번I', '설비의 정렬순번'),
-  ('차량정렬순번', 'VHCL_SORT_SN', '순번I', '차량의 정렬순번'),
-  ('교육정렬순번', 'EDU_SORT_SN', '순번I', '교육의 정렬순번'),
-  ('계정정렬순번', 'ACNT_SORT_SN', '순번I', '계정의 정렬순번'),
-  ('예산정렬순번', 'BGT_SORT_SN', '순번I', '예산의 정렬순번'),
-  ('계좌정렬순번', 'BACNT_SORT_SN', '순번I', '계좌의 정렬순번'),
-  ('카드정렬순번', 'CARD_SORT_SN', '순번I', '카드의 정렬순번'),
-  ('약관정렬순번', 'TRMS_SORT_SN', '순번I', '약관의 정렬순번'),
-  ('주문수량', 'ORDR_QTY', '수량N10', '주문의 수량'),
-  ('결제수량', 'STLM_QTY', '수량N10', '결제의 수량'),
-  ('배송수량', 'DLVR_QTY', '수량N10', '배송의 수량'),
-  ('계약수량', 'CTRT_QTY', '수량N10', '계약의 수량'),
-  ('청구수량', 'CLM_QTY', '수량N10', '청구의 수량'),
-  ('수납수량', 'RCPT_QTY', '수량N10', '수납의 수량'),
-  ('거래수량', 'TRSC_QTY', '수량N10', '거래의 수량'),
-  ('입고수량', 'WRHSNG_QTY', '수량N10', '입고의 수량'),
-  ('출고수량', 'RLS_QTY', '수량N10', '출고의 수량'),
-  ('구매수량', 'PRCHS_QTY', '수량N10', '구매의 수량'),
-  ('판매수량', 'SLS_QTY', '수량N10', '판매의 수량'),
-  ('견적수량', 'ESTMT_QTY', '수량N10', '견적의 수량'),
-  ('정산수량', 'CLCLN_QTY', '수량N10', '정산의 수량'),
-  ('반품수량', 'RTGD_QTY', '수량N10', '반품의 수량'),
-  ('환불수량', 'RFND_QTY', '수량N10', '환불의 수량'),
-  ('문의수량', 'INQ_QTY', '수량N10', '문의의 수량'),
-  ('신청수량', 'APLY_QTY', '수량N10', '신청의 수량'),
-  ('급여수량', 'SLRY_QTY', '수량N10', '급여의 수량'),
-  ('휴가수량', 'VCTN_QTY', '수량N10', '휴가의 수량'),
-  ('평가수량', 'EVL_QTY', '수량N10', '평가의 수량'),
-  ('비용수량', 'CST_QTY', '수량N10', '비용의 수량'),
-  ('전표수량', 'SLIP_QTY', '수량N10', '전표의 수량'),
-  ('재고수량', 'INVNTRY_QTY', '수량N10', '재고의 수량'),
-  ('포인트수량', 'PNT_QTY', '수량N10', '포인트의 수량'),
-  ('고객주소', 'CUST_ADDR', '주소V200', '고객의 주소'),
-  ('회원주소', 'MBR_ADDR', '주소V200', '회원의 주소'),
-  ('사용자주소', 'USER_ADDR', '주소V200', '사용자의 주소'),
-  ('직원주소', 'EMP_ADDR', '주소V200', '직원의 주소'),
-  ('담당자주소', 'PIC_ADDR', '주소V200', '담당자의 주소'),
-  ('거래처주소', 'BCNC_ADDR', '주소V200', '거래처의 주소'),
-  ('공급사주소', 'SPLR_ADDR', '주소V200', '공급사의 주소'),
-  ('협력사주소', 'PTNR_ADDR', '주소V200', '협력사의 주소'),
-  ('신청인주소', 'APLCNT_ADDR', '주소V200', '신청인의 주소'),
-  ('부서표시여부', 'DEPT_INDCT_YN', '여부C1', '부서의 표시여부'),
-  ('조직표시여부', 'ORG_INDCT_YN', '여부C1', '조직의 표시여부'),
-  ('상품표시여부', 'PRDT_INDCT_YN', '여부C1', '상품의 표시여부'),
-  ('품목표시여부', 'ITEM_INDCT_YN', '여부C1', '품목의 표시여부'),
-  ('매장표시여부', 'STOR_INDCT_YN', '여부C1', '매장의 표시여부'),
-  ('창고표시여부', 'WRHS_INDCT_YN', '여부C1', '창고의 표시여부'),
-  ('메뉴표시여부', 'MENU_INDCT_YN', '여부C1', '메뉴의 표시여부'),
-  ('권한표시여부', 'AUTH_INDCT_YN', '여부C1', '권한의 표시여부'),
-  ('역할표시여부', 'ROLE_INDCT_YN', '여부C1', '역할의 표시여부'),
-  ('프로그램표시여부', 'PGM_INDCT_YN', '여부C1', '프로그램의 표시여부'),
-  ('파일표시여부', 'FILE_INDCT_YN', '여부C1', '파일의 표시여부'),
-  ('게시판표시여부', 'BBS_INDCT_YN', '여부C1', '게시판의 표시여부'),
-  ('게시물표시여부', 'PST_INDCT_YN', '여부C1', '게시물의 표시여부'),
-  ('공지표시여부', 'NTC_INDCT_YN', '여부C1', '공지의 표시여부'),
-  ('쿠폰표시여부', 'CPN_INDCT_YN', '여부C1', '쿠폰의 표시여부'),
-  ('이벤트표시여부', 'EVT_INDCT_YN', '여부C1', '이벤트의 표시여부'),
-  ('프로젝트표시여부', 'PRJ_INDCT_YN', '여부C1', '프로젝트의 표시여부'),
-  ('과제표시여부', 'TASK_INDCT_YN', '여부C1', '과제의 표시여부'),
-  ('자산표시여부', 'ASST_INDCT_YN', '여부C1', '자산의 표시여부'),
-  ('설비표시여부', 'EQPMNT_INDCT_YN', '여부C1', '설비의 표시여부'),
-  ('차량표시여부', 'VHCL_INDCT_YN', '여부C1', '차량의 표시여부'),
-  ('교육표시여부', 'EDU_INDCT_YN', '여부C1', '교육의 표시여부'),
-  ('계정표시여부', 'ACNT_INDCT_YN', '여부C1', '계정의 표시여부'),
-  ('예산표시여부', 'BGT_INDCT_YN', '여부C1', '예산의 표시여부'),
-  ('계좌표시여부', 'BACNT_INDCT_YN', '여부C1', '계좌의 표시여부'),
-  ('카드표시여부', 'CARD_INDCT_YN', '여부C1', '카드의 표시여부'),
-  ('약관표시여부', 'TRMS_INDCT_YN', '여부C1', '약관의 표시여부'),
-  ('주문총금액', 'ORDR_TOT_AMT', '금액N18', '주문의 총금액'),
-  ('결제총금액', 'STLM_TOT_AMT', '금액N18', '결제의 총금액'),
-  ('배송총금액', 'DLVR_TOT_AMT', '금액N18', '배송의 총금액'),
-  ('계약총금액', 'CTRT_TOT_AMT', '금액N18', '계약의 총금액');
-
-INSERT INTO tmp_seed_term_word VALUES
-  ('CUST_NO', 1, 'CUST'),
-  ('CUST_NO', 2, 'NO'),
-  ('MBR_NO', 1, 'MBR'),
-  ('MBR_NO', 2, 'NO'),
-  ('USER_NO', 1, 'USER'),
-  ('USER_NO', 2, 'NO'),
-  ('EMP_NO', 1, 'EMP'),
-  ('EMP_NO', 2, 'NO'),
-  ('PIC_NO', 1, 'PIC'),
-  ('PIC_NO', 2, 'NO'),
-  ('BCNC_NO', 1, 'BCNC'),
-  ('BCNC_NO', 2, 'NO'),
-  ('SPLR_NO', 1, 'SPLR'),
-  ('SPLR_NO', 2, 'NO'),
-  ('PTNR_NO', 1, 'PTNR'),
-  ('PTNR_NO', 2, 'NO'),
-  ('APLCNT_NO', 1, 'APLCNT'),
-  ('APLCNT_NO', 2, 'NO'),
-  ('DEPT_NO', 1, 'DEPT'),
-  ('DEPT_NO', 2, 'NO'),
-  ('ORG_NO', 1, 'ORG'),
-  ('ORG_NO', 2, 'NO'),
-  ('PRDT_NO', 1, 'PRDT'),
-  ('PRDT_NO', 2, 'NO'),
-  ('ITEM_NO', 1, 'ITEM'),
-  ('ITEM_NO', 2, 'NO'),
-  ('STOR_NO', 1, 'STOR'),
-  ('STOR_NO', 2, 'NO'),
-  ('WRHS_NO', 1, 'WRHS'),
-  ('WRHS_NO', 2, 'NO'),
-  ('MENU_NO', 1, 'MENU'),
-  ('MENU_NO', 2, 'NO'),
-  ('AUTH_NO', 1, 'AUTH'),
-  ('AUTH_NO', 2, 'NO'),
-  ('ROLE_NO', 1, 'ROLE'),
-  ('ROLE_NO', 2, 'NO'),
-  ('PGM_NO', 1, 'PGM'),
-  ('PGM_NO', 2, 'NO'),
-  ('FILE_NO', 1, 'FILE'),
-  ('FILE_NO', 2, 'NO'),
-  ('BBS_NO', 1, 'BBS'),
-  ('BBS_NO', 2, 'NO'),
-  ('PST_NO', 1, 'PST'),
-  ('PST_NO', 2, 'NO'),
-  ('NTC_NO', 1, 'NTC'),
-  ('NTC_NO', 2, 'NO'),
-  ('CPN_NO', 1, 'CPN'),
-  ('CPN_NO', 2, 'NO'),
-  ('EVT_NO', 1, 'EVT'),
-  ('EVT_NO', 2, 'NO'),
-  ('PRJ_NO', 1, 'PRJ'),
-  ('PRJ_NO', 2, 'NO'),
-  ('TASK_NO', 1, 'TASK'),
-  ('TASK_NO', 2, 'NO'),
-  ('ASST_NO', 1, 'ASST'),
-  ('ASST_NO', 2, 'NO'),
-  ('EQPMNT_NO', 1, 'EQPMNT'),
-  ('EQPMNT_NO', 2, 'NO'),
-  ('VHCL_NO', 1, 'VHCL'),
-  ('VHCL_NO', 2, 'NO'),
-  ('EDU_NO', 1, 'EDU'),
-  ('EDU_NO', 2, 'NO'),
-  ('ACNT_NO', 1, 'ACNT'),
-  ('ACNT_NO', 2, 'NO'),
-  ('BGT_NO', 1, 'BGT'),
-  ('BGT_NO', 2, 'NO'),
-  ('BACNT_NO', 1, 'BACNT'),
-  ('BACNT_NO', 2, 'NO'),
-  ('CARD_NO', 1, 'CARD'),
-  ('CARD_NO', 2, 'NO'),
-  ('TRMS_NO', 1, 'TRMS'),
-  ('TRMS_NO', 2, 'NO'),
-  ('ORDR_NO', 1, 'ORDR'),
-  ('ORDR_NO', 2, 'NO'),
-  ('STLM_NO', 1, 'STLM'),
-  ('STLM_NO', 2, 'NO'),
-  ('DLVR_NO', 1, 'DLVR'),
-  ('DLVR_NO', 2, 'NO'),
-  ('CTRT_NO', 1, 'CTRT'),
-  ('CTRT_NO', 2, 'NO'),
-  ('CLM_NO', 1, 'CLM'),
-  ('CLM_NO', 2, 'NO'),
-  ('RCPT_NO', 1, 'RCPT'),
-  ('RCPT_NO', 2, 'NO'),
-  ('TRSC_NO', 1, 'TRSC'),
-  ('TRSC_NO', 2, 'NO'),
-  ('WRHSNG_NO', 1, 'WRHSNG'),
-  ('WRHSNG_NO', 2, 'NO'),
-  ('RLS_NO', 1, 'RLS'),
-  ('RLS_NO', 2, 'NO'),
-  ('PRCHS_NO', 1, 'PRCHS'),
-  ('PRCHS_NO', 2, 'NO'),
-  ('SLS_NO', 1, 'SLS'),
-  ('SLS_NO', 2, 'NO'),
-  ('ESTMT_NO', 1, 'ESTMT'),
-  ('ESTMT_NO', 2, 'NO'),
-  ('CLCLN_NO', 1, 'CLCLN'),
-  ('CLCLN_NO', 2, 'NO'),
-  ('RTGD_NO', 1, 'RTGD'),
-  ('RTGD_NO', 2, 'NO'),
-  ('RFND_NO', 1, 'RFND'),
-  ('RFND_NO', 2, 'NO'),
-  ('INQ_NO', 1, 'INQ'),
-  ('INQ_NO', 2, 'NO'),
-  ('APLY_NO', 1, 'APLY'),
-  ('APLY_NO', 2, 'NO'),
-  ('SLRY_NO', 1, 'SLRY'),
-  ('SLRY_NO', 2, 'NO'),
-  ('VCTN_NO', 1, 'VCTN'),
-  ('VCTN_NO', 2, 'NO'),
-  ('EVL_NO', 1, 'EVL'),
-  ('EVL_NO', 2, 'NO'),
-  ('CST_NO', 1, 'CST'),
-  ('CST_NO', 2, 'NO'),
-  ('SLIP_NO', 1, 'SLIP'),
-  ('SLIP_NO', 2, 'NO'),
-  ('INVNTRY_NO', 1, 'INVNTRY'),
-  ('INVNTRY_NO', 2, 'NO'),
-  ('PNT_NO', 1, 'PNT'),
-  ('PNT_NO', 2, 'NO'),
-  ('CUST_NM', 1, 'CUST'),
-  ('CUST_NM', 2, 'NM'),
-  ('MBR_NM', 1, 'MBR'),
-  ('MBR_NM', 2, 'NM'),
-  ('USER_NM', 1, 'USER'),
-  ('USER_NM', 2, 'NM'),
-  ('EMP_NM', 1, 'EMP'),
-  ('EMP_NM', 2, 'NM'),
-  ('PIC_NM', 1, 'PIC'),
-  ('PIC_NM', 2, 'NM'),
-  ('BCNC_NM', 1, 'BCNC'),
-  ('BCNC_NM', 2, 'NM'),
-  ('SPLR_NM', 1, 'SPLR'),
-  ('SPLR_NM', 2, 'NM'),
-  ('PTNR_NM', 1, 'PTNR'),
-  ('PTNR_NM', 2, 'NM'),
-  ('APLCNT_NM', 1, 'APLCNT'),
-  ('APLCNT_NM', 2, 'NM'),
-  ('DEPT_NM', 1, 'DEPT'),
-  ('DEPT_NM', 2, 'NM'),
-  ('ORG_NM', 1, 'ORG'),
-  ('ORG_NM', 2, 'NM'),
-  ('PRDT_NM', 1, 'PRDT'),
-  ('PRDT_NM', 2, 'NM'),
-  ('ITEM_NM', 1, 'ITEM'),
-  ('ITEM_NM', 2, 'NM'),
-  ('STOR_NM', 1, 'STOR'),
-  ('STOR_NM', 2, 'NM'),
-  ('WRHS_NM', 1, 'WRHS'),
-  ('WRHS_NM', 2, 'NM'),
-  ('MENU_NM', 1, 'MENU'),
-  ('MENU_NM', 2, 'NM'),
-  ('AUTH_NM', 1, 'AUTH'),
-  ('AUTH_NM', 2, 'NM'),
-  ('ROLE_NM', 1, 'ROLE'),
-  ('ROLE_NM', 2, 'NM'),
-  ('PGM_NM', 1, 'PGM'),
-  ('PGM_NM', 2, 'NM'),
-  ('FILE_NM', 1, 'FILE'),
-  ('FILE_NM', 2, 'NM'),
-  ('BBS_NM', 1, 'BBS'),
-  ('BBS_NM', 2, 'NM'),
-  ('PST_NM', 1, 'PST'),
-  ('PST_NM', 2, 'NM'),
-  ('NTC_NM', 1, 'NTC'),
-  ('NTC_NM', 2, 'NM'),
-  ('CPN_NM', 1, 'CPN'),
-  ('CPN_NM', 2, 'NM'),
-  ('EVT_NM', 1, 'EVT'),
-  ('EVT_NM', 2, 'NM'),
-  ('PRJ_NM', 1, 'PRJ'),
-  ('PRJ_NM', 2, 'NM'),
-  ('TASK_NM', 1, 'TASK'),
-  ('TASK_NM', 2, 'NM'),
-  ('ASST_NM', 1, 'ASST'),
-  ('ASST_NM', 2, 'NM'),
-  ('EQPMNT_NM', 1, 'EQPMNT'),
-  ('EQPMNT_NM', 2, 'NM'),
-  ('VHCL_NM', 1, 'VHCL'),
-  ('VHCL_NM', 2, 'NM'),
-  ('EDU_NM', 1, 'EDU'),
-  ('EDU_NM', 2, 'NM'),
-  ('ACNT_NM', 1, 'ACNT'),
-  ('ACNT_NM', 2, 'NM'),
-  ('BGT_NM', 1, 'BGT'),
-  ('BGT_NM', 2, 'NM'),
-  ('BACNT_NM', 1, 'BACNT'),
-  ('BACNT_NM', 2, 'NM'),
-  ('CARD_NM', 1, 'CARD'),
-  ('CARD_NM', 2, 'NM'),
-  ('TRMS_NM', 1, 'TRMS'),
-  ('TRMS_NM', 2, 'NM'),
-  ('ORDR_NM', 1, 'ORDR'),
-  ('ORDR_NM', 2, 'NM'),
-  ('STLM_NM', 1, 'STLM'),
-  ('STLM_NM', 2, 'NM'),
-  ('DLVR_NM', 1, 'DLVR'),
-  ('DLVR_NM', 2, 'NM'),
-  ('CTRT_NM', 1, 'CTRT'),
-  ('CTRT_NM', 2, 'NM'),
-  ('CLM_NM', 1, 'CLM'),
-  ('CLM_NM', 2, 'NM'),
-  ('RCPT_NM', 1, 'RCPT'),
-  ('RCPT_NM', 2, 'NM'),
-  ('TRSC_NM', 1, 'TRSC'),
-  ('TRSC_NM', 2, 'NM'),
-  ('WRHSNG_NM', 1, 'WRHSNG'),
-  ('WRHSNG_NM', 2, 'NM'),
-  ('RLS_NM', 1, 'RLS'),
-  ('RLS_NM', 2, 'NM'),
-  ('PRCHS_NM', 1, 'PRCHS'),
-  ('PRCHS_NM', 2, 'NM'),
-  ('SLS_NM', 1, 'SLS'),
-  ('SLS_NM', 2, 'NM'),
-  ('ESTMT_NM', 1, 'ESTMT'),
-  ('ESTMT_NM', 2, 'NM'),
-  ('CLCLN_NM', 1, 'CLCLN'),
-  ('CLCLN_NM', 2, 'NM'),
-  ('RTGD_NM', 1, 'RTGD'),
-  ('RTGD_NM', 2, 'NM'),
-  ('RFND_NM', 1, 'RFND'),
-  ('RFND_NM', 2, 'NM'),
-  ('INQ_NM', 1, 'INQ'),
-  ('INQ_NM', 2, 'NM'),
-  ('APLY_NM', 1, 'APLY'),
-  ('APLY_NM', 2, 'NM'),
-  ('SLRY_NM', 1, 'SLRY'),
-  ('SLRY_NM', 2, 'NM'),
-  ('VCTN_NM', 1, 'VCTN'),
-  ('VCTN_NM', 2, 'NM'),
-  ('EVL_NM', 1, 'EVL'),
-  ('EVL_NM', 2, 'NM'),
-  ('CST_NM', 1, 'CST'),
-  ('CST_NM', 2, 'NM'),
-  ('SLIP_NM', 1, 'SLIP'),
-  ('SLIP_NM', 2, 'NM'),
-  ('INVNTRY_NM', 1, 'INVNTRY'),
-  ('INVNTRY_NM', 2, 'NM'),
-  ('PNT_NM', 1, 'PNT'),
-  ('PNT_NM', 2, 'NM'),
-  ('CUST_CD', 1, 'CUST'),
-  ('CUST_CD', 2, 'CD'),
-  ('MBR_CD', 1, 'MBR'),
-  ('MBR_CD', 2, 'CD'),
-  ('USER_CD', 1, 'USER'),
-  ('USER_CD', 2, 'CD'),
-  ('EMP_CD', 1, 'EMP'),
-  ('EMP_CD', 2, 'CD'),
-  ('PIC_CD', 1, 'PIC'),
-  ('PIC_CD', 2, 'CD'),
-  ('BCNC_CD', 1, 'BCNC'),
-  ('BCNC_CD', 2, 'CD'),
-  ('SPLR_CD', 1, 'SPLR'),
-  ('SPLR_CD', 2, 'CD'),
-  ('PTNR_CD', 1, 'PTNR'),
-  ('PTNR_CD', 2, 'CD'),
-  ('APLCNT_CD', 1, 'APLCNT'),
-  ('APLCNT_CD', 2, 'CD'),
-  ('DEPT_CD', 1, 'DEPT'),
-  ('DEPT_CD', 2, 'CD'),
-  ('ORG_CD', 1, 'ORG'),
-  ('ORG_CD', 2, 'CD'),
-  ('PRDT_CD', 1, 'PRDT'),
-  ('PRDT_CD', 2, 'CD'),
-  ('ITEM_CD', 1, 'ITEM'),
-  ('ITEM_CD', 2, 'CD'),
-  ('STOR_CD', 1, 'STOR'),
-  ('STOR_CD', 2, 'CD'),
-  ('WRHS_CD', 1, 'WRHS'),
-  ('WRHS_CD', 2, 'CD'),
-  ('MENU_CD', 1, 'MENU'),
-  ('MENU_CD', 2, 'CD'),
-  ('AUTH_CD', 1, 'AUTH'),
-  ('AUTH_CD', 2, 'CD'),
-  ('ROLE_CD', 1, 'ROLE'),
-  ('ROLE_CD', 2, 'CD'),
-  ('PGM_CD', 1, 'PGM'),
-  ('PGM_CD', 2, 'CD'),
-  ('FILE_CD', 1, 'FILE'),
-  ('FILE_CD', 2, 'CD'),
-  ('BBS_CD', 1, 'BBS'),
-  ('BBS_CD', 2, 'CD'),
-  ('PST_CD', 1, 'PST'),
-  ('PST_CD', 2, 'CD'),
-  ('NTC_CD', 1, 'NTC'),
-  ('NTC_CD', 2, 'CD'),
-  ('CPN_CD', 1, 'CPN'),
-  ('CPN_CD', 2, 'CD'),
-  ('EVT_CD', 1, 'EVT'),
-  ('EVT_CD', 2, 'CD'),
-  ('PRJ_CD', 1, 'PRJ'),
-  ('PRJ_CD', 2, 'CD'),
-  ('TASK_CD', 1, 'TASK'),
-  ('TASK_CD', 2, 'CD'),
-  ('ASST_CD', 1, 'ASST'),
-  ('ASST_CD', 2, 'CD'),
-  ('EQPMNT_CD', 1, 'EQPMNT'),
-  ('EQPMNT_CD', 2, 'CD'),
-  ('VHCL_CD', 1, 'VHCL'),
-  ('VHCL_CD', 2, 'CD'),
-  ('EDU_CD', 1, 'EDU'),
-  ('EDU_CD', 2, 'CD'),
-  ('ACNT_CD', 1, 'ACNT'),
-  ('ACNT_CD', 2, 'CD'),
-  ('BGT_CD', 1, 'BGT'),
-  ('BGT_CD', 2, 'CD'),
-  ('BACNT_CD', 1, 'BACNT'),
-  ('BACNT_CD', 2, 'CD'),
-  ('CARD_CD', 1, 'CARD'),
-  ('CARD_CD', 2, 'CD'),
-  ('TRMS_CD', 1, 'TRMS'),
-  ('TRMS_CD', 2, 'CD'),
-  ('ORDR_CD', 1, 'ORDR'),
-  ('ORDR_CD', 2, 'CD'),
-  ('STLM_CD', 1, 'STLM'),
-  ('STLM_CD', 2, 'CD'),
-  ('DLVR_CD', 1, 'DLVR'),
-  ('DLVR_CD', 2, 'CD'),
-  ('CTRT_CD', 1, 'CTRT'),
-  ('CTRT_CD', 2, 'CD'),
-  ('CLM_CD', 1, 'CLM'),
-  ('CLM_CD', 2, 'CD'),
-  ('RCPT_CD', 1, 'RCPT'),
-  ('RCPT_CD', 2, 'CD'),
-  ('TRSC_CD', 1, 'TRSC'),
-  ('TRSC_CD', 2, 'CD'),
-  ('WRHSNG_CD', 1, 'WRHSNG'),
-  ('WRHSNG_CD', 2, 'CD'),
-  ('RLS_CD', 1, 'RLS'),
-  ('RLS_CD', 2, 'CD'),
-  ('PRCHS_CD', 1, 'PRCHS'),
-  ('PRCHS_CD', 2, 'CD'),
-  ('SLS_CD', 1, 'SLS'),
-  ('SLS_CD', 2, 'CD'),
-  ('ESTMT_CD', 1, 'ESTMT'),
-  ('ESTMT_CD', 2, 'CD'),
-  ('CLCLN_CD', 1, 'CLCLN'),
-  ('CLCLN_CD', 2, 'CD'),
-  ('RTGD_CD', 1, 'RTGD'),
-  ('RTGD_CD', 2, 'CD'),
-  ('RFND_CD', 1, 'RFND'),
-  ('RFND_CD', 2, 'CD'),
-  ('INQ_CD', 1, 'INQ'),
-  ('INQ_CD', 2, 'CD'),
-  ('APLY_CD', 1, 'APLY'),
-  ('APLY_CD', 2, 'CD'),
-  ('SLRY_CD', 1, 'SLRY'),
-  ('SLRY_CD', 2, 'CD'),
-  ('VCTN_CD', 1, 'VCTN'),
-  ('VCTN_CD', 2, 'CD'),
-  ('EVL_CD', 1, 'EVL'),
-  ('EVL_CD', 2, 'CD'),
-  ('CST_CD', 1, 'CST'),
-  ('CST_CD', 2, 'CD'),
-  ('SLIP_CD', 1, 'SLIP'),
-  ('SLIP_CD', 2, 'CD'),
-  ('INVNTRY_CD', 1, 'INVNTRY'),
-  ('INVNTRY_CD', 2, 'CD'),
-  ('PNT_CD', 1, 'PNT'),
-  ('PNT_CD', 2, 'CD'),
-  ('CUST_TYPE_CD', 1, 'CUST'),
-  ('CUST_TYPE_CD', 2, 'TYPE'),
-  ('CUST_TYPE_CD', 3, 'CD'),
-  ('MBR_TYPE_CD', 1, 'MBR'),
-  ('MBR_TYPE_CD', 2, 'TYPE'),
-  ('MBR_TYPE_CD', 3, 'CD'),
-  ('USER_TYPE_CD', 1, 'USER'),
-  ('USER_TYPE_CD', 2, 'TYPE'),
-  ('USER_TYPE_CD', 3, 'CD'),
-  ('EMP_TYPE_CD', 1, 'EMP'),
-  ('EMP_TYPE_CD', 2, 'TYPE'),
-  ('EMP_TYPE_CD', 3, 'CD'),
-  ('PIC_TYPE_CD', 1, 'PIC'),
-  ('PIC_TYPE_CD', 2, 'TYPE'),
-  ('PIC_TYPE_CD', 3, 'CD'),
-  ('BCNC_TYPE_CD', 1, 'BCNC'),
-  ('BCNC_TYPE_CD', 2, 'TYPE'),
-  ('BCNC_TYPE_CD', 3, 'CD'),
-  ('SPLR_TYPE_CD', 1, 'SPLR'),
-  ('SPLR_TYPE_CD', 2, 'TYPE'),
-  ('SPLR_TYPE_CD', 3, 'CD'),
-  ('PTNR_TYPE_CD', 1, 'PTNR'),
-  ('PTNR_TYPE_CD', 2, 'TYPE'),
-  ('PTNR_TYPE_CD', 3, 'CD'),
-  ('APLCNT_TYPE_CD', 1, 'APLCNT'),
-  ('APLCNT_TYPE_CD', 2, 'TYPE'),
-  ('APLCNT_TYPE_CD', 3, 'CD'),
-  ('DEPT_TYPE_CD', 1, 'DEPT'),
-  ('DEPT_TYPE_CD', 2, 'TYPE'),
-  ('DEPT_TYPE_CD', 3, 'CD'),
-  ('ORG_TYPE_CD', 1, 'ORG'),
-  ('ORG_TYPE_CD', 2, 'TYPE'),
-  ('ORG_TYPE_CD', 3, 'CD'),
-  ('PRDT_TYPE_CD', 1, 'PRDT'),
-  ('PRDT_TYPE_CD', 2, 'TYPE'),
-  ('PRDT_TYPE_CD', 3, 'CD'),
-  ('ITEM_TYPE_CD', 1, 'ITEM'),
-  ('ITEM_TYPE_CD', 2, 'TYPE'),
-  ('ITEM_TYPE_CD', 3, 'CD'),
-  ('STOR_TYPE_CD', 1, 'STOR'),
-  ('STOR_TYPE_CD', 2, 'TYPE'),
-  ('STOR_TYPE_CD', 3, 'CD'),
-  ('WRHS_TYPE_CD', 1, 'WRHS'),
-  ('WRHS_TYPE_CD', 2, 'TYPE'),
-  ('WRHS_TYPE_CD', 3, 'CD'),
-  ('MENU_TYPE_CD', 1, 'MENU'),
-  ('MENU_TYPE_CD', 2, 'TYPE'),
-  ('MENU_TYPE_CD', 3, 'CD'),
-  ('AUTH_TYPE_CD', 1, 'AUTH'),
-  ('AUTH_TYPE_CD', 2, 'TYPE'),
-  ('AUTH_TYPE_CD', 3, 'CD'),
-  ('ROLE_TYPE_CD', 1, 'ROLE'),
-  ('ROLE_TYPE_CD', 2, 'TYPE'),
-  ('ROLE_TYPE_CD', 3, 'CD'),
-  ('PGM_TYPE_CD', 1, 'PGM'),
-  ('PGM_TYPE_CD', 2, 'TYPE'),
-  ('PGM_TYPE_CD', 3, 'CD'),
-  ('FILE_TYPE_CD', 1, 'FILE'),
-  ('FILE_TYPE_CD', 2, 'TYPE'),
-  ('FILE_TYPE_CD', 3, 'CD'),
-  ('BBS_TYPE_CD', 1, 'BBS'),
-  ('BBS_TYPE_CD', 2, 'TYPE'),
-  ('BBS_TYPE_CD', 3, 'CD'),
-  ('PST_TYPE_CD', 1, 'PST'),
-  ('PST_TYPE_CD', 2, 'TYPE'),
-  ('PST_TYPE_CD', 3, 'CD'),
-  ('NTC_TYPE_CD', 1, 'NTC'),
-  ('NTC_TYPE_CD', 2, 'TYPE'),
-  ('NTC_TYPE_CD', 3, 'CD'),
-  ('CPN_TYPE_CD', 1, 'CPN'),
-  ('CPN_TYPE_CD', 2, 'TYPE'),
-  ('CPN_TYPE_CD', 3, 'CD'),
-  ('EVT_TYPE_CD', 1, 'EVT'),
-  ('EVT_TYPE_CD', 2, 'TYPE'),
-  ('EVT_TYPE_CD', 3, 'CD'),
-  ('PRJ_TYPE_CD', 1, 'PRJ'),
-  ('PRJ_TYPE_CD', 2, 'TYPE'),
-  ('PRJ_TYPE_CD', 3, 'CD'),
-  ('TASK_TYPE_CD', 1, 'TASK'),
-  ('TASK_TYPE_CD', 2, 'TYPE'),
-  ('TASK_TYPE_CD', 3, 'CD'),
-  ('ASST_TYPE_CD', 1, 'ASST'),
-  ('ASST_TYPE_CD', 2, 'TYPE'),
-  ('ASST_TYPE_CD', 3, 'CD'),
-  ('EQPMNT_TYPE_CD', 1, 'EQPMNT'),
-  ('EQPMNT_TYPE_CD', 2, 'TYPE'),
-  ('EQPMNT_TYPE_CD', 3, 'CD'),
-  ('VHCL_TYPE_CD', 1, 'VHCL'),
-  ('VHCL_TYPE_CD', 2, 'TYPE'),
-  ('VHCL_TYPE_CD', 3, 'CD'),
-  ('EDU_TYPE_CD', 1, 'EDU'),
-  ('EDU_TYPE_CD', 2, 'TYPE'),
-  ('EDU_TYPE_CD', 3, 'CD'),
-  ('ACNT_TYPE_CD', 1, 'ACNT'),
-  ('ACNT_TYPE_CD', 2, 'TYPE'),
-  ('ACNT_TYPE_CD', 3, 'CD'),
-  ('BGT_TYPE_CD', 1, 'BGT'),
-  ('BGT_TYPE_CD', 2, 'TYPE'),
-  ('BGT_TYPE_CD', 3, 'CD'),
-  ('BACNT_TYPE_CD', 1, 'BACNT'),
-  ('BACNT_TYPE_CD', 2, 'TYPE'),
-  ('BACNT_TYPE_CD', 3, 'CD'),
-  ('CARD_TYPE_CD', 1, 'CARD'),
-  ('CARD_TYPE_CD', 2, 'TYPE'),
-  ('CARD_TYPE_CD', 3, 'CD'),
-  ('TRMS_TYPE_CD', 1, 'TRMS'),
-  ('TRMS_TYPE_CD', 2, 'TYPE'),
-  ('TRMS_TYPE_CD', 3, 'CD'),
-  ('ORDR_TYPE_CD', 1, 'ORDR'),
-  ('ORDR_TYPE_CD', 2, 'TYPE'),
-  ('ORDR_TYPE_CD', 3, 'CD'),
-  ('STLM_TYPE_CD', 1, 'STLM'),
-  ('STLM_TYPE_CD', 2, 'TYPE'),
-  ('STLM_TYPE_CD', 3, 'CD'),
-  ('DLVR_TYPE_CD', 1, 'DLVR'),
-  ('DLVR_TYPE_CD', 2, 'TYPE'),
-  ('DLVR_TYPE_CD', 3, 'CD'),
-  ('CTRT_TYPE_CD', 1, 'CTRT'),
-  ('CTRT_TYPE_CD', 2, 'TYPE'),
-  ('CTRT_TYPE_CD', 3, 'CD'),
-  ('CLM_TYPE_CD', 1, 'CLM'),
-  ('CLM_TYPE_CD', 2, 'TYPE'),
-  ('CLM_TYPE_CD', 3, 'CD'),
-  ('RCPT_TYPE_CD', 1, 'RCPT'),
-  ('RCPT_TYPE_CD', 2, 'TYPE'),
-  ('RCPT_TYPE_CD', 3, 'CD'),
-  ('TRSC_TYPE_CD', 1, 'TRSC'),
-  ('TRSC_TYPE_CD', 2, 'TYPE'),
-  ('TRSC_TYPE_CD', 3, 'CD'),
-  ('WRHSNG_TYPE_CD', 1, 'WRHSNG'),
-  ('WRHSNG_TYPE_CD', 2, 'TYPE'),
-  ('WRHSNG_TYPE_CD', 3, 'CD'),
-  ('RLS_TYPE_CD', 1, 'RLS'),
-  ('RLS_TYPE_CD', 2, 'TYPE'),
-  ('RLS_TYPE_CD', 3, 'CD'),
-  ('PRCHS_TYPE_CD', 1, 'PRCHS'),
-  ('PRCHS_TYPE_CD', 2, 'TYPE'),
-  ('PRCHS_TYPE_CD', 3, 'CD'),
-  ('SLS_TYPE_CD', 1, 'SLS'),
-  ('SLS_TYPE_CD', 2, 'TYPE');
-
-INSERT INTO tmp_seed_term_word VALUES
-  ('SLS_TYPE_CD', 3, 'CD'),
-  ('ESTMT_TYPE_CD', 1, 'ESTMT'),
-  ('ESTMT_TYPE_CD', 2, 'TYPE'),
-  ('ESTMT_TYPE_CD', 3, 'CD'),
-  ('CLCLN_TYPE_CD', 1, 'CLCLN'),
-  ('CLCLN_TYPE_CD', 2, 'TYPE'),
-  ('CLCLN_TYPE_CD', 3, 'CD'),
-  ('RTGD_TYPE_CD', 1, 'RTGD'),
-  ('RTGD_TYPE_CD', 2, 'TYPE'),
-  ('RTGD_TYPE_CD', 3, 'CD'),
-  ('RFND_TYPE_CD', 1, 'RFND'),
-  ('RFND_TYPE_CD', 2, 'TYPE'),
-  ('RFND_TYPE_CD', 3, 'CD'),
-  ('INQ_TYPE_CD', 1, 'INQ'),
-  ('INQ_TYPE_CD', 2, 'TYPE'),
-  ('INQ_TYPE_CD', 3, 'CD'),
-  ('APLY_TYPE_CD', 1, 'APLY'),
-  ('APLY_TYPE_CD', 2, 'TYPE'),
-  ('APLY_TYPE_CD', 3, 'CD'),
-  ('SLRY_TYPE_CD', 1, 'SLRY'),
-  ('SLRY_TYPE_CD', 2, 'TYPE'),
-  ('SLRY_TYPE_CD', 3, 'CD'),
-  ('VCTN_TYPE_CD', 1, 'VCTN'),
-  ('VCTN_TYPE_CD', 2, 'TYPE'),
-  ('VCTN_TYPE_CD', 3, 'CD'),
-  ('EVL_TYPE_CD', 1, 'EVL'),
-  ('EVL_TYPE_CD', 2, 'TYPE'),
-  ('EVL_TYPE_CD', 3, 'CD'),
-  ('CST_TYPE_CD', 1, 'CST'),
-  ('CST_TYPE_CD', 2, 'TYPE'),
-  ('CST_TYPE_CD', 3, 'CD'),
-  ('SLIP_TYPE_CD', 1, 'SLIP'),
-  ('SLIP_TYPE_CD', 2, 'TYPE'),
-  ('SLIP_TYPE_CD', 3, 'CD'),
-  ('INVNTRY_TYPE_CD', 1, 'INVNTRY'),
-  ('INVNTRY_TYPE_CD', 2, 'TYPE'),
-  ('INVNTRY_TYPE_CD', 3, 'CD'),
-  ('PNT_TYPE_CD', 1, 'PNT'),
-  ('PNT_TYPE_CD', 2, 'TYPE'),
-  ('PNT_TYPE_CD', 3, 'CD'),
-  ('CUST_STTS_CD', 1, 'CUST'),
-  ('CUST_STTS_CD', 2, 'STTS'),
-  ('CUST_STTS_CD', 3, 'CD'),
-  ('MBR_STTS_CD', 1, 'MBR'),
-  ('MBR_STTS_CD', 2, 'STTS'),
-  ('MBR_STTS_CD', 3, 'CD'),
-  ('USER_STTS_CD', 1, 'USER'),
-  ('USER_STTS_CD', 2, 'STTS'),
-  ('USER_STTS_CD', 3, 'CD'),
-  ('EMP_STTS_CD', 1, 'EMP'),
-  ('EMP_STTS_CD', 2, 'STTS'),
-  ('EMP_STTS_CD', 3, 'CD'),
-  ('PIC_STTS_CD', 1, 'PIC'),
-  ('PIC_STTS_CD', 2, 'STTS'),
-  ('PIC_STTS_CD', 3, 'CD'),
-  ('BCNC_STTS_CD', 1, 'BCNC'),
-  ('BCNC_STTS_CD', 2, 'STTS'),
-  ('BCNC_STTS_CD', 3, 'CD'),
-  ('SPLR_STTS_CD', 1, 'SPLR'),
-  ('SPLR_STTS_CD', 2, 'STTS'),
-  ('SPLR_STTS_CD', 3, 'CD'),
-  ('PTNR_STTS_CD', 1, 'PTNR'),
-  ('PTNR_STTS_CD', 2, 'STTS'),
-  ('PTNR_STTS_CD', 3, 'CD'),
-  ('APLCNT_STTS_CD', 1, 'APLCNT'),
-  ('APLCNT_STTS_CD', 2, 'STTS'),
-  ('APLCNT_STTS_CD', 3, 'CD'),
-  ('DEPT_STTS_CD', 1, 'DEPT'),
-  ('DEPT_STTS_CD', 2, 'STTS'),
-  ('DEPT_STTS_CD', 3, 'CD'),
-  ('ORG_STTS_CD', 1, 'ORG'),
-  ('ORG_STTS_CD', 2, 'STTS'),
-  ('ORG_STTS_CD', 3, 'CD'),
-  ('PRDT_STTS_CD', 1, 'PRDT'),
-  ('PRDT_STTS_CD', 2, 'STTS'),
-  ('PRDT_STTS_CD', 3, 'CD'),
-  ('ITEM_STTS_CD', 1, 'ITEM'),
-  ('ITEM_STTS_CD', 2, 'STTS'),
-  ('ITEM_STTS_CD', 3, 'CD'),
-  ('STOR_STTS_CD', 1, 'STOR'),
-  ('STOR_STTS_CD', 2, 'STTS'),
-  ('STOR_STTS_CD', 3, 'CD'),
-  ('WRHS_STTS_CD', 1, 'WRHS'),
-  ('WRHS_STTS_CD', 2, 'STTS'),
-  ('WRHS_STTS_CD', 3, 'CD'),
-  ('MENU_STTS_CD', 1, 'MENU'),
-  ('MENU_STTS_CD', 2, 'STTS'),
-  ('MENU_STTS_CD', 3, 'CD'),
-  ('AUTH_STTS_CD', 1, 'AUTH'),
-  ('AUTH_STTS_CD', 2, 'STTS'),
-  ('AUTH_STTS_CD', 3, 'CD'),
-  ('ROLE_STTS_CD', 1, 'ROLE'),
-  ('ROLE_STTS_CD', 2, 'STTS'),
-  ('ROLE_STTS_CD', 3, 'CD'),
-  ('PGM_STTS_CD', 1, 'PGM'),
-  ('PGM_STTS_CD', 2, 'STTS'),
-  ('PGM_STTS_CD', 3, 'CD'),
-  ('FILE_STTS_CD', 1, 'FILE'),
-  ('FILE_STTS_CD', 2, 'STTS'),
-  ('FILE_STTS_CD', 3, 'CD'),
-  ('BBS_STTS_CD', 1, 'BBS'),
-  ('BBS_STTS_CD', 2, 'STTS'),
-  ('BBS_STTS_CD', 3, 'CD'),
-  ('PST_STTS_CD', 1, 'PST'),
-  ('PST_STTS_CD', 2, 'STTS'),
-  ('PST_STTS_CD', 3, 'CD'),
-  ('NTC_STTS_CD', 1, 'NTC'),
-  ('NTC_STTS_CD', 2, 'STTS'),
-  ('NTC_STTS_CD', 3, 'CD'),
-  ('CPN_STTS_CD', 1, 'CPN'),
-  ('CPN_STTS_CD', 2, 'STTS'),
-  ('CPN_STTS_CD', 3, 'CD'),
-  ('EVT_STTS_CD', 1, 'EVT'),
-  ('EVT_STTS_CD', 2, 'STTS'),
-  ('EVT_STTS_CD', 3, 'CD'),
-  ('PRJ_STTS_CD', 1, 'PRJ'),
-  ('PRJ_STTS_CD', 2, 'STTS'),
-  ('PRJ_STTS_CD', 3, 'CD'),
-  ('TASK_STTS_CD', 1, 'TASK'),
-  ('TASK_STTS_CD', 2, 'STTS'),
-  ('TASK_STTS_CD', 3, 'CD'),
-  ('ASST_STTS_CD', 1, 'ASST'),
-  ('ASST_STTS_CD', 2, 'STTS'),
-  ('ASST_STTS_CD', 3, 'CD'),
-  ('EQPMNT_STTS_CD', 1, 'EQPMNT'),
-  ('EQPMNT_STTS_CD', 2, 'STTS'),
-  ('EQPMNT_STTS_CD', 3, 'CD'),
-  ('VHCL_STTS_CD', 1, 'VHCL'),
-  ('VHCL_STTS_CD', 2, 'STTS'),
-  ('VHCL_STTS_CD', 3, 'CD'),
-  ('EDU_STTS_CD', 1, 'EDU'),
-  ('EDU_STTS_CD', 2, 'STTS'),
-  ('EDU_STTS_CD', 3, 'CD'),
-  ('ACNT_STTS_CD', 1, 'ACNT'),
-  ('ACNT_STTS_CD', 2, 'STTS'),
-  ('ACNT_STTS_CD', 3, 'CD'),
-  ('BGT_STTS_CD', 1, 'BGT'),
-  ('BGT_STTS_CD', 2, 'STTS'),
-  ('BGT_STTS_CD', 3, 'CD'),
-  ('BACNT_STTS_CD', 1, 'BACNT'),
-  ('BACNT_STTS_CD', 2, 'STTS'),
-  ('BACNT_STTS_CD', 3, 'CD'),
-  ('CARD_STTS_CD', 1, 'CARD'),
-  ('CARD_STTS_CD', 2, 'STTS'),
-  ('CARD_STTS_CD', 3, 'CD'),
-  ('TRMS_STTS_CD', 1, 'TRMS'),
-  ('TRMS_STTS_CD', 2, 'STTS'),
-  ('TRMS_STTS_CD', 3, 'CD'),
-  ('ORDR_STTS_CD', 1, 'ORDR'),
-  ('ORDR_STTS_CD', 2, 'STTS'),
-  ('ORDR_STTS_CD', 3, 'CD'),
-  ('STLM_STTS_CD', 1, 'STLM'),
-  ('STLM_STTS_CD', 2, 'STTS'),
-  ('STLM_STTS_CD', 3, 'CD'),
-  ('DLVR_STTS_CD', 1, 'DLVR'),
-  ('DLVR_STTS_CD', 2, 'STTS'),
-  ('DLVR_STTS_CD', 3, 'CD'),
-  ('CTRT_STTS_CD', 1, 'CTRT'),
-  ('CTRT_STTS_CD', 2, 'STTS'),
-  ('CTRT_STTS_CD', 3, 'CD'),
-  ('CLM_STTS_CD', 1, 'CLM'),
-  ('CLM_STTS_CD', 2, 'STTS'),
-  ('CLM_STTS_CD', 3, 'CD'),
-  ('RCPT_STTS_CD', 1, 'RCPT'),
-  ('RCPT_STTS_CD', 2, 'STTS'),
-  ('RCPT_STTS_CD', 3, 'CD'),
-  ('TRSC_STTS_CD', 1, 'TRSC'),
-  ('TRSC_STTS_CD', 2, 'STTS'),
-  ('TRSC_STTS_CD', 3, 'CD'),
-  ('WRHSNG_STTS_CD', 1, 'WRHSNG'),
-  ('WRHSNG_STTS_CD', 2, 'STTS'),
-  ('WRHSNG_STTS_CD', 3, 'CD'),
-  ('RLS_STTS_CD', 1, 'RLS'),
-  ('RLS_STTS_CD', 2, 'STTS'),
-  ('RLS_STTS_CD', 3, 'CD'),
-  ('PRCHS_STTS_CD', 1, 'PRCHS'),
-  ('PRCHS_STTS_CD', 2, 'STTS'),
-  ('PRCHS_STTS_CD', 3, 'CD'),
-  ('SLS_STTS_CD', 1, 'SLS'),
-  ('SLS_STTS_CD', 2, 'STTS'),
-  ('SLS_STTS_CD', 3, 'CD'),
-  ('ESTMT_STTS_CD', 1, 'ESTMT'),
-  ('ESTMT_STTS_CD', 2, 'STTS'),
-  ('ESTMT_STTS_CD', 3, 'CD'),
-  ('CLCLN_STTS_CD', 1, 'CLCLN'),
-  ('CLCLN_STTS_CD', 2, 'STTS'),
-  ('CLCLN_STTS_CD', 3, 'CD'),
-  ('RTGD_STTS_CD', 1, 'RTGD'),
-  ('RTGD_STTS_CD', 2, 'STTS'),
-  ('RTGD_STTS_CD', 3, 'CD'),
-  ('RFND_STTS_CD', 1, 'RFND'),
-  ('RFND_STTS_CD', 2, 'STTS'),
-  ('RFND_STTS_CD', 3, 'CD'),
-  ('INQ_STTS_CD', 1, 'INQ'),
-  ('INQ_STTS_CD', 2, 'STTS'),
-  ('INQ_STTS_CD', 3, 'CD'),
-  ('APLY_STTS_CD', 1, 'APLY'),
-  ('APLY_STTS_CD', 2, 'STTS'),
-  ('APLY_STTS_CD', 3, 'CD'),
-  ('SLRY_STTS_CD', 1, 'SLRY'),
-  ('SLRY_STTS_CD', 2, 'STTS'),
-  ('SLRY_STTS_CD', 3, 'CD'),
-  ('VCTN_STTS_CD', 1, 'VCTN'),
-  ('VCTN_STTS_CD', 2, 'STTS'),
-  ('VCTN_STTS_CD', 3, 'CD'),
-  ('EVL_STTS_CD', 1, 'EVL'),
-  ('EVL_STTS_CD', 2, 'STTS'),
-  ('EVL_STTS_CD', 3, 'CD'),
-  ('CST_STTS_CD', 1, 'CST'),
-  ('CST_STTS_CD', 2, 'STTS'),
-  ('CST_STTS_CD', 3, 'CD'),
-  ('SLIP_STTS_CD', 1, 'SLIP'),
-  ('SLIP_STTS_CD', 2, 'STTS'),
-  ('SLIP_STTS_CD', 3, 'CD'),
-  ('INVNTRY_STTS_CD', 1, 'INVNTRY'),
-  ('INVNTRY_STTS_CD', 2, 'STTS'),
-  ('INVNTRY_STTS_CD', 3, 'CD'),
-  ('PNT_STTS_CD', 1, 'PNT'),
-  ('PNT_STTS_CD', 2, 'STTS'),
-  ('PNT_STTS_CD', 3, 'CD'),
-  ('CUST_SE_CD', 1, 'CUST'),
-  ('CUST_SE_CD', 2, 'SE'),
-  ('CUST_SE_CD', 3, 'CD'),
-  ('MBR_SE_CD', 1, 'MBR'),
-  ('MBR_SE_CD', 2, 'SE'),
-  ('MBR_SE_CD', 3, 'CD'),
-  ('USER_SE_CD', 1, 'USER'),
-  ('USER_SE_CD', 2, 'SE'),
-  ('USER_SE_CD', 3, 'CD'),
-  ('EMP_SE_CD', 1, 'EMP'),
-  ('EMP_SE_CD', 2, 'SE'),
-  ('EMP_SE_CD', 3, 'CD'),
-  ('PIC_SE_CD', 1, 'PIC'),
-  ('PIC_SE_CD', 2, 'SE'),
-  ('PIC_SE_CD', 3, 'CD'),
-  ('BCNC_SE_CD', 1, 'BCNC'),
-  ('BCNC_SE_CD', 2, 'SE'),
-  ('BCNC_SE_CD', 3, 'CD'),
-  ('SPLR_SE_CD', 1, 'SPLR'),
-  ('SPLR_SE_CD', 2, 'SE'),
-  ('SPLR_SE_CD', 3, 'CD'),
-  ('PTNR_SE_CD', 1, 'PTNR'),
-  ('PTNR_SE_CD', 2, 'SE'),
-  ('PTNR_SE_CD', 3, 'CD'),
-  ('APLCNT_SE_CD', 1, 'APLCNT'),
-  ('APLCNT_SE_CD', 2, 'SE'),
-  ('APLCNT_SE_CD', 3, 'CD'),
-  ('DEPT_SE_CD', 1, 'DEPT'),
-  ('DEPT_SE_CD', 2, 'SE'),
-  ('DEPT_SE_CD', 3, 'CD'),
-  ('ORG_SE_CD', 1, 'ORG'),
-  ('ORG_SE_CD', 2, 'SE'),
-  ('ORG_SE_CD', 3, 'CD'),
-  ('PRDT_SE_CD', 1, 'PRDT'),
-  ('PRDT_SE_CD', 2, 'SE'),
-  ('PRDT_SE_CD', 3, 'CD'),
-  ('ITEM_SE_CD', 1, 'ITEM'),
-  ('ITEM_SE_CD', 2, 'SE'),
-  ('ITEM_SE_CD', 3, 'CD'),
-  ('STOR_SE_CD', 1, 'STOR'),
-  ('STOR_SE_CD', 2, 'SE'),
-  ('STOR_SE_CD', 3, 'CD'),
-  ('WRHS_SE_CD', 1, 'WRHS'),
-  ('WRHS_SE_CD', 2, 'SE'),
-  ('WRHS_SE_CD', 3, 'CD'),
-  ('MENU_SE_CD', 1, 'MENU'),
-  ('MENU_SE_CD', 2, 'SE'),
-  ('MENU_SE_CD', 3, 'CD'),
-  ('AUTH_SE_CD', 1, 'AUTH'),
-  ('AUTH_SE_CD', 2, 'SE'),
-  ('AUTH_SE_CD', 3, 'CD'),
-  ('ROLE_SE_CD', 1, 'ROLE'),
-  ('ROLE_SE_CD', 2, 'SE'),
-  ('ROLE_SE_CD', 3, 'CD'),
-  ('PGM_SE_CD', 1, 'PGM'),
-  ('PGM_SE_CD', 2, 'SE'),
-  ('PGM_SE_CD', 3, 'CD'),
-  ('FILE_SE_CD', 1, 'FILE'),
-  ('FILE_SE_CD', 2, 'SE'),
-  ('FILE_SE_CD', 3, 'CD'),
-  ('BBS_SE_CD', 1, 'BBS'),
-  ('BBS_SE_CD', 2, 'SE'),
-  ('BBS_SE_CD', 3, 'CD'),
-  ('PST_SE_CD', 1, 'PST'),
-  ('PST_SE_CD', 2, 'SE'),
-  ('PST_SE_CD', 3, 'CD'),
-  ('NTC_SE_CD', 1, 'NTC'),
-  ('NTC_SE_CD', 2, 'SE'),
-  ('NTC_SE_CD', 3, 'CD'),
-  ('CPN_SE_CD', 1, 'CPN'),
-  ('CPN_SE_CD', 2, 'SE'),
-  ('CPN_SE_CD', 3, 'CD'),
-  ('EVT_SE_CD', 1, 'EVT'),
-  ('EVT_SE_CD', 2, 'SE'),
-  ('EVT_SE_CD', 3, 'CD'),
-  ('PRJ_SE_CD', 1, 'PRJ'),
-  ('PRJ_SE_CD', 2, 'SE'),
-  ('PRJ_SE_CD', 3, 'CD'),
-  ('TASK_SE_CD', 1, 'TASK'),
-  ('TASK_SE_CD', 2, 'SE'),
-  ('TASK_SE_CD', 3, 'CD'),
-  ('ASST_SE_CD', 1, 'ASST'),
-  ('ASST_SE_CD', 2, 'SE'),
-  ('ASST_SE_CD', 3, 'CD'),
-  ('EQPMNT_SE_CD', 1, 'EQPMNT'),
-  ('EQPMNT_SE_CD', 2, 'SE'),
-  ('EQPMNT_SE_CD', 3, 'CD'),
-  ('VHCL_SE_CD', 1, 'VHCL'),
-  ('VHCL_SE_CD', 2, 'SE'),
-  ('VHCL_SE_CD', 3, 'CD'),
-  ('EDU_SE_CD', 1, 'EDU'),
-  ('EDU_SE_CD', 2, 'SE'),
-  ('EDU_SE_CD', 3, 'CD'),
-  ('ACNT_SE_CD', 1, 'ACNT'),
-  ('ACNT_SE_CD', 2, 'SE'),
-  ('ACNT_SE_CD', 3, 'CD'),
-  ('BGT_SE_CD', 1, 'BGT'),
-  ('BGT_SE_CD', 2, 'SE'),
-  ('BGT_SE_CD', 3, 'CD'),
-  ('BACNT_SE_CD', 1, 'BACNT'),
-  ('BACNT_SE_CD', 2, 'SE'),
-  ('BACNT_SE_CD', 3, 'CD'),
-  ('CARD_SE_CD', 1, 'CARD'),
-  ('CARD_SE_CD', 2, 'SE'),
-  ('CARD_SE_CD', 3, 'CD'),
-  ('TRMS_SE_CD', 1, 'TRMS'),
-  ('TRMS_SE_CD', 2, 'SE'),
-  ('TRMS_SE_CD', 3, 'CD'),
-  ('ORDR_SE_CD', 1, 'ORDR'),
-  ('ORDR_SE_CD', 2, 'SE'),
-  ('ORDR_SE_CD', 3, 'CD'),
-  ('STLM_SE_CD', 1, 'STLM'),
-  ('STLM_SE_CD', 2, 'SE'),
-  ('STLM_SE_CD', 3, 'CD'),
-  ('DLVR_SE_CD', 1, 'DLVR'),
-  ('DLVR_SE_CD', 2, 'SE'),
-  ('DLVR_SE_CD', 3, 'CD'),
-  ('CTRT_SE_CD', 1, 'CTRT'),
-  ('CTRT_SE_CD', 2, 'SE'),
-  ('CTRT_SE_CD', 3, 'CD'),
-  ('CLM_SE_CD', 1, 'CLM'),
-  ('CLM_SE_CD', 2, 'SE'),
-  ('CLM_SE_CD', 3, 'CD'),
-  ('RCPT_SE_CD', 1, 'RCPT'),
-  ('RCPT_SE_CD', 2, 'SE'),
-  ('RCPT_SE_CD', 3, 'CD'),
-  ('TRSC_SE_CD', 1, 'TRSC'),
-  ('TRSC_SE_CD', 2, 'SE'),
-  ('TRSC_SE_CD', 3, 'CD'),
-  ('WRHSNG_SE_CD', 1, 'WRHSNG'),
-  ('WRHSNG_SE_CD', 2, 'SE'),
-  ('WRHSNG_SE_CD', 3, 'CD'),
-  ('RLS_SE_CD', 1, 'RLS'),
-  ('RLS_SE_CD', 2, 'SE'),
-  ('RLS_SE_CD', 3, 'CD'),
-  ('PRCHS_SE_CD', 1, 'PRCHS'),
-  ('PRCHS_SE_CD', 2, 'SE'),
-  ('PRCHS_SE_CD', 3, 'CD'),
-  ('SLS_SE_CD', 1, 'SLS'),
-  ('SLS_SE_CD', 2, 'SE'),
-  ('SLS_SE_CD', 3, 'CD'),
-  ('ESTMT_SE_CD', 1, 'ESTMT'),
-  ('ESTMT_SE_CD', 2, 'SE'),
-  ('ESTMT_SE_CD', 3, 'CD'),
-  ('CLCLN_SE_CD', 1, 'CLCLN'),
-  ('CLCLN_SE_CD', 2, 'SE'),
-  ('CLCLN_SE_CD', 3, 'CD'),
-  ('RTGD_SE_CD', 1, 'RTGD'),
-  ('RTGD_SE_CD', 2, 'SE'),
-  ('RTGD_SE_CD', 3, 'CD'),
-  ('RFND_SE_CD', 1, 'RFND'),
-  ('RFND_SE_CD', 2, 'SE'),
-  ('RFND_SE_CD', 3, 'CD'),
-  ('INQ_SE_CD', 1, 'INQ'),
-  ('INQ_SE_CD', 2, 'SE'),
-  ('INQ_SE_CD', 3, 'CD'),
-  ('APLY_SE_CD', 1, 'APLY'),
-  ('APLY_SE_CD', 2, 'SE'),
-  ('APLY_SE_CD', 3, 'CD'),
-  ('SLRY_SE_CD', 1, 'SLRY'),
-  ('SLRY_SE_CD', 2, 'SE'),
-  ('SLRY_SE_CD', 3, 'CD'),
-  ('VCTN_SE_CD', 1, 'VCTN'),
-  ('VCTN_SE_CD', 2, 'SE'),
-  ('VCTN_SE_CD', 3, 'CD'),
-  ('EVL_SE_CD', 1, 'EVL'),
-  ('EVL_SE_CD', 2, 'SE'),
-  ('EVL_SE_CD', 3, 'CD'),
-  ('CST_SE_CD', 1, 'CST'),
-  ('CST_SE_CD', 2, 'SE'),
-  ('CST_SE_CD', 3, 'CD'),
-  ('SLIP_SE_CD', 1, 'SLIP'),
-  ('SLIP_SE_CD', 2, 'SE'),
-  ('SLIP_SE_CD', 3, 'CD'),
-  ('INVNTRY_SE_CD', 1, 'INVNTRY'),
-  ('INVNTRY_SE_CD', 2, 'SE'),
-  ('INVNTRY_SE_CD', 3, 'CD'),
-  ('PNT_SE_CD', 1, 'PNT'),
-  ('PNT_SE_CD', 2, 'SE'),
-  ('PNT_SE_CD', 3, 'CD'),
-  ('CUST_CN', 1, 'CUST'),
-  ('CUST_CN', 2, 'CN'),
-  ('MBR_CN', 1, 'MBR'),
-  ('MBR_CN', 2, 'CN'),
-  ('USER_CN', 1, 'USER'),
-  ('USER_CN', 2, 'CN'),
-  ('EMP_CN', 1, 'EMP'),
-  ('EMP_CN', 2, 'CN'),
-  ('PIC_CN', 1, 'PIC'),
-  ('PIC_CN', 2, 'CN'),
-  ('BCNC_CN', 1, 'BCNC'),
-  ('BCNC_CN', 2, 'CN'),
-  ('SPLR_CN', 1, 'SPLR'),
-  ('SPLR_CN', 2, 'CN'),
-  ('PTNR_CN', 1, 'PTNR'),
-  ('PTNR_CN', 2, 'CN'),
-  ('APLCNT_CN', 1, 'APLCNT'),
-  ('APLCNT_CN', 2, 'CN'),
-  ('DEPT_CN', 1, 'DEPT'),
-  ('DEPT_CN', 2, 'CN'),
-  ('ORG_CN', 1, 'ORG'),
-  ('ORG_CN', 2, 'CN'),
-  ('PRDT_CN', 1, 'PRDT'),
-  ('PRDT_CN', 2, 'CN'),
-  ('ITEM_CN', 1, 'ITEM'),
-  ('ITEM_CN', 2, 'CN'),
-  ('STOR_CN', 1, 'STOR'),
-  ('STOR_CN', 2, 'CN'),
-  ('WRHS_CN', 1, 'WRHS'),
-  ('WRHS_CN', 2, 'CN'),
-  ('MENU_CN', 1, 'MENU'),
-  ('MENU_CN', 2, 'CN'),
-  ('AUTH_CN', 1, 'AUTH'),
-  ('AUTH_CN', 2, 'CN'),
-  ('ROLE_CN', 1, 'ROLE'),
-  ('ROLE_CN', 2, 'CN'),
-  ('PGM_CN', 1, 'PGM'),
-  ('PGM_CN', 2, 'CN'),
-  ('FILE_CN', 1, 'FILE'),
-  ('FILE_CN', 2, 'CN'),
-  ('BBS_CN', 1, 'BBS'),
-  ('BBS_CN', 2, 'CN'),
-  ('PST_CN', 1, 'PST'),
-  ('PST_CN', 2, 'CN'),
-  ('NTC_CN', 1, 'NTC'),
-  ('NTC_CN', 2, 'CN'),
-  ('CPN_CN', 1, 'CPN'),
-  ('CPN_CN', 2, 'CN'),
-  ('EVT_CN', 1, 'EVT'),
-  ('EVT_CN', 2, 'CN'),
-  ('PRJ_CN', 1, 'PRJ'),
-  ('PRJ_CN', 2, 'CN'),
-  ('TASK_CN', 1, 'TASK'),
-  ('TASK_CN', 2, 'CN'),
-  ('ASST_CN', 1, 'ASST'),
-  ('ASST_CN', 2, 'CN'),
-  ('EQPMNT_CN', 1, 'EQPMNT'),
-  ('EQPMNT_CN', 2, 'CN'),
-  ('VHCL_CN', 1, 'VHCL'),
-  ('VHCL_CN', 2, 'CN'),
-  ('EDU_CN', 1, 'EDU'),
-  ('EDU_CN', 2, 'CN'),
-  ('ACNT_CN', 1, 'ACNT'),
-  ('ACNT_CN', 2, 'CN'),
-  ('BGT_CN', 1, 'BGT'),
-  ('BGT_CN', 2, 'CN'),
-  ('BACNT_CN', 1, 'BACNT'),
-  ('BACNT_CN', 2, 'CN'),
-  ('CARD_CN', 1, 'CARD'),
-  ('CARD_CN', 2, 'CN'),
-  ('TRMS_CN', 1, 'TRMS'),
-  ('TRMS_CN', 2, 'CN'),
-  ('ORDR_CN', 1, 'ORDR'),
-  ('ORDR_CN', 2, 'CN'),
-  ('STLM_CN', 1, 'STLM'),
-  ('STLM_CN', 2, 'CN'),
-  ('DLVR_CN', 1, 'DLVR'),
-  ('DLVR_CN', 2, 'CN'),
-  ('CTRT_CN', 1, 'CTRT'),
-  ('CTRT_CN', 2, 'CN'),
-  ('CLM_CN', 1, 'CLM'),
-  ('CLM_CN', 2, 'CN'),
-  ('RCPT_CN', 1, 'RCPT'),
-  ('RCPT_CN', 2, 'CN'),
-  ('TRSC_CN', 1, 'TRSC'),
-  ('TRSC_CN', 2, 'CN'),
-  ('WRHSNG_CN', 1, 'WRHSNG'),
-  ('WRHSNG_CN', 2, 'CN'),
-  ('RLS_CN', 1, 'RLS'),
-  ('RLS_CN', 2, 'CN'),
-  ('PRCHS_CN', 1, 'PRCHS'),
-  ('PRCHS_CN', 2, 'CN'),
-  ('SLS_CN', 1, 'SLS'),
-  ('SLS_CN', 2, 'CN'),
-  ('ESTMT_CN', 1, 'ESTMT'),
-  ('ESTMT_CN', 2, 'CN'),
-  ('CLCLN_CN', 1, 'CLCLN'),
-  ('CLCLN_CN', 2, 'CN'),
-  ('RTGD_CN', 1, 'RTGD'),
-  ('RTGD_CN', 2, 'CN');
-
-INSERT INTO tmp_seed_term_word VALUES
-  ('RFND_CN', 1, 'RFND'),
-  ('RFND_CN', 2, 'CN'),
-  ('INQ_CN', 1, 'INQ'),
-  ('INQ_CN', 2, 'CN'),
-  ('APLY_CN', 1, 'APLY'),
-  ('APLY_CN', 2, 'CN'),
-  ('SLRY_CN', 1, 'SLRY'),
-  ('SLRY_CN', 2, 'CN'),
-  ('VCTN_CN', 1, 'VCTN'),
-  ('VCTN_CN', 2, 'CN'),
-  ('EVL_CN', 1, 'EVL'),
-  ('EVL_CN', 2, 'CN'),
-  ('CST_CN', 1, 'CST'),
-  ('CST_CN', 2, 'CN'),
-  ('SLIP_CN', 1, 'SLIP'),
-  ('SLIP_CN', 2, 'CN'),
-  ('INVNTRY_CN', 1, 'INVNTRY'),
-  ('INVNTRY_CN', 2, 'CN'),
-  ('PNT_CN', 1, 'PNT'),
-  ('PNT_CN', 2, 'CN'),
-  ('CUST_REG_DT', 1, 'CUST'),
-  ('CUST_REG_DT', 2, 'REG'),
-  ('CUST_REG_DT', 3, 'DT'),
-  ('MBR_REG_DT', 1, 'MBR'),
-  ('MBR_REG_DT', 2, 'REG'),
-  ('MBR_REG_DT', 3, 'DT'),
-  ('USER_REG_DT', 1, 'USER'),
-  ('USER_REG_DT', 2, 'REG'),
-  ('USER_REG_DT', 3, 'DT'),
-  ('EMP_REG_DT', 1, 'EMP'),
-  ('EMP_REG_DT', 2, 'REG'),
-  ('EMP_REG_DT', 3, 'DT'),
-  ('PIC_REG_DT', 1, 'PIC'),
-  ('PIC_REG_DT', 2, 'REG'),
-  ('PIC_REG_DT', 3, 'DT'),
-  ('BCNC_REG_DT', 1, 'BCNC'),
-  ('BCNC_REG_DT', 2, 'REG'),
-  ('BCNC_REG_DT', 3, 'DT'),
-  ('SPLR_REG_DT', 1, 'SPLR'),
-  ('SPLR_REG_DT', 2, 'REG'),
-  ('SPLR_REG_DT', 3, 'DT'),
-  ('PTNR_REG_DT', 1, 'PTNR'),
-  ('PTNR_REG_DT', 2, 'REG'),
-  ('PTNR_REG_DT', 3, 'DT'),
-  ('APLCNT_REG_DT', 1, 'APLCNT'),
-  ('APLCNT_REG_DT', 2, 'REG'),
-  ('APLCNT_REG_DT', 3, 'DT'),
-  ('DEPT_REG_DT', 1, 'DEPT'),
-  ('DEPT_REG_DT', 2, 'REG'),
-  ('DEPT_REG_DT', 3, 'DT'),
-  ('ORG_REG_DT', 1, 'ORG'),
-  ('ORG_REG_DT', 2, 'REG'),
-  ('ORG_REG_DT', 3, 'DT'),
-  ('PRDT_REG_DT', 1, 'PRDT'),
-  ('PRDT_REG_DT', 2, 'REG'),
-  ('PRDT_REG_DT', 3, 'DT'),
-  ('ITEM_REG_DT', 1, 'ITEM'),
-  ('ITEM_REG_DT', 2, 'REG'),
-  ('ITEM_REG_DT', 3, 'DT'),
-  ('STOR_REG_DT', 1, 'STOR'),
-  ('STOR_REG_DT', 2, 'REG'),
-  ('STOR_REG_DT', 3, 'DT'),
-  ('WRHS_REG_DT', 1, 'WRHS'),
-  ('WRHS_REG_DT', 2, 'REG'),
-  ('WRHS_REG_DT', 3, 'DT'),
-  ('MENU_REG_DT', 1, 'MENU'),
-  ('MENU_REG_DT', 2, 'REG'),
-  ('MENU_REG_DT', 3, 'DT'),
-  ('AUTH_REG_DT', 1, 'AUTH'),
-  ('AUTH_REG_DT', 2, 'REG'),
-  ('AUTH_REG_DT', 3, 'DT'),
-  ('ROLE_REG_DT', 1, 'ROLE'),
-  ('ROLE_REG_DT', 2, 'REG'),
-  ('ROLE_REG_DT', 3, 'DT'),
-  ('PGM_REG_DT', 1, 'PGM'),
-  ('PGM_REG_DT', 2, 'REG'),
-  ('PGM_REG_DT', 3, 'DT'),
-  ('FILE_REG_DT', 1, 'FILE'),
-  ('FILE_REG_DT', 2, 'REG'),
-  ('FILE_REG_DT', 3, 'DT'),
-  ('BBS_REG_DT', 1, 'BBS'),
-  ('BBS_REG_DT', 2, 'REG'),
-  ('BBS_REG_DT', 3, 'DT'),
-  ('PST_REG_DT', 1, 'PST'),
-  ('PST_REG_DT', 2, 'REG'),
-  ('PST_REG_DT', 3, 'DT'),
-  ('NTC_REG_DT', 1, 'NTC'),
-  ('NTC_REG_DT', 2, 'REG'),
-  ('NTC_REG_DT', 3, 'DT'),
-  ('CPN_REG_DT', 1, 'CPN'),
-  ('CPN_REG_DT', 2, 'REG'),
-  ('CPN_REG_DT', 3, 'DT'),
-  ('EVT_REG_DT', 1, 'EVT'),
-  ('EVT_REG_DT', 2, 'REG'),
-  ('EVT_REG_DT', 3, 'DT'),
-  ('PRJ_REG_DT', 1, 'PRJ'),
-  ('PRJ_REG_DT', 2, 'REG'),
-  ('PRJ_REG_DT', 3, 'DT'),
-  ('TASK_REG_DT', 1, 'TASK'),
-  ('TASK_REG_DT', 2, 'REG'),
-  ('TASK_REG_DT', 3, 'DT'),
-  ('ASST_REG_DT', 1, 'ASST'),
-  ('ASST_REG_DT', 2, 'REG'),
-  ('ASST_REG_DT', 3, 'DT'),
-  ('EQPMNT_REG_DT', 1, 'EQPMNT'),
-  ('EQPMNT_REG_DT', 2, 'REG'),
-  ('EQPMNT_REG_DT', 3, 'DT'),
-  ('VHCL_REG_DT', 1, 'VHCL'),
-  ('VHCL_REG_DT', 2, 'REG'),
-  ('VHCL_REG_DT', 3, 'DT'),
-  ('EDU_REG_DT', 1, 'EDU'),
-  ('EDU_REG_DT', 2, 'REG'),
-  ('EDU_REG_DT', 3, 'DT'),
-  ('ACNT_REG_DT', 1, 'ACNT'),
-  ('ACNT_REG_DT', 2, 'REG'),
-  ('ACNT_REG_DT', 3, 'DT'),
-  ('BGT_REG_DT', 1, 'BGT'),
-  ('BGT_REG_DT', 2, 'REG'),
-  ('BGT_REG_DT', 3, 'DT'),
-  ('BACNT_REG_DT', 1, 'BACNT'),
-  ('BACNT_REG_DT', 2, 'REG'),
-  ('BACNT_REG_DT', 3, 'DT'),
-  ('CARD_REG_DT', 1, 'CARD'),
-  ('CARD_REG_DT', 2, 'REG'),
-  ('CARD_REG_DT', 3, 'DT'),
-  ('TRMS_REG_DT', 1, 'TRMS'),
-  ('TRMS_REG_DT', 2, 'REG'),
-  ('TRMS_REG_DT', 3, 'DT'),
-  ('ORDR_REG_DT', 1, 'ORDR'),
-  ('ORDR_REG_DT', 2, 'REG'),
-  ('ORDR_REG_DT', 3, 'DT'),
-  ('STLM_REG_DT', 1, 'STLM'),
-  ('STLM_REG_DT', 2, 'REG'),
-  ('STLM_REG_DT', 3, 'DT'),
-  ('DLVR_REG_DT', 1, 'DLVR'),
-  ('DLVR_REG_DT', 2, 'REG'),
-  ('DLVR_REG_DT', 3, 'DT'),
-  ('CTRT_REG_DT', 1, 'CTRT'),
-  ('CTRT_REG_DT', 2, 'REG'),
-  ('CTRT_REG_DT', 3, 'DT'),
-  ('CLM_REG_DT', 1, 'CLM'),
-  ('CLM_REG_DT', 2, 'REG'),
-  ('CLM_REG_DT', 3, 'DT'),
-  ('RCPT_REG_DT', 1, 'RCPT'),
-  ('RCPT_REG_DT', 2, 'REG'),
-  ('RCPT_REG_DT', 3, 'DT'),
-  ('TRSC_REG_DT', 1, 'TRSC'),
-  ('TRSC_REG_DT', 2, 'REG'),
-  ('TRSC_REG_DT', 3, 'DT'),
-  ('WRHSNG_REG_DT', 1, 'WRHSNG'),
-  ('WRHSNG_REG_DT', 2, 'REG'),
-  ('WRHSNG_REG_DT', 3, 'DT'),
-  ('RLS_REG_DT', 1, 'RLS'),
-  ('RLS_REG_DT', 2, 'REG'),
-  ('RLS_REG_DT', 3, 'DT'),
-  ('PRCHS_REG_DT', 1, 'PRCHS'),
-  ('PRCHS_REG_DT', 2, 'REG'),
-  ('PRCHS_REG_DT', 3, 'DT'),
-  ('SLS_REG_DT', 1, 'SLS'),
-  ('SLS_REG_DT', 2, 'REG'),
-  ('SLS_REG_DT', 3, 'DT'),
-  ('ESTMT_REG_DT', 1, 'ESTMT'),
-  ('ESTMT_REG_DT', 2, 'REG'),
-  ('ESTMT_REG_DT', 3, 'DT'),
-  ('CLCLN_REG_DT', 1, 'CLCLN'),
-  ('CLCLN_REG_DT', 2, 'REG'),
-  ('CLCLN_REG_DT', 3, 'DT'),
-  ('RTGD_REG_DT', 1, 'RTGD'),
-  ('RTGD_REG_DT', 2, 'REG'),
-  ('RTGD_REG_DT', 3, 'DT'),
-  ('RFND_REG_DT', 1, 'RFND'),
-  ('RFND_REG_DT', 2, 'REG'),
-  ('RFND_REG_DT', 3, 'DT'),
-  ('INQ_REG_DT', 1, 'INQ'),
-  ('INQ_REG_DT', 2, 'REG'),
-  ('INQ_REG_DT', 3, 'DT'),
-  ('APLY_REG_DT', 1, 'APLY'),
-  ('APLY_REG_DT', 2, 'REG'),
-  ('APLY_REG_DT', 3, 'DT'),
-  ('SLRY_REG_DT', 1, 'SLRY'),
-  ('SLRY_REG_DT', 2, 'REG'),
-  ('SLRY_REG_DT', 3, 'DT'),
-  ('VCTN_REG_DT', 1, 'VCTN'),
-  ('VCTN_REG_DT', 2, 'REG'),
-  ('VCTN_REG_DT', 3, 'DT'),
-  ('EVL_REG_DT', 1, 'EVL'),
-  ('EVL_REG_DT', 2, 'REG'),
-  ('EVL_REG_DT', 3, 'DT'),
-  ('CST_REG_DT', 1, 'CST'),
-  ('CST_REG_DT', 2, 'REG'),
-  ('CST_REG_DT', 3, 'DT'),
-  ('SLIP_REG_DT', 1, 'SLIP'),
-  ('SLIP_REG_DT', 2, 'REG'),
-  ('SLIP_REG_DT', 3, 'DT'),
-  ('INVNTRY_REG_DT', 1, 'INVNTRY'),
-  ('INVNTRY_REG_DT', 2, 'REG'),
-  ('INVNTRY_REG_DT', 3, 'DT'),
-  ('PNT_REG_DT', 1, 'PNT'),
-  ('PNT_REG_DT', 2, 'REG'),
-  ('PNT_REG_DT', 3, 'DT'),
-  ('CUST_MDFCN_DT', 1, 'CUST'),
-  ('CUST_MDFCN_DT', 2, 'MDFCN'),
-  ('CUST_MDFCN_DT', 3, 'DT'),
-  ('MBR_MDFCN_DT', 1, 'MBR'),
-  ('MBR_MDFCN_DT', 2, 'MDFCN'),
-  ('MBR_MDFCN_DT', 3, 'DT'),
-  ('USER_MDFCN_DT', 1, 'USER'),
-  ('USER_MDFCN_DT', 2, 'MDFCN'),
-  ('USER_MDFCN_DT', 3, 'DT'),
-  ('EMP_MDFCN_DT', 1, 'EMP'),
-  ('EMP_MDFCN_DT', 2, 'MDFCN'),
-  ('EMP_MDFCN_DT', 3, 'DT'),
-  ('PIC_MDFCN_DT', 1, 'PIC'),
-  ('PIC_MDFCN_DT', 2, 'MDFCN'),
-  ('PIC_MDFCN_DT', 3, 'DT'),
-  ('BCNC_MDFCN_DT', 1, 'BCNC'),
-  ('BCNC_MDFCN_DT', 2, 'MDFCN'),
-  ('BCNC_MDFCN_DT', 3, 'DT'),
-  ('SPLR_MDFCN_DT', 1, 'SPLR'),
-  ('SPLR_MDFCN_DT', 2, 'MDFCN'),
-  ('SPLR_MDFCN_DT', 3, 'DT'),
-  ('PTNR_MDFCN_DT', 1, 'PTNR'),
-  ('PTNR_MDFCN_DT', 2, 'MDFCN'),
-  ('PTNR_MDFCN_DT', 3, 'DT'),
-  ('APLCNT_MDFCN_DT', 1, 'APLCNT'),
-  ('APLCNT_MDFCN_DT', 2, 'MDFCN'),
-  ('APLCNT_MDFCN_DT', 3, 'DT'),
-  ('DEPT_MDFCN_DT', 1, 'DEPT'),
-  ('DEPT_MDFCN_DT', 2, 'MDFCN'),
-  ('DEPT_MDFCN_DT', 3, 'DT'),
-  ('ORG_MDFCN_DT', 1, 'ORG'),
-  ('ORG_MDFCN_DT', 2, 'MDFCN'),
-  ('ORG_MDFCN_DT', 3, 'DT'),
-  ('PRDT_MDFCN_DT', 1, 'PRDT'),
-  ('PRDT_MDFCN_DT', 2, 'MDFCN'),
-  ('PRDT_MDFCN_DT', 3, 'DT'),
-  ('ITEM_MDFCN_DT', 1, 'ITEM'),
-  ('ITEM_MDFCN_DT', 2, 'MDFCN'),
-  ('ITEM_MDFCN_DT', 3, 'DT'),
-  ('STOR_MDFCN_DT', 1, 'STOR'),
-  ('STOR_MDFCN_DT', 2, 'MDFCN'),
-  ('STOR_MDFCN_DT', 3, 'DT'),
-  ('WRHS_MDFCN_DT', 1, 'WRHS'),
-  ('WRHS_MDFCN_DT', 2, 'MDFCN'),
-  ('WRHS_MDFCN_DT', 3, 'DT'),
-  ('MENU_MDFCN_DT', 1, 'MENU'),
-  ('MENU_MDFCN_DT', 2, 'MDFCN'),
-  ('MENU_MDFCN_DT', 3, 'DT'),
-  ('AUTH_MDFCN_DT', 1, 'AUTH'),
-  ('AUTH_MDFCN_DT', 2, 'MDFCN'),
-  ('AUTH_MDFCN_DT', 3, 'DT'),
-  ('ROLE_MDFCN_DT', 1, 'ROLE'),
-  ('ROLE_MDFCN_DT', 2, 'MDFCN'),
-  ('ROLE_MDFCN_DT', 3, 'DT'),
-  ('PGM_MDFCN_DT', 1, 'PGM'),
-  ('PGM_MDFCN_DT', 2, 'MDFCN'),
-  ('PGM_MDFCN_DT', 3, 'DT'),
-  ('FILE_MDFCN_DT', 1, 'FILE'),
-  ('FILE_MDFCN_DT', 2, 'MDFCN'),
-  ('FILE_MDFCN_DT', 3, 'DT'),
-  ('BBS_MDFCN_DT', 1, 'BBS'),
-  ('BBS_MDFCN_DT', 2, 'MDFCN'),
-  ('BBS_MDFCN_DT', 3, 'DT'),
-  ('PST_MDFCN_DT', 1, 'PST'),
-  ('PST_MDFCN_DT', 2, 'MDFCN'),
-  ('PST_MDFCN_DT', 3, 'DT'),
-  ('NTC_MDFCN_DT', 1, 'NTC'),
-  ('NTC_MDFCN_DT', 2, 'MDFCN'),
-  ('NTC_MDFCN_DT', 3, 'DT'),
-  ('CPN_MDFCN_DT', 1, 'CPN'),
-  ('CPN_MDFCN_DT', 2, 'MDFCN'),
-  ('CPN_MDFCN_DT', 3, 'DT'),
-  ('EVT_MDFCN_DT', 1, 'EVT'),
-  ('EVT_MDFCN_DT', 2, 'MDFCN'),
-  ('EVT_MDFCN_DT', 3, 'DT'),
-  ('PRJ_MDFCN_DT', 1, 'PRJ'),
-  ('PRJ_MDFCN_DT', 2, 'MDFCN'),
-  ('PRJ_MDFCN_DT', 3, 'DT'),
-  ('TASK_MDFCN_DT', 1, 'TASK'),
-  ('TASK_MDFCN_DT', 2, 'MDFCN'),
-  ('TASK_MDFCN_DT', 3, 'DT'),
-  ('ASST_MDFCN_DT', 1, 'ASST'),
-  ('ASST_MDFCN_DT', 2, 'MDFCN'),
-  ('ASST_MDFCN_DT', 3, 'DT'),
-  ('EQPMNT_MDFCN_DT', 1, 'EQPMNT'),
-  ('EQPMNT_MDFCN_DT', 2, 'MDFCN'),
-  ('EQPMNT_MDFCN_DT', 3, 'DT'),
-  ('VHCL_MDFCN_DT', 1, 'VHCL'),
-  ('VHCL_MDFCN_DT', 2, 'MDFCN'),
-  ('VHCL_MDFCN_DT', 3, 'DT'),
-  ('EDU_MDFCN_DT', 1, 'EDU'),
-  ('EDU_MDFCN_DT', 2, 'MDFCN'),
-  ('EDU_MDFCN_DT', 3, 'DT'),
-  ('ACNT_MDFCN_DT', 1, 'ACNT'),
-  ('ACNT_MDFCN_DT', 2, 'MDFCN'),
-  ('ACNT_MDFCN_DT', 3, 'DT'),
-  ('BGT_MDFCN_DT', 1, 'BGT'),
-  ('BGT_MDFCN_DT', 2, 'MDFCN'),
-  ('BGT_MDFCN_DT', 3, 'DT'),
-  ('BACNT_MDFCN_DT', 1, 'BACNT'),
-  ('BACNT_MDFCN_DT', 2, 'MDFCN'),
-  ('BACNT_MDFCN_DT', 3, 'DT'),
-  ('CARD_MDFCN_DT', 1, 'CARD'),
-  ('CARD_MDFCN_DT', 2, 'MDFCN'),
-  ('CARD_MDFCN_DT', 3, 'DT'),
-  ('TRMS_MDFCN_DT', 1, 'TRMS'),
-  ('TRMS_MDFCN_DT', 2, 'MDFCN'),
-  ('TRMS_MDFCN_DT', 3, 'DT'),
-  ('ORDR_MDFCN_DT', 1, 'ORDR'),
-  ('ORDR_MDFCN_DT', 2, 'MDFCN'),
-  ('ORDR_MDFCN_DT', 3, 'DT'),
-  ('STLM_MDFCN_DT', 1, 'STLM'),
-  ('STLM_MDFCN_DT', 2, 'MDFCN'),
-  ('STLM_MDFCN_DT', 3, 'DT'),
-  ('DLVR_MDFCN_DT', 1, 'DLVR'),
-  ('DLVR_MDFCN_DT', 2, 'MDFCN'),
-  ('DLVR_MDFCN_DT', 3, 'DT'),
-  ('CTRT_MDFCN_DT', 1, 'CTRT'),
-  ('CTRT_MDFCN_DT', 2, 'MDFCN'),
-  ('CTRT_MDFCN_DT', 3, 'DT'),
-  ('CLM_MDFCN_DT', 1, 'CLM'),
-  ('CLM_MDFCN_DT', 2, 'MDFCN'),
-  ('CLM_MDFCN_DT', 3, 'DT'),
-  ('RCPT_MDFCN_DT', 1, 'RCPT'),
-  ('RCPT_MDFCN_DT', 2, 'MDFCN'),
-  ('RCPT_MDFCN_DT', 3, 'DT'),
-  ('TRSC_MDFCN_DT', 1, 'TRSC'),
-  ('TRSC_MDFCN_DT', 2, 'MDFCN'),
-  ('TRSC_MDFCN_DT', 3, 'DT'),
-  ('WRHSNG_MDFCN_DT', 1, 'WRHSNG'),
-  ('WRHSNG_MDFCN_DT', 2, 'MDFCN'),
-  ('WRHSNG_MDFCN_DT', 3, 'DT'),
-  ('RLS_MDFCN_DT', 1, 'RLS'),
-  ('RLS_MDFCN_DT', 2, 'MDFCN'),
-  ('RLS_MDFCN_DT', 3, 'DT'),
-  ('PRCHS_MDFCN_DT', 1, 'PRCHS'),
-  ('PRCHS_MDFCN_DT', 2, 'MDFCN'),
-  ('PRCHS_MDFCN_DT', 3, 'DT'),
-  ('SLS_MDFCN_DT', 1, 'SLS'),
-  ('SLS_MDFCN_DT', 2, 'MDFCN'),
-  ('SLS_MDFCN_DT', 3, 'DT'),
-  ('ESTMT_MDFCN_DT', 1, 'ESTMT'),
-  ('ESTMT_MDFCN_DT', 2, 'MDFCN'),
-  ('ESTMT_MDFCN_DT', 3, 'DT'),
-  ('CLCLN_MDFCN_DT', 1, 'CLCLN'),
-  ('CLCLN_MDFCN_DT', 2, 'MDFCN'),
-  ('CLCLN_MDFCN_DT', 3, 'DT'),
-  ('RTGD_MDFCN_DT', 1, 'RTGD'),
-  ('RTGD_MDFCN_DT', 2, 'MDFCN'),
-  ('RTGD_MDFCN_DT', 3, 'DT'),
-  ('RFND_MDFCN_DT', 1, 'RFND'),
-  ('RFND_MDFCN_DT', 2, 'MDFCN'),
-  ('RFND_MDFCN_DT', 3, 'DT'),
-  ('INQ_MDFCN_DT', 1, 'INQ'),
-  ('INQ_MDFCN_DT', 2, 'MDFCN'),
-  ('INQ_MDFCN_DT', 3, 'DT'),
-  ('APLY_MDFCN_DT', 1, 'APLY'),
-  ('APLY_MDFCN_DT', 2, 'MDFCN'),
-  ('APLY_MDFCN_DT', 3, 'DT'),
-  ('SLRY_MDFCN_DT', 1, 'SLRY'),
-  ('SLRY_MDFCN_DT', 2, 'MDFCN'),
-  ('SLRY_MDFCN_DT', 3, 'DT'),
-  ('VCTN_MDFCN_DT', 1, 'VCTN'),
-  ('VCTN_MDFCN_DT', 2, 'MDFCN'),
-  ('VCTN_MDFCN_DT', 3, 'DT'),
-  ('EVL_MDFCN_DT', 1, 'EVL'),
-  ('EVL_MDFCN_DT', 2, 'MDFCN'),
-  ('EVL_MDFCN_DT', 3, 'DT'),
-  ('CST_MDFCN_DT', 1, 'CST'),
-  ('CST_MDFCN_DT', 2, 'MDFCN'),
-  ('CST_MDFCN_DT', 3, 'DT'),
-  ('SLIP_MDFCN_DT', 1, 'SLIP'),
-  ('SLIP_MDFCN_DT', 2, 'MDFCN'),
-  ('SLIP_MDFCN_DT', 3, 'DT'),
-  ('INVNTRY_MDFCN_DT', 1, 'INVNTRY'),
-  ('INVNTRY_MDFCN_DT', 2, 'MDFCN'),
-  ('INVNTRY_MDFCN_DT', 3, 'DT'),
-  ('PNT_MDFCN_DT', 1, 'PNT'),
-  ('PNT_MDFCN_DT', 2, 'MDFCN'),
-  ('PNT_MDFCN_DT', 3, 'DT'),
-  ('CUST_USE_YN', 1, 'CUST'),
-  ('CUST_USE_YN', 2, 'USE'),
-  ('CUST_USE_YN', 3, 'YN'),
-  ('MBR_USE_YN', 1, 'MBR'),
-  ('MBR_USE_YN', 2, 'USE'),
-  ('MBR_USE_YN', 3, 'YN'),
-  ('USER_USE_YN', 1, 'USER'),
-  ('USER_USE_YN', 2, 'USE'),
-  ('USER_USE_YN', 3, 'YN'),
-  ('EMP_USE_YN', 1, 'EMP'),
-  ('EMP_USE_YN', 2, 'USE'),
-  ('EMP_USE_YN', 3, 'YN'),
-  ('PIC_USE_YN', 1, 'PIC'),
-  ('PIC_USE_YN', 2, 'USE'),
-  ('PIC_USE_YN', 3, 'YN'),
-  ('BCNC_USE_YN', 1, 'BCNC'),
-  ('BCNC_USE_YN', 2, 'USE'),
-  ('BCNC_USE_YN', 3, 'YN'),
-  ('SPLR_USE_YN', 1, 'SPLR'),
-  ('SPLR_USE_YN', 2, 'USE'),
-  ('SPLR_USE_YN', 3, 'YN'),
-  ('PTNR_USE_YN', 1, 'PTNR'),
-  ('PTNR_USE_YN', 2, 'USE'),
-  ('PTNR_USE_YN', 3, 'YN'),
-  ('APLCNT_USE_YN', 1, 'APLCNT'),
-  ('APLCNT_USE_YN', 2, 'USE'),
-  ('APLCNT_USE_YN', 3, 'YN'),
-  ('DEPT_USE_YN', 1, 'DEPT'),
-  ('DEPT_USE_YN', 2, 'USE'),
-  ('DEPT_USE_YN', 3, 'YN'),
-  ('ORG_USE_YN', 1, 'ORG'),
-  ('ORG_USE_YN', 2, 'USE'),
-  ('ORG_USE_YN', 3, 'YN'),
-  ('PRDT_USE_YN', 1, 'PRDT'),
-  ('PRDT_USE_YN', 2, 'USE'),
-  ('PRDT_USE_YN', 3, 'YN'),
-  ('ITEM_USE_YN', 1, 'ITEM'),
-  ('ITEM_USE_YN', 2, 'USE'),
-  ('ITEM_USE_YN', 3, 'YN'),
-  ('STOR_USE_YN', 1, 'STOR'),
-  ('STOR_USE_YN', 2, 'USE'),
-  ('STOR_USE_YN', 3, 'YN'),
-  ('WRHS_USE_YN', 1, 'WRHS'),
-  ('WRHS_USE_YN', 2, 'USE'),
-  ('WRHS_USE_YN', 3, 'YN'),
-  ('MENU_USE_YN', 1, 'MENU'),
-  ('MENU_USE_YN', 2, 'USE'),
-  ('MENU_USE_YN', 3, 'YN'),
-  ('AUTH_USE_YN', 1, 'AUTH'),
-  ('AUTH_USE_YN', 2, 'USE'),
-  ('AUTH_USE_YN', 3, 'YN'),
-  ('ROLE_USE_YN', 1, 'ROLE'),
-  ('ROLE_USE_YN', 2, 'USE'),
-  ('ROLE_USE_YN', 3, 'YN'),
-  ('PGM_USE_YN', 1, 'PGM'),
-  ('PGM_USE_YN', 2, 'USE'),
-  ('PGM_USE_YN', 3, 'YN'),
-  ('FILE_USE_YN', 1, 'FILE'),
-  ('FILE_USE_YN', 2, 'USE'),
-  ('FILE_USE_YN', 3, 'YN'),
-  ('BBS_USE_YN', 1, 'BBS'),
-  ('BBS_USE_YN', 2, 'USE'),
-  ('BBS_USE_YN', 3, 'YN'),
-  ('PST_USE_YN', 1, 'PST'),
-  ('PST_USE_YN', 2, 'USE'),
-  ('PST_USE_YN', 3, 'YN'),
-  ('NTC_USE_YN', 1, 'NTC'),
-  ('NTC_USE_YN', 2, 'USE'),
-  ('NTC_USE_YN', 3, 'YN'),
-  ('CPN_USE_YN', 1, 'CPN'),
-  ('CPN_USE_YN', 2, 'USE'),
-  ('CPN_USE_YN', 3, 'YN'),
-  ('EVT_USE_YN', 1, 'EVT'),
-  ('EVT_USE_YN', 2, 'USE'),
-  ('EVT_USE_YN', 3, 'YN'),
-  ('PRJ_USE_YN', 1, 'PRJ'),
-  ('PRJ_USE_YN', 2, 'USE'),
-  ('PRJ_USE_YN', 3, 'YN'),
-  ('TASK_USE_YN', 1, 'TASK'),
-  ('TASK_USE_YN', 2, 'USE'),
-  ('TASK_USE_YN', 3, 'YN'),
-  ('ASST_USE_YN', 1, 'ASST'),
-  ('ASST_USE_YN', 2, 'USE'),
-  ('ASST_USE_YN', 3, 'YN'),
-  ('EQPMNT_USE_YN', 1, 'EQPMNT'),
-  ('EQPMNT_USE_YN', 2, 'USE'),
-  ('EQPMNT_USE_YN', 3, 'YN'),
-  ('VHCL_USE_YN', 1, 'VHCL'),
-  ('VHCL_USE_YN', 2, 'USE'),
-  ('VHCL_USE_YN', 3, 'YN'),
-  ('EDU_USE_YN', 1, 'EDU'),
-  ('EDU_USE_YN', 2, 'USE'),
-  ('EDU_USE_YN', 3, 'YN'),
-  ('ACNT_USE_YN', 1, 'ACNT'),
-  ('ACNT_USE_YN', 2, 'USE'),
-  ('ACNT_USE_YN', 3, 'YN'),
-  ('BGT_USE_YN', 1, 'BGT'),
-  ('BGT_USE_YN', 2, 'USE'),
-  ('BGT_USE_YN', 3, 'YN'),
-  ('BACNT_USE_YN', 1, 'BACNT'),
-  ('BACNT_USE_YN', 2, 'USE'),
-  ('BACNT_USE_YN', 3, 'YN'),
-  ('CARD_USE_YN', 1, 'CARD'),
-  ('CARD_USE_YN', 2, 'USE'),
-  ('CARD_USE_YN', 3, 'YN'),
-  ('TRMS_USE_YN', 1, 'TRMS'),
-  ('TRMS_USE_YN', 2, 'USE'),
-  ('TRMS_USE_YN', 3, 'YN'),
-  ('ORDR_USE_YN', 1, 'ORDR'),
-  ('ORDR_USE_YN', 2, 'USE'),
-  ('ORDR_USE_YN', 3, 'YN'),
-  ('STLM_USE_YN', 1, 'STLM'),
-  ('STLM_USE_YN', 2, 'USE'),
-  ('STLM_USE_YN', 3, 'YN'),
-  ('DLVR_USE_YN', 1, 'DLVR'),
-  ('DLVR_USE_YN', 2, 'USE'),
-  ('DLVR_USE_YN', 3, 'YN'),
-  ('CTRT_USE_YN', 1, 'CTRT'),
-  ('CTRT_USE_YN', 2, 'USE'),
-  ('CTRT_USE_YN', 3, 'YN');
-
-INSERT INTO tmp_seed_term_word VALUES
-  ('CLM_USE_YN', 1, 'CLM'),
-  ('CLM_USE_YN', 2, 'USE'),
-  ('CLM_USE_YN', 3, 'YN'),
-  ('RCPT_USE_YN', 1, 'RCPT'),
-  ('RCPT_USE_YN', 2, 'USE'),
-  ('RCPT_USE_YN', 3, 'YN'),
-  ('TRSC_USE_YN', 1, 'TRSC'),
-  ('TRSC_USE_YN', 2, 'USE'),
-  ('TRSC_USE_YN', 3, 'YN'),
-  ('WRHSNG_USE_YN', 1, 'WRHSNG'),
-  ('WRHSNG_USE_YN', 2, 'USE'),
-  ('WRHSNG_USE_YN', 3, 'YN'),
-  ('RLS_USE_YN', 1, 'RLS'),
-  ('RLS_USE_YN', 2, 'USE'),
-  ('RLS_USE_YN', 3, 'YN'),
-  ('PRCHS_USE_YN', 1, 'PRCHS'),
-  ('PRCHS_USE_YN', 2, 'USE'),
-  ('PRCHS_USE_YN', 3, 'YN'),
-  ('SLS_USE_YN', 1, 'SLS'),
-  ('SLS_USE_YN', 2, 'USE'),
-  ('SLS_USE_YN', 3, 'YN'),
-  ('ESTMT_USE_YN', 1, 'ESTMT'),
-  ('ESTMT_USE_YN', 2, 'USE'),
-  ('ESTMT_USE_YN', 3, 'YN'),
-  ('CLCLN_USE_YN', 1, 'CLCLN'),
-  ('CLCLN_USE_YN', 2, 'USE'),
-  ('CLCLN_USE_YN', 3, 'YN'),
-  ('RTGD_USE_YN', 1, 'RTGD'),
-  ('RTGD_USE_YN', 2, 'USE'),
-  ('RTGD_USE_YN', 3, 'YN'),
-  ('RFND_USE_YN', 1, 'RFND'),
-  ('RFND_USE_YN', 2, 'USE'),
-  ('RFND_USE_YN', 3, 'YN'),
-  ('INQ_USE_YN', 1, 'INQ'),
-  ('INQ_USE_YN', 2, 'USE'),
-  ('INQ_USE_YN', 3, 'YN'),
-  ('APLY_USE_YN', 1, 'APLY'),
-  ('APLY_USE_YN', 2, 'USE'),
-  ('APLY_USE_YN', 3, 'YN'),
-  ('SLRY_USE_YN', 1, 'SLRY'),
-  ('SLRY_USE_YN', 2, 'USE'),
-  ('SLRY_USE_YN', 3, 'YN'),
-  ('VCTN_USE_YN', 1, 'VCTN'),
-  ('VCTN_USE_YN', 2, 'USE'),
-  ('VCTN_USE_YN', 3, 'YN'),
-  ('EVL_USE_YN', 1, 'EVL'),
-  ('EVL_USE_YN', 2, 'USE'),
-  ('EVL_USE_YN', 3, 'YN'),
-  ('CST_USE_YN', 1, 'CST'),
-  ('CST_USE_YN', 2, 'USE'),
-  ('CST_USE_YN', 3, 'YN'),
-  ('SLIP_USE_YN', 1, 'SLIP'),
-  ('SLIP_USE_YN', 2, 'USE'),
-  ('SLIP_USE_YN', 3, 'YN'),
-  ('INVNTRY_USE_YN', 1, 'INVNTRY'),
-  ('INVNTRY_USE_YN', 2, 'USE'),
-  ('INVNTRY_USE_YN', 3, 'YN'),
-  ('PNT_USE_YN', 1, 'PNT'),
-  ('PNT_USE_YN', 2, 'USE'),
-  ('PNT_USE_YN', 3, 'YN'),
-  ('CUST_DEL_YN', 1, 'CUST'),
-  ('CUST_DEL_YN', 2, 'DEL'),
-  ('CUST_DEL_YN', 3, 'YN'),
-  ('MBR_DEL_YN', 1, 'MBR'),
-  ('MBR_DEL_YN', 2, 'DEL'),
-  ('MBR_DEL_YN', 3, 'YN'),
-  ('USER_DEL_YN', 1, 'USER'),
-  ('USER_DEL_YN', 2, 'DEL'),
-  ('USER_DEL_YN', 3, 'YN'),
-  ('EMP_DEL_YN', 1, 'EMP'),
-  ('EMP_DEL_YN', 2, 'DEL'),
-  ('EMP_DEL_YN', 3, 'YN'),
-  ('PIC_DEL_YN', 1, 'PIC'),
-  ('PIC_DEL_YN', 2, 'DEL'),
-  ('PIC_DEL_YN', 3, 'YN'),
-  ('BCNC_DEL_YN', 1, 'BCNC'),
-  ('BCNC_DEL_YN', 2, 'DEL'),
-  ('BCNC_DEL_YN', 3, 'YN'),
-  ('SPLR_DEL_YN', 1, 'SPLR'),
-  ('SPLR_DEL_YN', 2, 'DEL'),
-  ('SPLR_DEL_YN', 3, 'YN'),
-  ('PTNR_DEL_YN', 1, 'PTNR'),
-  ('PTNR_DEL_YN', 2, 'DEL'),
-  ('PTNR_DEL_YN', 3, 'YN'),
-  ('APLCNT_DEL_YN', 1, 'APLCNT'),
-  ('APLCNT_DEL_YN', 2, 'DEL'),
-  ('APLCNT_DEL_YN', 3, 'YN'),
-  ('DEPT_DEL_YN', 1, 'DEPT'),
-  ('DEPT_DEL_YN', 2, 'DEL'),
-  ('DEPT_DEL_YN', 3, 'YN'),
-  ('ORG_DEL_YN', 1, 'ORG'),
-  ('ORG_DEL_YN', 2, 'DEL'),
-  ('ORG_DEL_YN', 3, 'YN'),
-  ('PRDT_DEL_YN', 1, 'PRDT'),
-  ('PRDT_DEL_YN', 2, 'DEL'),
-  ('PRDT_DEL_YN', 3, 'YN'),
-  ('ITEM_DEL_YN', 1, 'ITEM'),
-  ('ITEM_DEL_YN', 2, 'DEL'),
-  ('ITEM_DEL_YN', 3, 'YN'),
-  ('STOR_DEL_YN', 1, 'STOR'),
-  ('STOR_DEL_YN', 2, 'DEL'),
-  ('STOR_DEL_YN', 3, 'YN'),
-  ('WRHS_DEL_YN', 1, 'WRHS'),
-  ('WRHS_DEL_YN', 2, 'DEL'),
-  ('WRHS_DEL_YN', 3, 'YN'),
-  ('MENU_DEL_YN', 1, 'MENU'),
-  ('MENU_DEL_YN', 2, 'DEL'),
-  ('MENU_DEL_YN', 3, 'YN'),
-  ('AUTH_DEL_YN', 1, 'AUTH'),
-  ('AUTH_DEL_YN', 2, 'DEL'),
-  ('AUTH_DEL_YN', 3, 'YN'),
-  ('ROLE_DEL_YN', 1, 'ROLE'),
-  ('ROLE_DEL_YN', 2, 'DEL'),
-  ('ROLE_DEL_YN', 3, 'YN'),
-  ('PGM_DEL_YN', 1, 'PGM'),
-  ('PGM_DEL_YN', 2, 'DEL'),
-  ('PGM_DEL_YN', 3, 'YN'),
-  ('FILE_DEL_YN', 1, 'FILE'),
-  ('FILE_DEL_YN', 2, 'DEL'),
-  ('FILE_DEL_YN', 3, 'YN'),
-  ('BBS_DEL_YN', 1, 'BBS'),
-  ('BBS_DEL_YN', 2, 'DEL'),
-  ('BBS_DEL_YN', 3, 'YN'),
-  ('PST_DEL_YN', 1, 'PST'),
-  ('PST_DEL_YN', 2, 'DEL'),
-  ('PST_DEL_YN', 3, 'YN'),
-  ('NTC_DEL_YN', 1, 'NTC'),
-  ('NTC_DEL_YN', 2, 'DEL'),
-  ('NTC_DEL_YN', 3, 'YN'),
-  ('CPN_DEL_YN', 1, 'CPN'),
-  ('CPN_DEL_YN', 2, 'DEL'),
-  ('CPN_DEL_YN', 3, 'YN'),
-  ('EVT_DEL_YN', 1, 'EVT'),
-  ('EVT_DEL_YN', 2, 'DEL'),
-  ('EVT_DEL_YN', 3, 'YN'),
-  ('PRJ_DEL_YN', 1, 'PRJ'),
-  ('PRJ_DEL_YN', 2, 'DEL'),
-  ('PRJ_DEL_YN', 3, 'YN'),
-  ('TASK_DEL_YN', 1, 'TASK'),
-  ('TASK_DEL_YN', 2, 'DEL'),
-  ('TASK_DEL_YN', 3, 'YN'),
-  ('ASST_DEL_YN', 1, 'ASST'),
-  ('ASST_DEL_YN', 2, 'DEL'),
-  ('ASST_DEL_YN', 3, 'YN'),
-  ('EQPMNT_DEL_YN', 1, 'EQPMNT'),
-  ('EQPMNT_DEL_YN', 2, 'DEL'),
-  ('EQPMNT_DEL_YN', 3, 'YN'),
-  ('VHCL_DEL_YN', 1, 'VHCL'),
-  ('VHCL_DEL_YN', 2, 'DEL'),
-  ('VHCL_DEL_YN', 3, 'YN'),
-  ('EDU_DEL_YN', 1, 'EDU'),
-  ('EDU_DEL_YN', 2, 'DEL'),
-  ('EDU_DEL_YN', 3, 'YN'),
-  ('ACNT_DEL_YN', 1, 'ACNT'),
-  ('ACNT_DEL_YN', 2, 'DEL'),
-  ('ACNT_DEL_YN', 3, 'YN'),
-  ('BGT_DEL_YN', 1, 'BGT'),
-  ('BGT_DEL_YN', 2, 'DEL'),
-  ('BGT_DEL_YN', 3, 'YN'),
-  ('BACNT_DEL_YN', 1, 'BACNT'),
-  ('BACNT_DEL_YN', 2, 'DEL'),
-  ('BACNT_DEL_YN', 3, 'YN'),
-  ('CARD_DEL_YN', 1, 'CARD'),
-  ('CARD_DEL_YN', 2, 'DEL'),
-  ('CARD_DEL_YN', 3, 'YN'),
-  ('TRMS_DEL_YN', 1, 'TRMS'),
-  ('TRMS_DEL_YN', 2, 'DEL'),
-  ('TRMS_DEL_YN', 3, 'YN'),
-  ('ORDR_DEL_YN', 1, 'ORDR'),
-  ('ORDR_DEL_YN', 2, 'DEL'),
-  ('ORDR_DEL_YN', 3, 'YN'),
-  ('STLM_DEL_YN', 1, 'STLM'),
-  ('STLM_DEL_YN', 2, 'DEL'),
-  ('STLM_DEL_YN', 3, 'YN'),
-  ('DLVR_DEL_YN', 1, 'DLVR'),
-  ('DLVR_DEL_YN', 2, 'DEL'),
-  ('DLVR_DEL_YN', 3, 'YN'),
-  ('CTRT_DEL_YN', 1, 'CTRT'),
-  ('CTRT_DEL_YN', 2, 'DEL'),
-  ('CTRT_DEL_YN', 3, 'YN'),
-  ('CLM_DEL_YN', 1, 'CLM'),
-  ('CLM_DEL_YN', 2, 'DEL'),
-  ('CLM_DEL_YN', 3, 'YN'),
-  ('RCPT_DEL_YN', 1, 'RCPT'),
-  ('RCPT_DEL_YN', 2, 'DEL'),
-  ('RCPT_DEL_YN', 3, 'YN'),
-  ('TRSC_DEL_YN', 1, 'TRSC'),
-  ('TRSC_DEL_YN', 2, 'DEL'),
-  ('TRSC_DEL_YN', 3, 'YN'),
-  ('WRHSNG_DEL_YN', 1, 'WRHSNG'),
-  ('WRHSNG_DEL_YN', 2, 'DEL'),
-  ('WRHSNG_DEL_YN', 3, 'YN'),
-  ('RLS_DEL_YN', 1, 'RLS'),
-  ('RLS_DEL_YN', 2, 'DEL'),
-  ('RLS_DEL_YN', 3, 'YN'),
-  ('PRCHS_DEL_YN', 1, 'PRCHS'),
-  ('PRCHS_DEL_YN', 2, 'DEL'),
-  ('PRCHS_DEL_YN', 3, 'YN'),
-  ('SLS_DEL_YN', 1, 'SLS'),
-  ('SLS_DEL_YN', 2, 'DEL'),
-  ('SLS_DEL_YN', 3, 'YN'),
-  ('ESTMT_DEL_YN', 1, 'ESTMT'),
-  ('ESTMT_DEL_YN', 2, 'DEL'),
-  ('ESTMT_DEL_YN', 3, 'YN'),
-  ('CLCLN_DEL_YN', 1, 'CLCLN'),
-  ('CLCLN_DEL_YN', 2, 'DEL'),
-  ('CLCLN_DEL_YN', 3, 'YN'),
-  ('RTGD_DEL_YN', 1, 'RTGD'),
-  ('RTGD_DEL_YN', 2, 'DEL'),
-  ('RTGD_DEL_YN', 3, 'YN'),
-  ('RFND_DEL_YN', 1, 'RFND'),
-  ('RFND_DEL_YN', 2, 'DEL'),
-  ('RFND_DEL_YN', 3, 'YN'),
-  ('INQ_DEL_YN', 1, 'INQ'),
-  ('INQ_DEL_YN', 2, 'DEL'),
-  ('INQ_DEL_YN', 3, 'YN'),
-  ('APLY_DEL_YN', 1, 'APLY'),
-  ('APLY_DEL_YN', 2, 'DEL'),
-  ('APLY_DEL_YN', 3, 'YN'),
-  ('SLRY_DEL_YN', 1, 'SLRY'),
-  ('SLRY_DEL_YN', 2, 'DEL'),
-  ('SLRY_DEL_YN', 3, 'YN'),
-  ('VCTN_DEL_YN', 1, 'VCTN'),
-  ('VCTN_DEL_YN', 2, 'DEL'),
-  ('VCTN_DEL_YN', 3, 'YN'),
-  ('EVL_DEL_YN', 1, 'EVL'),
-  ('EVL_DEL_YN', 2, 'DEL'),
-  ('EVL_DEL_YN', 3, 'YN'),
-  ('CST_DEL_YN', 1, 'CST'),
-  ('CST_DEL_YN', 2, 'DEL'),
-  ('CST_DEL_YN', 3, 'YN'),
-  ('SLIP_DEL_YN', 1, 'SLIP'),
-  ('SLIP_DEL_YN', 2, 'DEL'),
-  ('SLIP_DEL_YN', 3, 'YN'),
-  ('INVNTRY_DEL_YN', 1, 'INVNTRY'),
-  ('INVNTRY_DEL_YN', 2, 'DEL'),
-  ('INVNTRY_DEL_YN', 3, 'YN'),
-  ('PNT_DEL_YN', 1, 'PNT'),
-  ('PNT_DEL_YN', 2, 'DEL'),
-  ('PNT_DEL_YN', 3, 'YN'),
-  ('CUST_SN', 1, 'CUST'),
-  ('CUST_SN', 2, 'SN'),
-  ('MBR_SN', 1, 'MBR'),
-  ('MBR_SN', 2, 'SN'),
-  ('USER_SN', 1, 'USER'),
-  ('USER_SN', 2, 'SN'),
-  ('EMP_SN', 1, 'EMP'),
-  ('EMP_SN', 2, 'SN'),
-  ('PIC_SN', 1, 'PIC'),
-  ('PIC_SN', 2, 'SN'),
-  ('BCNC_SN', 1, 'BCNC'),
-  ('BCNC_SN', 2, 'SN'),
-  ('SPLR_SN', 1, 'SPLR'),
-  ('SPLR_SN', 2, 'SN'),
-  ('PTNR_SN', 1, 'PTNR'),
-  ('PTNR_SN', 2, 'SN'),
-  ('APLCNT_SN', 1, 'APLCNT'),
-  ('APLCNT_SN', 2, 'SN'),
-  ('DEPT_SN', 1, 'DEPT'),
-  ('DEPT_SN', 2, 'SN'),
-  ('ORG_SN', 1, 'ORG'),
-  ('ORG_SN', 2, 'SN'),
-  ('PRDT_SN', 1, 'PRDT'),
-  ('PRDT_SN', 2, 'SN'),
-  ('ITEM_SN', 1, 'ITEM'),
-  ('ITEM_SN', 2, 'SN'),
-  ('STOR_SN', 1, 'STOR'),
-  ('STOR_SN', 2, 'SN'),
-  ('WRHS_SN', 1, 'WRHS'),
-  ('WRHS_SN', 2, 'SN'),
-  ('MENU_SN', 1, 'MENU'),
-  ('MENU_SN', 2, 'SN'),
-  ('AUTH_SN', 1, 'AUTH'),
-  ('AUTH_SN', 2, 'SN'),
-  ('ROLE_SN', 1, 'ROLE'),
-  ('ROLE_SN', 2, 'SN'),
-  ('PGM_SN', 1, 'PGM'),
-  ('PGM_SN', 2, 'SN'),
-  ('FILE_SN', 1, 'FILE'),
-  ('FILE_SN', 2, 'SN'),
-  ('BBS_SN', 1, 'BBS'),
-  ('BBS_SN', 2, 'SN'),
-  ('PST_SN', 1, 'PST'),
-  ('PST_SN', 2, 'SN'),
-  ('NTC_SN', 1, 'NTC'),
-  ('NTC_SN', 2, 'SN'),
-  ('CPN_SN', 1, 'CPN'),
-  ('CPN_SN', 2, 'SN'),
-  ('EVT_SN', 1, 'EVT'),
-  ('EVT_SN', 2, 'SN'),
-  ('PRJ_SN', 1, 'PRJ'),
-  ('PRJ_SN', 2, 'SN'),
-  ('TASK_SN', 1, 'TASK'),
-  ('TASK_SN', 2, 'SN'),
-  ('ASST_SN', 1, 'ASST'),
-  ('ASST_SN', 2, 'SN'),
-  ('EQPMNT_SN', 1, 'EQPMNT'),
-  ('EQPMNT_SN', 2, 'SN'),
-  ('VHCL_SN', 1, 'VHCL'),
-  ('VHCL_SN', 2, 'SN'),
-  ('EDU_SN', 1, 'EDU'),
-  ('EDU_SN', 2, 'SN'),
-  ('ACNT_SN', 1, 'ACNT'),
-  ('ACNT_SN', 2, 'SN'),
-  ('BGT_SN', 1, 'BGT'),
-  ('BGT_SN', 2, 'SN'),
-  ('BACNT_SN', 1, 'BACNT'),
-  ('BACNT_SN', 2, 'SN'),
-  ('CARD_SN', 1, 'CARD'),
-  ('CARD_SN', 2, 'SN'),
-  ('TRMS_SN', 1, 'TRMS'),
-  ('TRMS_SN', 2, 'SN'),
-  ('ORDR_SN', 1, 'ORDR'),
-  ('ORDR_SN', 2, 'SN'),
-  ('STLM_SN', 1, 'STLM'),
-  ('STLM_SN', 2, 'SN'),
-  ('DLVR_SN', 1, 'DLVR'),
-  ('DLVR_SN', 2, 'SN'),
-  ('CTRT_SN', 1, 'CTRT'),
-  ('CTRT_SN', 2, 'SN'),
-  ('CLM_SN', 1, 'CLM'),
-  ('CLM_SN', 2, 'SN'),
-  ('RCPT_SN', 1, 'RCPT'),
-  ('RCPT_SN', 2, 'SN'),
-  ('TRSC_SN', 1, 'TRSC'),
-  ('TRSC_SN', 2, 'SN'),
-  ('WRHSNG_SN', 1, 'WRHSNG'),
-  ('WRHSNG_SN', 2, 'SN'),
-  ('RLS_SN', 1, 'RLS'),
-  ('RLS_SN', 2, 'SN'),
-  ('PRCHS_SN', 1, 'PRCHS'),
-  ('PRCHS_SN', 2, 'SN'),
-  ('SLS_SN', 1, 'SLS'),
-  ('SLS_SN', 2, 'SN'),
-  ('ESTMT_SN', 1, 'ESTMT'),
-  ('ESTMT_SN', 2, 'SN'),
-  ('CLCLN_SN', 1, 'CLCLN'),
-  ('CLCLN_SN', 2, 'SN'),
-  ('RTGD_SN', 1, 'RTGD'),
-  ('RTGD_SN', 2, 'SN'),
-  ('RFND_SN', 1, 'RFND'),
-  ('RFND_SN', 2, 'SN'),
-  ('INQ_SN', 1, 'INQ'),
-  ('INQ_SN', 2, 'SN'),
-  ('APLY_SN', 1, 'APLY'),
-  ('APLY_SN', 2, 'SN'),
-  ('SLRY_SN', 1, 'SLRY'),
-  ('SLRY_SN', 2, 'SN'),
-  ('VCTN_SN', 1, 'VCTN'),
-  ('VCTN_SN', 2, 'SN'),
-  ('EVL_SN', 1, 'EVL'),
-  ('EVL_SN', 2, 'SN'),
-  ('CST_SN', 1, 'CST'),
-  ('CST_SN', 2, 'SN'),
-  ('SLIP_SN', 1, 'SLIP'),
-  ('SLIP_SN', 2, 'SN'),
-  ('INVNTRY_SN', 1, 'INVNTRY'),
-  ('INVNTRY_SN', 2, 'SN'),
-  ('PNT_SN', 1, 'PNT'),
-  ('PNT_SN', 2, 'SN'),
-  ('CUST_ID', 1, 'CUST'),
-  ('CUST_ID', 2, 'ID'),
-  ('MBR_ID', 1, 'MBR'),
-  ('MBR_ID', 2, 'ID'),
-  ('USER_ID', 1, 'USER'),
-  ('USER_ID', 2, 'ID'),
-  ('EMP_ID', 1, 'EMP'),
-  ('EMP_ID', 2, 'ID'),
-  ('PIC_ID', 1, 'PIC'),
-  ('PIC_ID', 2, 'ID'),
-  ('BCNC_ID', 1, 'BCNC'),
-  ('BCNC_ID', 2, 'ID'),
-  ('SPLR_ID', 1, 'SPLR'),
-  ('SPLR_ID', 2, 'ID'),
-  ('PTNR_ID', 1, 'PTNR'),
-  ('PTNR_ID', 2, 'ID'),
-  ('APLCNT_ID', 1, 'APLCNT'),
-  ('APLCNT_ID', 2, 'ID'),
-  ('DEPT_BGNG_YMD', 1, 'DEPT'),
-  ('DEPT_BGNG_YMD', 2, 'BGNG'),
-  ('DEPT_BGNG_YMD', 3, 'YMD'),
-  ('ORG_BGNG_YMD', 1, 'ORG'),
-  ('ORG_BGNG_YMD', 2, 'BGNG'),
-  ('ORG_BGNG_YMD', 3, 'YMD'),
-  ('PRDT_BGNG_YMD', 1, 'PRDT'),
-  ('PRDT_BGNG_YMD', 2, 'BGNG'),
-  ('PRDT_BGNG_YMD', 3, 'YMD'),
-  ('ITEM_BGNG_YMD', 1, 'ITEM'),
-  ('ITEM_BGNG_YMD', 2, 'BGNG'),
-  ('ITEM_BGNG_YMD', 3, 'YMD'),
-  ('STOR_BGNG_YMD', 1, 'STOR'),
-  ('STOR_BGNG_YMD', 2, 'BGNG'),
-  ('STOR_BGNG_YMD', 3, 'YMD'),
-  ('WRHS_BGNG_YMD', 1, 'WRHS'),
-  ('WRHS_BGNG_YMD', 2, 'BGNG'),
-  ('WRHS_BGNG_YMD', 3, 'YMD'),
-  ('MENU_BGNG_YMD', 1, 'MENU'),
-  ('MENU_BGNG_YMD', 2, 'BGNG'),
-  ('MENU_BGNG_YMD', 3, 'YMD'),
-  ('AUTH_BGNG_YMD', 1, 'AUTH'),
-  ('AUTH_BGNG_YMD', 2, 'BGNG'),
-  ('AUTH_BGNG_YMD', 3, 'YMD'),
-  ('ROLE_BGNG_YMD', 1, 'ROLE'),
-  ('ROLE_BGNG_YMD', 2, 'BGNG'),
-  ('ROLE_BGNG_YMD', 3, 'YMD'),
-  ('PGM_BGNG_YMD', 1, 'PGM'),
-  ('PGM_BGNG_YMD', 2, 'BGNG'),
-  ('PGM_BGNG_YMD', 3, 'YMD'),
-  ('FILE_BGNG_YMD', 1, 'FILE'),
-  ('FILE_BGNG_YMD', 2, 'BGNG'),
-  ('FILE_BGNG_YMD', 3, 'YMD'),
-  ('BBS_BGNG_YMD', 1, 'BBS'),
-  ('BBS_BGNG_YMD', 2, 'BGNG'),
-  ('BBS_BGNG_YMD', 3, 'YMD'),
-  ('PST_BGNG_YMD', 1, 'PST'),
-  ('PST_BGNG_YMD', 2, 'BGNG'),
-  ('PST_BGNG_YMD', 3, 'YMD'),
-  ('NTC_BGNG_YMD', 1, 'NTC'),
-  ('NTC_BGNG_YMD', 2, 'BGNG'),
-  ('NTC_BGNG_YMD', 3, 'YMD'),
-  ('CPN_BGNG_YMD', 1, 'CPN'),
-  ('CPN_BGNG_YMD', 2, 'BGNG'),
-  ('CPN_BGNG_YMD', 3, 'YMD'),
-  ('EVT_BGNG_YMD', 1, 'EVT'),
-  ('EVT_BGNG_YMD', 2, 'BGNG'),
-  ('EVT_BGNG_YMD', 3, 'YMD'),
-  ('PRJ_BGNG_YMD', 1, 'PRJ'),
-  ('PRJ_BGNG_YMD', 2, 'BGNG'),
-  ('PRJ_BGNG_YMD', 3, 'YMD'),
-  ('TASK_BGNG_YMD', 1, 'TASK'),
-  ('TASK_BGNG_YMD', 2, 'BGNG'),
-  ('TASK_BGNG_YMD', 3, 'YMD'),
-  ('ASST_BGNG_YMD', 1, 'ASST'),
-  ('ASST_BGNG_YMD', 2, 'BGNG'),
-  ('ASST_BGNG_YMD', 3, 'YMD'),
-  ('EQPMNT_BGNG_YMD', 1, 'EQPMNT'),
-  ('EQPMNT_BGNG_YMD', 2, 'BGNG'),
-  ('EQPMNT_BGNG_YMD', 3, 'YMD'),
-  ('VHCL_BGNG_YMD', 1, 'VHCL'),
-  ('VHCL_BGNG_YMD', 2, 'BGNG'),
-  ('VHCL_BGNG_YMD', 3, 'YMD'),
-  ('EDU_BGNG_YMD', 1, 'EDU'),
-  ('EDU_BGNG_YMD', 2, 'BGNG'),
-  ('EDU_BGNG_YMD', 3, 'YMD'),
-  ('ACNT_BGNG_YMD', 1, 'ACNT'),
-  ('ACNT_BGNG_YMD', 2, 'BGNG'),
-  ('ACNT_BGNG_YMD', 3, 'YMD'),
-  ('BGT_BGNG_YMD', 1, 'BGT'),
-  ('BGT_BGNG_YMD', 2, 'BGNG'),
-  ('BGT_BGNG_YMD', 3, 'YMD'),
-  ('BACNT_BGNG_YMD', 1, 'BACNT'),
-  ('BACNT_BGNG_YMD', 2, 'BGNG'),
-  ('BACNT_BGNG_YMD', 3, 'YMD'),
-  ('CARD_BGNG_YMD', 1, 'CARD'),
-  ('CARD_BGNG_YMD', 2, 'BGNG'),
-  ('CARD_BGNG_YMD', 3, 'YMD'),
-  ('TRMS_BGNG_YMD', 1, 'TRMS'),
-  ('TRMS_BGNG_YMD', 2, 'BGNG'),
-  ('TRMS_BGNG_YMD', 3, 'YMD'),
-  ('ORDR_YMD', 1, 'ORDR'),
-  ('ORDR_YMD', 2, 'YMD'),
-  ('STLM_YMD', 1, 'STLM'),
-  ('STLM_YMD', 2, 'YMD'),
-  ('DLVR_YMD', 1, 'DLVR'),
-  ('DLVR_YMD', 2, 'YMD'),
-  ('CTRT_YMD', 1, 'CTRT'),
-  ('CTRT_YMD', 2, 'YMD'),
-  ('CLM_YMD', 1, 'CLM'),
-  ('CLM_YMD', 2, 'YMD'),
-  ('RCPT_YMD', 1, 'RCPT'),
-  ('RCPT_YMD', 2, 'YMD'),
-  ('TRSC_YMD', 1, 'TRSC'),
-  ('TRSC_YMD', 2, 'YMD'),
-  ('WRHSNG_YMD', 1, 'WRHSNG'),
-  ('WRHSNG_YMD', 2, 'YMD'),
-  ('RLS_YMD', 1, 'RLS'),
-  ('RLS_YMD', 2, 'YMD'),
-  ('PRCHS_YMD', 1, 'PRCHS'),
-  ('PRCHS_YMD', 2, 'YMD'),
-  ('SLS_YMD', 1, 'SLS'),
-  ('SLS_YMD', 2, 'YMD'),
-  ('ESTMT_YMD', 1, 'ESTMT'),
-  ('ESTMT_YMD', 2, 'YMD'),
-  ('CLCLN_YMD', 1, 'CLCLN'),
-  ('CLCLN_YMD', 2, 'YMD'),
-  ('RTGD_YMD', 1, 'RTGD'),
-  ('RTGD_YMD', 2, 'YMD'),
-  ('RFND_YMD', 1, 'RFND'),
-  ('RFND_YMD', 2, 'YMD'),
-  ('INQ_YMD', 1, 'INQ'),
-  ('INQ_YMD', 2, 'YMD'),
-  ('APLY_YMD', 1, 'APLY'),
-  ('APLY_YMD', 2, 'YMD'),
-  ('SLRY_YMD', 1, 'SLRY'),
-  ('SLRY_YMD', 2, 'YMD'),
-  ('VCTN_YMD', 1, 'VCTN'),
-  ('VCTN_YMD', 2, 'YMD'),
-  ('EVL_YMD', 1, 'EVL'),
-  ('EVL_YMD', 2, 'YMD'),
-  ('CST_YMD', 1, 'CST');
-
-INSERT INTO tmp_seed_term_word VALUES
-  ('CST_YMD', 2, 'YMD'),
-  ('SLIP_YMD', 1, 'SLIP'),
-  ('SLIP_YMD', 2, 'YMD'),
-  ('INVNTRY_YMD', 1, 'INVNTRY'),
-  ('INVNTRY_YMD', 2, 'YMD'),
-  ('PNT_YMD', 1, 'PNT'),
-  ('PNT_YMD', 2, 'YMD'),
-  ('CUST_TELNO', 1, 'CUST'),
-  ('CUST_TELNO', 2, 'TELNO'),
-  ('MBR_TELNO', 1, 'MBR'),
-  ('MBR_TELNO', 2, 'TELNO'),
-  ('USER_TELNO', 1, 'USER'),
-  ('USER_TELNO', 2, 'TELNO'),
-  ('EMP_TELNO', 1, 'EMP'),
-  ('EMP_TELNO', 2, 'TELNO'),
-  ('PIC_TELNO', 1, 'PIC'),
-  ('PIC_TELNO', 2, 'TELNO'),
-  ('BCNC_TELNO', 1, 'BCNC'),
-  ('BCNC_TELNO', 2, 'TELNO'),
-  ('SPLR_TELNO', 1, 'SPLR'),
-  ('SPLR_TELNO', 2, 'TELNO'),
-  ('PTNR_TELNO', 1, 'PTNR'),
-  ('PTNR_TELNO', 2, 'TELNO'),
-  ('APLCNT_TELNO', 1, 'APLCNT'),
-  ('APLCNT_TELNO', 2, 'TELNO'),
-  ('DEPT_END_YMD', 1, 'DEPT'),
-  ('DEPT_END_YMD', 2, 'END'),
-  ('DEPT_END_YMD', 3, 'YMD'),
-  ('ORG_END_YMD', 1, 'ORG'),
-  ('ORG_END_YMD', 2, 'END'),
-  ('ORG_END_YMD', 3, 'YMD'),
-  ('PRDT_END_YMD', 1, 'PRDT'),
-  ('PRDT_END_YMD', 2, 'END'),
-  ('PRDT_END_YMD', 3, 'YMD'),
-  ('ITEM_END_YMD', 1, 'ITEM'),
-  ('ITEM_END_YMD', 2, 'END'),
-  ('ITEM_END_YMD', 3, 'YMD'),
-  ('STOR_END_YMD', 1, 'STOR'),
-  ('STOR_END_YMD', 2, 'END'),
-  ('STOR_END_YMD', 3, 'YMD'),
-  ('WRHS_END_YMD', 1, 'WRHS'),
-  ('WRHS_END_YMD', 2, 'END'),
-  ('WRHS_END_YMD', 3, 'YMD'),
-  ('MENU_END_YMD', 1, 'MENU'),
-  ('MENU_END_YMD', 2, 'END'),
-  ('MENU_END_YMD', 3, 'YMD'),
-  ('AUTH_END_YMD', 1, 'AUTH'),
-  ('AUTH_END_YMD', 2, 'END'),
-  ('AUTH_END_YMD', 3, 'YMD'),
-  ('ROLE_END_YMD', 1, 'ROLE'),
-  ('ROLE_END_YMD', 2, 'END'),
-  ('ROLE_END_YMD', 3, 'YMD'),
-  ('PGM_END_YMD', 1, 'PGM'),
-  ('PGM_END_YMD', 2, 'END'),
-  ('PGM_END_YMD', 3, 'YMD'),
-  ('FILE_END_YMD', 1, 'FILE'),
-  ('FILE_END_YMD', 2, 'END'),
-  ('FILE_END_YMD', 3, 'YMD'),
-  ('BBS_END_YMD', 1, 'BBS'),
-  ('BBS_END_YMD', 2, 'END'),
-  ('BBS_END_YMD', 3, 'YMD'),
-  ('PST_END_YMD', 1, 'PST'),
-  ('PST_END_YMD', 2, 'END'),
-  ('PST_END_YMD', 3, 'YMD'),
-  ('NTC_END_YMD', 1, 'NTC'),
-  ('NTC_END_YMD', 2, 'END'),
-  ('NTC_END_YMD', 3, 'YMD'),
-  ('CPN_END_YMD', 1, 'CPN'),
-  ('CPN_END_YMD', 2, 'END'),
-  ('CPN_END_YMD', 3, 'YMD'),
-  ('EVT_END_YMD', 1, 'EVT'),
-  ('EVT_END_YMD', 2, 'END'),
-  ('EVT_END_YMD', 3, 'YMD'),
-  ('PRJ_END_YMD', 1, 'PRJ'),
-  ('PRJ_END_YMD', 2, 'END'),
-  ('PRJ_END_YMD', 3, 'YMD'),
-  ('TASK_END_YMD', 1, 'TASK'),
-  ('TASK_END_YMD', 2, 'END'),
-  ('TASK_END_YMD', 3, 'YMD'),
-  ('ASST_END_YMD', 1, 'ASST'),
-  ('ASST_END_YMD', 2, 'END'),
-  ('ASST_END_YMD', 3, 'YMD'),
-  ('EQPMNT_END_YMD', 1, 'EQPMNT'),
-  ('EQPMNT_END_YMD', 2, 'END'),
-  ('EQPMNT_END_YMD', 3, 'YMD'),
-  ('VHCL_END_YMD', 1, 'VHCL'),
-  ('VHCL_END_YMD', 2, 'END'),
-  ('VHCL_END_YMD', 3, 'YMD'),
-  ('EDU_END_YMD', 1, 'EDU'),
-  ('EDU_END_YMD', 2, 'END'),
-  ('EDU_END_YMD', 3, 'YMD'),
-  ('ACNT_END_YMD', 1, 'ACNT'),
-  ('ACNT_END_YMD', 2, 'END'),
-  ('ACNT_END_YMD', 3, 'YMD'),
-  ('BGT_END_YMD', 1, 'BGT'),
-  ('BGT_END_YMD', 2, 'END'),
-  ('BGT_END_YMD', 3, 'YMD'),
-  ('BACNT_END_YMD', 1, 'BACNT'),
-  ('BACNT_END_YMD', 2, 'END'),
-  ('BACNT_END_YMD', 3, 'YMD'),
-  ('CARD_END_YMD', 1, 'CARD'),
-  ('CARD_END_YMD', 2, 'END'),
-  ('CARD_END_YMD', 3, 'YMD'),
-  ('TRMS_END_YMD', 1, 'TRMS'),
-  ('TRMS_END_YMD', 2, 'END'),
-  ('TRMS_END_YMD', 3, 'YMD'),
-  ('ORDR_DT', 1, 'ORDR'),
-  ('ORDR_DT', 2, 'DT'),
-  ('STLM_DT', 1, 'STLM'),
-  ('STLM_DT', 2, 'DT'),
-  ('DLVR_DT', 1, 'DLVR'),
-  ('DLVR_DT', 2, 'DT'),
-  ('CTRT_DT', 1, 'CTRT'),
-  ('CTRT_DT', 2, 'DT'),
-  ('CLM_DT', 1, 'CLM'),
-  ('CLM_DT', 2, 'DT'),
-  ('RCPT_DT', 1, 'RCPT'),
-  ('RCPT_DT', 2, 'DT'),
-  ('TRSC_DT', 1, 'TRSC'),
-  ('TRSC_DT', 2, 'DT'),
-  ('WRHSNG_DT', 1, 'WRHSNG'),
-  ('WRHSNG_DT', 2, 'DT'),
-  ('RLS_DT', 1, 'RLS'),
-  ('RLS_DT', 2, 'DT'),
-  ('PRCHS_DT', 1, 'PRCHS'),
-  ('PRCHS_DT', 2, 'DT'),
-  ('SLS_DT', 1, 'SLS'),
-  ('SLS_DT', 2, 'DT'),
-  ('ESTMT_DT', 1, 'ESTMT'),
-  ('ESTMT_DT', 2, 'DT'),
-  ('CLCLN_DT', 1, 'CLCLN'),
-  ('CLCLN_DT', 2, 'DT'),
-  ('RTGD_DT', 1, 'RTGD'),
-  ('RTGD_DT', 2, 'DT'),
-  ('RFND_DT', 1, 'RFND'),
-  ('RFND_DT', 2, 'DT'),
-  ('INQ_DT', 1, 'INQ'),
-  ('INQ_DT', 2, 'DT'),
-  ('APLY_DT', 1, 'APLY'),
-  ('APLY_DT', 2, 'DT'),
-  ('SLRY_DT', 1, 'SLRY'),
-  ('SLRY_DT', 2, 'DT'),
-  ('VCTN_DT', 1, 'VCTN'),
-  ('VCTN_DT', 2, 'DT'),
-  ('EVL_DT', 1, 'EVL'),
-  ('EVL_DT', 2, 'DT'),
-  ('CST_DT', 1, 'CST'),
-  ('CST_DT', 2, 'DT'),
-  ('SLIP_DT', 1, 'SLIP'),
-  ('SLIP_DT', 2, 'DT'),
-  ('INVNTRY_DT', 1, 'INVNTRY'),
-  ('INVNTRY_DT', 2, 'DT'),
-  ('PNT_DT', 1, 'PNT'),
-  ('PNT_DT', 2, 'DT'),
-  ('CUST_MBL_TELNO', 1, 'CUST'),
-  ('CUST_MBL_TELNO', 2, 'MBL'),
-  ('CUST_MBL_TELNO', 3, 'TELNO'),
-  ('MBR_MBL_TELNO', 1, 'MBR'),
-  ('MBR_MBL_TELNO', 2, 'MBL'),
-  ('MBR_MBL_TELNO', 3, 'TELNO'),
-  ('USER_MBL_TELNO', 1, 'USER'),
-  ('USER_MBL_TELNO', 2, 'MBL'),
-  ('USER_MBL_TELNO', 3, 'TELNO'),
-  ('EMP_MBL_TELNO', 1, 'EMP'),
-  ('EMP_MBL_TELNO', 2, 'MBL'),
-  ('EMP_MBL_TELNO', 3, 'TELNO'),
-  ('PIC_MBL_TELNO', 1, 'PIC'),
-  ('PIC_MBL_TELNO', 2, 'MBL'),
-  ('PIC_MBL_TELNO', 3, 'TELNO'),
-  ('BCNC_MBL_TELNO', 1, 'BCNC'),
-  ('BCNC_MBL_TELNO', 2, 'MBL'),
-  ('BCNC_MBL_TELNO', 3, 'TELNO'),
-  ('SPLR_MBL_TELNO', 1, 'SPLR'),
-  ('SPLR_MBL_TELNO', 2, 'MBL'),
-  ('SPLR_MBL_TELNO', 3, 'TELNO'),
-  ('PTNR_MBL_TELNO', 1, 'PTNR'),
-  ('PTNR_MBL_TELNO', 2, 'MBL'),
-  ('PTNR_MBL_TELNO', 3, 'TELNO'),
-  ('APLCNT_MBL_TELNO', 1, 'APLCNT'),
-  ('APLCNT_MBL_TELNO', 2, 'MBL'),
-  ('APLCNT_MBL_TELNO', 3, 'TELNO'),
-  ('DEPT_EXPRY_YMD', 1, 'DEPT'),
-  ('DEPT_EXPRY_YMD', 2, 'EXPRY'),
-  ('DEPT_EXPRY_YMD', 3, 'YMD'),
-  ('ORG_EXPRY_YMD', 1, 'ORG'),
-  ('ORG_EXPRY_YMD', 2, 'EXPRY'),
-  ('ORG_EXPRY_YMD', 3, 'YMD'),
-  ('PRDT_EXPRY_YMD', 1, 'PRDT'),
-  ('PRDT_EXPRY_YMD', 2, 'EXPRY'),
-  ('PRDT_EXPRY_YMD', 3, 'YMD'),
-  ('ITEM_EXPRY_YMD', 1, 'ITEM'),
-  ('ITEM_EXPRY_YMD', 2, 'EXPRY'),
-  ('ITEM_EXPRY_YMD', 3, 'YMD'),
-  ('STOR_EXPRY_YMD', 1, 'STOR'),
-  ('STOR_EXPRY_YMD', 2, 'EXPRY'),
-  ('STOR_EXPRY_YMD', 3, 'YMD'),
-  ('WRHS_EXPRY_YMD', 1, 'WRHS'),
-  ('WRHS_EXPRY_YMD', 2, 'EXPRY'),
-  ('WRHS_EXPRY_YMD', 3, 'YMD'),
-  ('MENU_EXPRY_YMD', 1, 'MENU'),
-  ('MENU_EXPRY_YMD', 2, 'EXPRY'),
-  ('MENU_EXPRY_YMD', 3, 'YMD'),
-  ('AUTH_EXPRY_YMD', 1, 'AUTH'),
-  ('AUTH_EXPRY_YMD', 2, 'EXPRY'),
-  ('AUTH_EXPRY_YMD', 3, 'YMD'),
-  ('ROLE_EXPRY_YMD', 1, 'ROLE'),
-  ('ROLE_EXPRY_YMD', 2, 'EXPRY'),
-  ('ROLE_EXPRY_YMD', 3, 'YMD'),
-  ('PGM_EXPRY_YMD', 1, 'PGM'),
-  ('PGM_EXPRY_YMD', 2, 'EXPRY'),
-  ('PGM_EXPRY_YMD', 3, 'YMD'),
-  ('FILE_EXPRY_YMD', 1, 'FILE'),
-  ('FILE_EXPRY_YMD', 2, 'EXPRY'),
-  ('FILE_EXPRY_YMD', 3, 'YMD'),
-  ('BBS_EXPRY_YMD', 1, 'BBS'),
-  ('BBS_EXPRY_YMD', 2, 'EXPRY'),
-  ('BBS_EXPRY_YMD', 3, 'YMD'),
-  ('PST_EXPRY_YMD', 1, 'PST'),
-  ('PST_EXPRY_YMD', 2, 'EXPRY'),
-  ('PST_EXPRY_YMD', 3, 'YMD'),
-  ('NTC_EXPRY_YMD', 1, 'NTC'),
-  ('NTC_EXPRY_YMD', 2, 'EXPRY'),
-  ('NTC_EXPRY_YMD', 3, 'YMD'),
-  ('CPN_EXPRY_YMD', 1, 'CPN'),
-  ('CPN_EXPRY_YMD', 2, 'EXPRY'),
-  ('CPN_EXPRY_YMD', 3, 'YMD'),
-  ('EVT_EXPRY_YMD', 1, 'EVT'),
-  ('EVT_EXPRY_YMD', 2, 'EXPRY'),
-  ('EVT_EXPRY_YMD', 3, 'YMD'),
-  ('PRJ_EXPRY_YMD', 1, 'PRJ'),
-  ('PRJ_EXPRY_YMD', 2, 'EXPRY'),
-  ('PRJ_EXPRY_YMD', 3, 'YMD'),
-  ('TASK_EXPRY_YMD', 1, 'TASK'),
-  ('TASK_EXPRY_YMD', 2, 'EXPRY'),
-  ('TASK_EXPRY_YMD', 3, 'YMD'),
-  ('ASST_EXPRY_YMD', 1, 'ASST'),
-  ('ASST_EXPRY_YMD', 2, 'EXPRY'),
-  ('ASST_EXPRY_YMD', 3, 'YMD'),
-  ('EQPMNT_EXPRY_YMD', 1, 'EQPMNT'),
-  ('EQPMNT_EXPRY_YMD', 2, 'EXPRY'),
-  ('EQPMNT_EXPRY_YMD', 3, 'YMD'),
-  ('VHCL_EXPRY_YMD', 1, 'VHCL'),
-  ('VHCL_EXPRY_YMD', 2, 'EXPRY'),
-  ('VHCL_EXPRY_YMD', 3, 'YMD'),
-  ('EDU_EXPRY_YMD', 1, 'EDU'),
-  ('EDU_EXPRY_YMD', 2, 'EXPRY'),
-  ('EDU_EXPRY_YMD', 3, 'YMD'),
-  ('ACNT_EXPRY_YMD', 1, 'ACNT'),
-  ('ACNT_EXPRY_YMD', 2, 'EXPRY'),
-  ('ACNT_EXPRY_YMD', 3, 'YMD'),
-  ('BGT_EXPRY_YMD', 1, 'BGT'),
-  ('BGT_EXPRY_YMD', 2, 'EXPRY'),
-  ('BGT_EXPRY_YMD', 3, 'YMD'),
-  ('BACNT_EXPRY_YMD', 1, 'BACNT'),
-  ('BACNT_EXPRY_YMD', 2, 'EXPRY'),
-  ('BACNT_EXPRY_YMD', 3, 'YMD'),
-  ('CARD_EXPRY_YMD', 1, 'CARD'),
-  ('CARD_EXPRY_YMD', 2, 'EXPRY'),
-  ('CARD_EXPRY_YMD', 3, 'YMD'),
-  ('TRMS_EXPRY_YMD', 1, 'TRMS'),
-  ('TRMS_EXPRY_YMD', 2, 'EXPRY'),
-  ('TRMS_EXPRY_YMD', 3, 'YMD'),
-  ('ORDR_AMT', 1, 'ORDR'),
-  ('ORDR_AMT', 2, 'AMT'),
-  ('STLM_AMT', 1, 'STLM'),
-  ('STLM_AMT', 2, 'AMT'),
-  ('DLVR_AMT', 1, 'DLVR'),
-  ('DLVR_AMT', 2, 'AMT'),
-  ('CTRT_AMT', 1, 'CTRT'),
-  ('CTRT_AMT', 2, 'AMT'),
-  ('CLM_AMT', 1, 'CLM'),
-  ('CLM_AMT', 2, 'AMT'),
-  ('RCPT_AMT', 1, 'RCPT'),
-  ('RCPT_AMT', 2, 'AMT'),
-  ('TRSC_AMT', 1, 'TRSC'),
-  ('TRSC_AMT', 2, 'AMT'),
-  ('WRHSNG_AMT', 1, 'WRHSNG'),
-  ('WRHSNG_AMT', 2, 'AMT'),
-  ('RLS_AMT', 1, 'RLS'),
-  ('RLS_AMT', 2, 'AMT'),
-  ('PRCHS_AMT', 1, 'PRCHS'),
-  ('PRCHS_AMT', 2, 'AMT'),
-  ('SLS_AMT', 1, 'SLS'),
-  ('SLS_AMT', 2, 'AMT'),
-  ('ESTMT_AMT', 1, 'ESTMT'),
-  ('ESTMT_AMT', 2, 'AMT'),
-  ('CLCLN_AMT', 1, 'CLCLN'),
-  ('CLCLN_AMT', 2, 'AMT'),
-  ('RTGD_AMT', 1, 'RTGD'),
-  ('RTGD_AMT', 2, 'AMT'),
-  ('RFND_AMT', 1, 'RFND'),
-  ('RFND_AMT', 2, 'AMT'),
-  ('INQ_AMT', 1, 'INQ'),
-  ('INQ_AMT', 2, 'AMT'),
-  ('APLY_AMT', 1, 'APLY'),
-  ('APLY_AMT', 2, 'AMT'),
-  ('SLRY_AMT', 1, 'SLRY'),
-  ('SLRY_AMT', 2, 'AMT'),
-  ('VCTN_AMT', 1, 'VCTN'),
-  ('VCTN_AMT', 2, 'AMT'),
-  ('EVL_AMT', 1, 'EVL'),
-  ('EVL_AMT', 2, 'AMT'),
-  ('CST_AMT', 1, 'CST'),
-  ('CST_AMT', 2, 'AMT'),
-  ('SLIP_AMT', 1, 'SLIP'),
-  ('SLIP_AMT', 2, 'AMT'),
-  ('INVNTRY_AMT', 1, 'INVNTRY'),
-  ('INVNTRY_AMT', 2, 'AMT'),
-  ('PNT_AMT', 1, 'PNT'),
-  ('PNT_AMT', 2, 'AMT'),
-  ('CUST_EML', 1, 'CUST'),
-  ('CUST_EML', 2, 'EML'),
-  ('MBR_EML', 1, 'MBR'),
-  ('MBR_EML', 2, 'EML'),
-  ('USER_EML', 1, 'USER'),
-  ('USER_EML', 2, 'EML'),
-  ('EMP_EML', 1, 'EMP'),
-  ('EMP_EML', 2, 'EML'),
-  ('PIC_EML', 1, 'PIC'),
-  ('PIC_EML', 2, 'EML'),
-  ('BCNC_EML', 1, 'BCNC'),
-  ('BCNC_EML', 2, 'EML'),
-  ('SPLR_EML', 1, 'SPLR'),
-  ('SPLR_EML', 2, 'EML'),
-  ('PTNR_EML', 1, 'PTNR'),
-  ('PTNR_EML', 2, 'EML'),
-  ('APLCNT_EML', 1, 'APLCNT'),
-  ('APLCNT_EML', 2, 'EML'),
-  ('DEPT_SORT_SN', 1, 'DEPT'),
-  ('DEPT_SORT_SN', 2, 'SORT'),
-  ('DEPT_SORT_SN', 3, 'SN'),
-  ('ORG_SORT_SN', 1, 'ORG'),
-  ('ORG_SORT_SN', 2, 'SORT'),
-  ('ORG_SORT_SN', 3, 'SN'),
-  ('PRDT_SORT_SN', 1, 'PRDT'),
-  ('PRDT_SORT_SN', 2, 'SORT'),
-  ('PRDT_SORT_SN', 3, 'SN'),
-  ('ITEM_SORT_SN', 1, 'ITEM'),
-  ('ITEM_SORT_SN', 2, 'SORT'),
-  ('ITEM_SORT_SN', 3, 'SN'),
-  ('STOR_SORT_SN', 1, 'STOR'),
-  ('STOR_SORT_SN', 2, 'SORT'),
-  ('STOR_SORT_SN', 3, 'SN'),
-  ('WRHS_SORT_SN', 1, 'WRHS'),
-  ('WRHS_SORT_SN', 2, 'SORT'),
-  ('WRHS_SORT_SN', 3, 'SN'),
-  ('MENU_SORT_SN', 1, 'MENU'),
-  ('MENU_SORT_SN', 2, 'SORT'),
-  ('MENU_SORT_SN', 3, 'SN'),
-  ('AUTH_SORT_SN', 1, 'AUTH'),
-  ('AUTH_SORT_SN', 2, 'SORT'),
-  ('AUTH_SORT_SN', 3, 'SN'),
-  ('ROLE_SORT_SN', 1, 'ROLE'),
-  ('ROLE_SORT_SN', 2, 'SORT'),
-  ('ROLE_SORT_SN', 3, 'SN'),
-  ('PGM_SORT_SN', 1, 'PGM'),
-  ('PGM_SORT_SN', 2, 'SORT'),
-  ('PGM_SORT_SN', 3, 'SN'),
-  ('FILE_SORT_SN', 1, 'FILE'),
-  ('FILE_SORT_SN', 2, 'SORT'),
-  ('FILE_SORT_SN', 3, 'SN'),
-  ('BBS_SORT_SN', 1, 'BBS'),
-  ('BBS_SORT_SN', 2, 'SORT'),
-  ('BBS_SORT_SN', 3, 'SN'),
-  ('PST_SORT_SN', 1, 'PST'),
-  ('PST_SORT_SN', 2, 'SORT'),
-  ('PST_SORT_SN', 3, 'SN'),
-  ('NTC_SORT_SN', 1, 'NTC'),
-  ('NTC_SORT_SN', 2, 'SORT'),
-  ('NTC_SORT_SN', 3, 'SN'),
-  ('CPN_SORT_SN', 1, 'CPN'),
-  ('CPN_SORT_SN', 2, 'SORT'),
-  ('CPN_SORT_SN', 3, 'SN'),
-  ('EVT_SORT_SN', 1, 'EVT'),
-  ('EVT_SORT_SN', 2, 'SORT'),
-  ('EVT_SORT_SN', 3, 'SN'),
-  ('PRJ_SORT_SN', 1, 'PRJ'),
-  ('PRJ_SORT_SN', 2, 'SORT'),
-  ('PRJ_SORT_SN', 3, 'SN'),
-  ('TASK_SORT_SN', 1, 'TASK'),
-  ('TASK_SORT_SN', 2, 'SORT'),
-  ('TASK_SORT_SN', 3, 'SN'),
-  ('ASST_SORT_SN', 1, 'ASST'),
-  ('ASST_SORT_SN', 2, 'SORT'),
-  ('ASST_SORT_SN', 3, 'SN'),
-  ('EQPMNT_SORT_SN', 1, 'EQPMNT'),
-  ('EQPMNT_SORT_SN', 2, 'SORT'),
-  ('EQPMNT_SORT_SN', 3, 'SN'),
-  ('VHCL_SORT_SN', 1, 'VHCL'),
-  ('VHCL_SORT_SN', 2, 'SORT'),
-  ('VHCL_SORT_SN', 3, 'SN'),
-  ('EDU_SORT_SN', 1, 'EDU'),
-  ('EDU_SORT_SN', 2, 'SORT'),
-  ('EDU_SORT_SN', 3, 'SN'),
-  ('ACNT_SORT_SN', 1, 'ACNT'),
-  ('ACNT_SORT_SN', 2, 'SORT'),
-  ('ACNT_SORT_SN', 3, 'SN'),
-  ('BGT_SORT_SN', 1, 'BGT'),
-  ('BGT_SORT_SN', 2, 'SORT'),
-  ('BGT_SORT_SN', 3, 'SN'),
-  ('BACNT_SORT_SN', 1, 'BACNT'),
-  ('BACNT_SORT_SN', 2, 'SORT'),
-  ('BACNT_SORT_SN', 3, 'SN'),
-  ('CARD_SORT_SN', 1, 'CARD'),
-  ('CARD_SORT_SN', 2, 'SORT'),
-  ('CARD_SORT_SN', 3, 'SN'),
-  ('TRMS_SORT_SN', 1, 'TRMS'),
-  ('TRMS_SORT_SN', 2, 'SORT'),
-  ('TRMS_SORT_SN', 3, 'SN'),
-  ('ORDR_QTY', 1, 'ORDR'),
-  ('ORDR_QTY', 2, 'QTY'),
-  ('STLM_QTY', 1, 'STLM'),
-  ('STLM_QTY', 2, 'QTY'),
-  ('DLVR_QTY', 1, 'DLVR'),
-  ('DLVR_QTY', 2, 'QTY'),
-  ('CTRT_QTY', 1, 'CTRT'),
-  ('CTRT_QTY', 2, 'QTY'),
-  ('CLM_QTY', 1, 'CLM'),
-  ('CLM_QTY', 2, 'QTY'),
-  ('RCPT_QTY', 1, 'RCPT'),
-  ('RCPT_QTY', 2, 'QTY'),
-  ('TRSC_QTY', 1, 'TRSC'),
-  ('TRSC_QTY', 2, 'QTY'),
-  ('WRHSNG_QTY', 1, 'WRHSNG'),
-  ('WRHSNG_QTY', 2, 'QTY'),
-  ('RLS_QTY', 1, 'RLS'),
-  ('RLS_QTY', 2, 'QTY'),
-  ('PRCHS_QTY', 1, 'PRCHS'),
-  ('PRCHS_QTY', 2, 'QTY'),
-  ('SLS_QTY', 1, 'SLS'),
-  ('SLS_QTY', 2, 'QTY'),
-  ('ESTMT_QTY', 1, 'ESTMT'),
-  ('ESTMT_QTY', 2, 'QTY'),
-  ('CLCLN_QTY', 1, 'CLCLN'),
-  ('CLCLN_QTY', 2, 'QTY'),
-  ('RTGD_QTY', 1, 'RTGD'),
-  ('RTGD_QTY', 2, 'QTY'),
-  ('RFND_QTY', 1, 'RFND'),
-  ('RFND_QTY', 2, 'QTY'),
-  ('INQ_QTY', 1, 'INQ'),
-  ('INQ_QTY', 2, 'QTY'),
-  ('APLY_QTY', 1, 'APLY'),
-  ('APLY_QTY', 2, 'QTY'),
-  ('SLRY_QTY', 1, 'SLRY'),
-  ('SLRY_QTY', 2, 'QTY'),
-  ('VCTN_QTY', 1, 'VCTN'),
-  ('VCTN_QTY', 2, 'QTY'),
-  ('EVL_QTY', 1, 'EVL'),
-  ('EVL_QTY', 2, 'QTY'),
-  ('CST_QTY', 1, 'CST'),
-  ('CST_QTY', 2, 'QTY'),
-  ('SLIP_QTY', 1, 'SLIP'),
-  ('SLIP_QTY', 2, 'QTY'),
-  ('INVNTRY_QTY', 1, 'INVNTRY'),
-  ('INVNTRY_QTY', 2, 'QTY'),
-  ('PNT_QTY', 1, 'PNT'),
-  ('PNT_QTY', 2, 'QTY'),
-  ('CUST_ADDR', 1, 'CUST'),
-  ('CUST_ADDR', 2, 'ADDR'),
-  ('MBR_ADDR', 1, 'MBR'),
-  ('MBR_ADDR', 2, 'ADDR'),
-  ('USER_ADDR', 1, 'USER'),
-  ('USER_ADDR', 2, 'ADDR'),
-  ('EMP_ADDR', 1, 'EMP'),
-  ('EMP_ADDR', 2, 'ADDR'),
-  ('PIC_ADDR', 1, 'PIC'),
-  ('PIC_ADDR', 2, 'ADDR'),
-  ('BCNC_ADDR', 1, 'BCNC'),
-  ('BCNC_ADDR', 2, 'ADDR'),
-  ('SPLR_ADDR', 1, 'SPLR'),
-  ('SPLR_ADDR', 2, 'ADDR'),
-  ('PTNR_ADDR', 1, 'PTNR'),
-  ('PTNR_ADDR', 2, 'ADDR'),
-  ('APLCNT_ADDR', 1, 'APLCNT'),
-  ('APLCNT_ADDR', 2, 'ADDR'),
-  ('DEPT_INDCT_YN', 1, 'DEPT'),
-  ('DEPT_INDCT_YN', 2, 'INDCT'),
-  ('DEPT_INDCT_YN', 3, 'YN'),
-  ('ORG_INDCT_YN', 1, 'ORG'),
-  ('ORG_INDCT_YN', 2, 'INDCT'),
-  ('ORG_INDCT_YN', 3, 'YN'),
-  ('PRDT_INDCT_YN', 1, 'PRDT'),
-  ('PRDT_INDCT_YN', 2, 'INDCT'),
-  ('PRDT_INDCT_YN', 3, 'YN'),
-  ('ITEM_INDCT_YN', 1, 'ITEM'),
-  ('ITEM_INDCT_YN', 2, 'INDCT'),
-  ('ITEM_INDCT_YN', 3, 'YN'),
-  ('STOR_INDCT_YN', 1, 'STOR'),
-  ('STOR_INDCT_YN', 2, 'INDCT'),
-  ('STOR_INDCT_YN', 3, 'YN'),
-  ('WRHS_INDCT_YN', 1, 'WRHS'),
-  ('WRHS_INDCT_YN', 2, 'INDCT'),
-  ('WRHS_INDCT_YN', 3, 'YN'),
-  ('MENU_INDCT_YN', 1, 'MENU'),
-  ('MENU_INDCT_YN', 2, 'INDCT'),
-  ('MENU_INDCT_YN', 3, 'YN'),
-  ('AUTH_INDCT_YN', 1, 'AUTH'),
-  ('AUTH_INDCT_YN', 2, 'INDCT'),
-  ('AUTH_INDCT_YN', 3, 'YN'),
-  ('ROLE_INDCT_YN', 1, 'ROLE');
-
-INSERT INTO tmp_seed_term_word VALUES
-  ('ROLE_INDCT_YN', 2, 'INDCT'),
-  ('ROLE_INDCT_YN', 3, 'YN'),
-  ('PGM_INDCT_YN', 1, 'PGM'),
-  ('PGM_INDCT_YN', 2, 'INDCT'),
-  ('PGM_INDCT_YN', 3, 'YN'),
-  ('FILE_INDCT_YN', 1, 'FILE'),
-  ('FILE_INDCT_YN', 2, 'INDCT'),
-  ('FILE_INDCT_YN', 3, 'YN'),
-  ('BBS_INDCT_YN', 1, 'BBS'),
-  ('BBS_INDCT_YN', 2, 'INDCT'),
-  ('BBS_INDCT_YN', 3, 'YN'),
-  ('PST_INDCT_YN', 1, 'PST'),
-  ('PST_INDCT_YN', 2, 'INDCT'),
-  ('PST_INDCT_YN', 3, 'YN'),
-  ('NTC_INDCT_YN', 1, 'NTC'),
-  ('NTC_INDCT_YN', 2, 'INDCT'),
-  ('NTC_INDCT_YN', 3, 'YN'),
-  ('CPN_INDCT_YN', 1, 'CPN'),
-  ('CPN_INDCT_YN', 2, 'INDCT'),
-  ('CPN_INDCT_YN', 3, 'YN'),
-  ('EVT_INDCT_YN', 1, 'EVT'),
-  ('EVT_INDCT_YN', 2, 'INDCT'),
-  ('EVT_INDCT_YN', 3, 'YN'),
-  ('PRJ_INDCT_YN', 1, 'PRJ'),
-  ('PRJ_INDCT_YN', 2, 'INDCT'),
-  ('PRJ_INDCT_YN', 3, 'YN'),
-  ('TASK_INDCT_YN', 1, 'TASK'),
-  ('TASK_INDCT_YN', 2, 'INDCT'),
-  ('TASK_INDCT_YN', 3, 'YN'),
-  ('ASST_INDCT_YN', 1, 'ASST'),
-  ('ASST_INDCT_YN', 2, 'INDCT'),
-  ('ASST_INDCT_YN', 3, 'YN'),
-  ('EQPMNT_INDCT_YN', 1, 'EQPMNT'),
-  ('EQPMNT_INDCT_YN', 2, 'INDCT'),
-  ('EQPMNT_INDCT_YN', 3, 'YN'),
-  ('VHCL_INDCT_YN', 1, 'VHCL'),
-  ('VHCL_INDCT_YN', 2, 'INDCT'),
-  ('VHCL_INDCT_YN', 3, 'YN'),
-  ('EDU_INDCT_YN', 1, 'EDU'),
-  ('EDU_INDCT_YN', 2, 'INDCT'),
-  ('EDU_INDCT_YN', 3, 'YN'),
-  ('ACNT_INDCT_YN', 1, 'ACNT'),
-  ('ACNT_INDCT_YN', 2, 'INDCT'),
-  ('ACNT_INDCT_YN', 3, 'YN'),
-  ('BGT_INDCT_YN', 1, 'BGT'),
-  ('BGT_INDCT_YN', 2, 'INDCT'),
-  ('BGT_INDCT_YN', 3, 'YN'),
-  ('BACNT_INDCT_YN', 1, 'BACNT'),
-  ('BACNT_INDCT_YN', 2, 'INDCT'),
-  ('BACNT_INDCT_YN', 3, 'YN'),
-  ('CARD_INDCT_YN', 1, 'CARD'),
-  ('CARD_INDCT_YN', 2, 'INDCT'),
-  ('CARD_INDCT_YN', 3, 'YN'),
-  ('TRMS_INDCT_YN', 1, 'TRMS'),
-  ('TRMS_INDCT_YN', 2, 'INDCT'),
-  ('TRMS_INDCT_YN', 3, 'YN'),
-  ('ORDR_TOT_AMT', 1, 'ORDR'),
-  ('ORDR_TOT_AMT', 2, 'TOT'),
-  ('ORDR_TOT_AMT', 3, 'AMT'),
-  ('STLM_TOT_AMT', 1, 'STLM'),
-  ('STLM_TOT_AMT', 2, 'TOT'),
-  ('STLM_TOT_AMT', 3, 'AMT'),
-  ('DLVR_TOT_AMT', 1, 'DLVR'),
-  ('DLVR_TOT_AMT', 2, 'TOT'),
-  ('DLVR_TOT_AMT', 3, 'AMT'),
-  ('CTRT_TOT_AMT', 1, 'CTRT'),
-  ('CTRT_TOT_AMT', 2, 'TOT'),
-  ('CTRT_TOT_AMT', 3, 'AMT');
-
+INSERT INTO tmp_seed_term VALUES ('고객번호', 'CUST_NO', '번호V20', '고객의 번호');
+INSERT INTO tmp_seed_term VALUES ('회원번호', 'MBR_NO', '번호V20', '회원의 번호');
+INSERT INTO tmp_seed_term VALUES ('사용자번호', 'USER_NO', '번호V20', '사용자의 번호');
+INSERT INTO tmp_seed_term VALUES ('직원번호', 'EMP_NO', '번호V20', '직원의 번호');
+INSERT INTO tmp_seed_term VALUES ('담당자번호', 'PIC_NO', '번호V20', '담당자의 번호');
+INSERT INTO tmp_seed_term VALUES ('거래처번호', 'BCNC_NO', '번호V20', '거래처의 번호');
+INSERT INTO tmp_seed_term VALUES ('공급사번호', 'SPLR_NO', '번호V20', '공급사의 번호');
+INSERT INTO tmp_seed_term VALUES ('협력사번호', 'PTNR_NO', '번호V20', '협력사의 번호');
+INSERT INTO tmp_seed_term VALUES ('신청인번호', 'APLCNT_NO', '번호V20', '신청인의 번호');
+INSERT INTO tmp_seed_term VALUES ('부서번호', 'DEPT_NO', '번호V20', '부서의 번호');
+INSERT INTO tmp_seed_term VALUES ('조직번호', 'ORG_NO', '번호V20', '조직의 번호');
+INSERT INTO tmp_seed_term VALUES ('상품번호', 'PRDT_NO', '번호V20', '상품의 번호');
+INSERT INTO tmp_seed_term VALUES ('품목번호', 'ITEM_NO', '번호V20', '품목의 번호');
+INSERT INTO tmp_seed_term VALUES ('매장번호', 'STOR_NO', '번호V20', '매장의 번호');
+INSERT INTO tmp_seed_term VALUES ('창고번호', 'WRHS_NO', '번호V20', '창고의 번호');
+INSERT INTO tmp_seed_term VALUES ('메뉴번호', 'MENU_NO', '번호V20', '메뉴의 번호');
+INSERT INTO tmp_seed_term VALUES ('권한번호', 'AUTH_NO', '번호V20', '권한의 번호');
+INSERT INTO tmp_seed_term VALUES ('역할번호', 'ROLE_NO', '번호V20', '역할의 번호');
+INSERT INTO tmp_seed_term VALUES ('프로그램번호', 'PGM_NO', '번호V20', '프로그램의 번호');
+INSERT INTO tmp_seed_term VALUES ('파일번호', 'FILE_NO', '번호V20', '파일의 번호');
+INSERT INTO tmp_seed_term VALUES ('게시판번호', 'BBS_NO', '번호V20', '게시판의 번호');
+INSERT INTO tmp_seed_term VALUES ('게시물번호', 'PST_NO', '번호V20', '게시물의 번호');
+INSERT INTO tmp_seed_term VALUES ('공지번호', 'NTC_NO', '번호V20', '공지의 번호');
+INSERT INTO tmp_seed_term VALUES ('쿠폰번호', 'CPN_NO', '번호V20', '쿠폰의 번호');
+INSERT INTO tmp_seed_term VALUES ('이벤트번호', 'EVT_NO', '번호V20', '이벤트의 번호');
+INSERT INTO tmp_seed_term VALUES ('프로젝트번호', 'PRJ_NO', '번호V20', '프로젝트의 번호');
+INSERT INTO tmp_seed_term VALUES ('과제번호', 'TASK_NO', '번호V20', '과제의 번호');
+INSERT INTO tmp_seed_term VALUES ('자산번호', 'ASST_NO', '번호V20', '자산의 번호');
+INSERT INTO tmp_seed_term VALUES ('설비번호', 'EQPMNT_NO', '번호V20', '설비의 번호');
+INSERT INTO tmp_seed_term VALUES ('차량번호', 'VHCL_NO', '번호V20', '차량의 번호');
+INSERT INTO tmp_seed_term VALUES ('교육번호', 'EDU_NO', '번호V20', '교육의 번호');
+INSERT INTO tmp_seed_term VALUES ('계정번호', 'ACNT_NO', '번호V20', '계정의 번호');
+INSERT INTO tmp_seed_term VALUES ('예산번호', 'BGT_NO', '번호V20', '예산의 번호');
+INSERT INTO tmp_seed_term VALUES ('계좌번호', 'BACNT_NO', '번호V20', '계좌의 번호');
+INSERT INTO tmp_seed_term VALUES ('카드번호', 'CARD_NO', '번호V20', '카드의 번호');
+INSERT INTO tmp_seed_term VALUES ('약관번호', 'TRMS_NO', '번호V20', '약관의 번호');
+INSERT INTO tmp_seed_term VALUES ('주문번호', 'ORDR_NO', '번호V20', '주문의 번호');
+INSERT INTO tmp_seed_term VALUES ('결제번호', 'STLM_NO', '번호V20', '결제의 번호');
+INSERT INTO tmp_seed_term VALUES ('배송번호', 'DLVR_NO', '번호V20', '배송의 번호');
+INSERT INTO tmp_seed_term VALUES ('계약번호', 'CTRT_NO', '번호V20', '계약의 번호');
+INSERT INTO tmp_seed_term VALUES ('청구번호', 'CLM_NO', '번호V20', '청구의 번호');
+INSERT INTO tmp_seed_term VALUES ('수납번호', 'RCPT_NO', '번호V20', '수납의 번호');
+INSERT INTO tmp_seed_term VALUES ('거래번호', 'TRSC_NO', '번호V20', '거래의 번호');
+INSERT INTO tmp_seed_term VALUES ('입고번호', 'WRHSNG_NO', '번호V20', '입고의 번호');
+INSERT INTO tmp_seed_term VALUES ('출고번호', 'RLS_NO', '번호V20', '출고의 번호');
+INSERT INTO tmp_seed_term VALUES ('구매번호', 'PRCHS_NO', '번호V20', '구매의 번호');
+INSERT INTO tmp_seed_term VALUES ('판매번호', 'SLS_NO', '번호V20', '판매의 번호');
+INSERT INTO tmp_seed_term VALUES ('견적번호', 'ESTMT_NO', '번호V20', '견적의 번호');
+INSERT INTO tmp_seed_term VALUES ('정산번호', 'CLCLN_NO', '번호V20', '정산의 번호');
+INSERT INTO tmp_seed_term VALUES ('반품번호', 'RTGD_NO', '번호V20', '반품의 번호');
+INSERT INTO tmp_seed_term VALUES ('환불번호', 'RFND_NO', '번호V20', '환불의 번호');
+INSERT INTO tmp_seed_term VALUES ('문의번호', 'INQ_NO', '번호V20', '문의의 번호');
+INSERT INTO tmp_seed_term VALUES ('신청번호', 'APLY_NO', '번호V20', '신청의 번호');
+INSERT INTO tmp_seed_term VALUES ('급여번호', 'SLRY_NO', '번호V20', '급여의 번호');
+INSERT INTO tmp_seed_term VALUES ('휴가번호', 'VCTN_NO', '번호V20', '휴가의 번호');
+INSERT INTO tmp_seed_term VALUES ('평가번호', 'EVL_NO', '번호V20', '평가의 번호');
+INSERT INTO tmp_seed_term VALUES ('비용번호', 'CST_NO', '번호V20', '비용의 번호');
+INSERT INTO tmp_seed_term VALUES ('전표번호', 'SLIP_NO', '번호V20', '전표의 번호');
+INSERT INTO tmp_seed_term VALUES ('재고번호', 'INVNTRY_NO', '번호V20', '재고의 번호');
+INSERT INTO tmp_seed_term VALUES ('포인트번호', 'PNT_NO', '번호V20', '포인트의 번호');
+INSERT INTO tmp_seed_term VALUES ('고객명', 'CUST_NM', '명V100', '고객의 명');
+INSERT INTO tmp_seed_term VALUES ('회원명', 'MBR_NM', '명V100', '회원의 명');
+INSERT INTO tmp_seed_term VALUES ('사용자명', 'USER_NM', '명V100', '사용자의 명');
+INSERT INTO tmp_seed_term VALUES ('직원명', 'EMP_NM', '명V100', '직원의 명');
+INSERT INTO tmp_seed_term VALUES ('담당자명', 'PIC_NM', '명V100', '담당자의 명');
+INSERT INTO tmp_seed_term VALUES ('거래처명', 'BCNC_NM', '명V100', '거래처의 명');
+INSERT INTO tmp_seed_term VALUES ('공급사명', 'SPLR_NM', '명V100', '공급사의 명');
+INSERT INTO tmp_seed_term VALUES ('협력사명', 'PTNR_NM', '명V100', '협력사의 명');
+INSERT INTO tmp_seed_term VALUES ('신청인명', 'APLCNT_NM', '명V100', '신청인의 명');
+INSERT INTO tmp_seed_term VALUES ('부서명', 'DEPT_NM', '명V100', '부서의 명');
+INSERT INTO tmp_seed_term VALUES ('조직명', 'ORG_NM', '명V100', '조직의 명');
+INSERT INTO tmp_seed_term VALUES ('상품명', 'PRDT_NM', '명V100', '상품의 명');
+INSERT INTO tmp_seed_term VALUES ('품목명', 'ITEM_NM', '명V100', '품목의 명');
+INSERT INTO tmp_seed_term VALUES ('매장명', 'STOR_NM', '명V100', '매장의 명');
+INSERT INTO tmp_seed_term VALUES ('창고명', 'WRHS_NM', '명V100', '창고의 명');
+INSERT INTO tmp_seed_term VALUES ('메뉴명', 'MENU_NM', '명V100', '메뉴의 명');
+INSERT INTO tmp_seed_term VALUES ('권한명', 'AUTH_NM', '명V100', '권한의 명');
+INSERT INTO tmp_seed_term VALUES ('역할명', 'ROLE_NM', '명V100', '역할의 명');
+INSERT INTO tmp_seed_term VALUES ('프로그램명', 'PGM_NM', '명V100', '프로그램의 명');
+INSERT INTO tmp_seed_term VALUES ('파일명', 'FILE_NM', '명V100', '파일의 명');
+INSERT INTO tmp_seed_term VALUES ('게시판명', 'BBS_NM', '명V100', '게시판의 명');
+INSERT INTO tmp_seed_term VALUES ('게시물명', 'PST_NM', '명V100', '게시물의 명');
+INSERT INTO tmp_seed_term VALUES ('공지명', 'NTC_NM', '명V100', '공지의 명');
+INSERT INTO tmp_seed_term VALUES ('쿠폰명', 'CPN_NM', '명V100', '쿠폰의 명');
+INSERT INTO tmp_seed_term VALUES ('이벤트명', 'EVT_NM', '명V100', '이벤트의 명');
+INSERT INTO tmp_seed_term VALUES ('프로젝트명', 'PRJ_NM', '명V100', '프로젝트의 명');
+INSERT INTO tmp_seed_term VALUES ('과제명', 'TASK_NM', '명V100', '과제의 명');
+INSERT INTO tmp_seed_term VALUES ('자산명', 'ASST_NM', '명V100', '자산의 명');
+INSERT INTO tmp_seed_term VALUES ('설비명', 'EQPMNT_NM', '명V100', '설비의 명');
+INSERT INTO tmp_seed_term VALUES ('차량명', 'VHCL_NM', '명V100', '차량의 명');
+INSERT INTO tmp_seed_term VALUES ('교육명', 'EDU_NM', '명V100', '교육의 명');
+INSERT INTO tmp_seed_term VALUES ('계정명', 'ACNT_NM', '명V100', '계정의 명');
+INSERT INTO tmp_seed_term VALUES ('예산명', 'BGT_NM', '명V100', '예산의 명');
+INSERT INTO tmp_seed_term VALUES ('계좌명', 'BACNT_NM', '명V100', '계좌의 명');
+INSERT INTO tmp_seed_term VALUES ('카드명', 'CARD_NM', '명V100', '카드의 명');
+INSERT INTO tmp_seed_term VALUES ('약관명', 'TRMS_NM', '명V100', '약관의 명');
+INSERT INTO tmp_seed_term VALUES ('주문명', 'ORDR_NM', '명V100', '주문의 명');
+INSERT INTO tmp_seed_term VALUES ('결제명', 'STLM_NM', '명V100', '결제의 명');
+INSERT INTO tmp_seed_term VALUES ('배송명', 'DLVR_NM', '명V100', '배송의 명');
+INSERT INTO tmp_seed_term VALUES ('계약명', 'CTRT_NM', '명V100', '계약의 명');
+INSERT INTO tmp_seed_term VALUES ('청구명', 'CLM_NM', '명V100', '청구의 명');
+INSERT INTO tmp_seed_term VALUES ('수납명', 'RCPT_NM', '명V100', '수납의 명');
+INSERT INTO tmp_seed_term VALUES ('거래명', 'TRSC_NM', '명V100', '거래의 명');
+INSERT INTO tmp_seed_term VALUES ('입고명', 'WRHSNG_NM', '명V100', '입고의 명');
+INSERT INTO tmp_seed_term VALUES ('출고명', 'RLS_NM', '명V100', '출고의 명');
+INSERT INTO tmp_seed_term VALUES ('구매명', 'PRCHS_NM', '명V100', '구매의 명');
+INSERT INTO tmp_seed_term VALUES ('판매명', 'SLS_NM', '명V100', '판매의 명');
+INSERT INTO tmp_seed_term VALUES ('견적명', 'ESTMT_NM', '명V100', '견적의 명');
+INSERT INTO tmp_seed_term VALUES ('정산명', 'CLCLN_NM', '명V100', '정산의 명');
+INSERT INTO tmp_seed_term VALUES ('반품명', 'RTGD_NM', '명V100', '반품의 명');
+INSERT INTO tmp_seed_term VALUES ('환불명', 'RFND_NM', '명V100', '환불의 명');
+INSERT INTO tmp_seed_term VALUES ('문의명', 'INQ_NM', '명V100', '문의의 명');
+INSERT INTO tmp_seed_term VALUES ('신청명', 'APLY_NM', '명V100', '신청의 명');
+INSERT INTO tmp_seed_term VALUES ('급여명', 'SLRY_NM', '명V100', '급여의 명');
+INSERT INTO tmp_seed_term VALUES ('휴가명', 'VCTN_NM', '명V100', '휴가의 명');
+INSERT INTO tmp_seed_term VALUES ('평가명', 'EVL_NM', '명V100', '평가의 명');
+INSERT INTO tmp_seed_term VALUES ('비용명', 'CST_NM', '명V100', '비용의 명');
+INSERT INTO tmp_seed_term VALUES ('전표명', 'SLIP_NM', '명V100', '전표의 명');
+INSERT INTO tmp_seed_term VALUES ('재고명', 'INVNTRY_NM', '명V100', '재고의 명');
+INSERT INTO tmp_seed_term VALUES ('포인트명', 'PNT_NM', '명V100', '포인트의 명');
+INSERT INTO tmp_seed_term VALUES ('고객코드', 'CUST_CD', '코드V20', '고객의 코드');
+INSERT INTO tmp_seed_term VALUES ('회원코드', 'MBR_CD', '코드V20', '회원의 코드');
+INSERT INTO tmp_seed_term VALUES ('사용자코드', 'USER_CD', '코드V20', '사용자의 코드');
+INSERT INTO tmp_seed_term VALUES ('직원코드', 'EMP_CD', '코드V20', '직원의 코드');
+INSERT INTO tmp_seed_term VALUES ('담당자코드', 'PIC_CD', '코드V20', '담당자의 코드');
+INSERT INTO tmp_seed_term VALUES ('거래처코드', 'BCNC_CD', '코드V20', '거래처의 코드');
+INSERT INTO tmp_seed_term VALUES ('공급사코드', 'SPLR_CD', '코드V20', '공급사의 코드');
+INSERT INTO tmp_seed_term VALUES ('협력사코드', 'PTNR_CD', '코드V20', '협력사의 코드');
+INSERT INTO tmp_seed_term VALUES ('신청인코드', 'APLCNT_CD', '코드V20', '신청인의 코드');
+INSERT INTO tmp_seed_term VALUES ('부서코드', 'DEPT_CD', '코드V20', '부서의 코드');
+INSERT INTO tmp_seed_term VALUES ('조직코드', 'ORG_CD', '코드V20', '조직의 코드');
+INSERT INTO tmp_seed_term VALUES ('상품코드', 'PRDT_CD', '코드V20', '상품의 코드');
+INSERT INTO tmp_seed_term VALUES ('품목코드', 'ITEM_CD', '코드V20', '품목의 코드');
+INSERT INTO tmp_seed_term VALUES ('매장코드', 'STOR_CD', '코드V20', '매장의 코드');
+INSERT INTO tmp_seed_term VALUES ('창고코드', 'WRHS_CD', '코드V20', '창고의 코드');
+INSERT INTO tmp_seed_term VALUES ('메뉴코드', 'MENU_CD', '코드V20', '메뉴의 코드');
+INSERT INTO tmp_seed_term VALUES ('권한코드', 'AUTH_CD', '코드V20', '권한의 코드');
+INSERT INTO tmp_seed_term VALUES ('역할코드', 'ROLE_CD', '코드V20', '역할의 코드');
+INSERT INTO tmp_seed_term VALUES ('프로그램코드', 'PGM_CD', '코드V20', '프로그램의 코드');
+INSERT INTO tmp_seed_term VALUES ('파일코드', 'FILE_CD', '코드V20', '파일의 코드');
+INSERT INTO tmp_seed_term VALUES ('게시판코드', 'BBS_CD', '코드V20', '게시판의 코드');
+INSERT INTO tmp_seed_term VALUES ('게시물코드', 'PST_CD', '코드V20', '게시물의 코드');
+INSERT INTO tmp_seed_term VALUES ('공지코드', 'NTC_CD', '코드V20', '공지의 코드');
+INSERT INTO tmp_seed_term VALUES ('쿠폰코드', 'CPN_CD', '코드V20', '쿠폰의 코드');
+INSERT INTO tmp_seed_term VALUES ('이벤트코드', 'EVT_CD', '코드V20', '이벤트의 코드');
+INSERT INTO tmp_seed_term VALUES ('프로젝트코드', 'PRJ_CD', '코드V20', '프로젝트의 코드');
+INSERT INTO tmp_seed_term VALUES ('과제코드', 'TASK_CD', '코드V20', '과제의 코드');
+INSERT INTO tmp_seed_term VALUES ('자산코드', 'ASST_CD', '코드V20', '자산의 코드');
+INSERT INTO tmp_seed_term VALUES ('설비코드', 'EQPMNT_CD', '코드V20', '설비의 코드');
+INSERT INTO tmp_seed_term VALUES ('차량코드', 'VHCL_CD', '코드V20', '차량의 코드');
+INSERT INTO tmp_seed_term VALUES ('교육코드', 'EDU_CD', '코드V20', '교육의 코드');
+INSERT INTO tmp_seed_term VALUES ('계정코드', 'ACNT_CD', '코드V20', '계정의 코드');
+INSERT INTO tmp_seed_term VALUES ('예산코드', 'BGT_CD', '코드V20', '예산의 코드');
+INSERT INTO tmp_seed_term VALUES ('계좌코드', 'BACNT_CD', '코드V20', '계좌의 코드');
+INSERT INTO tmp_seed_term VALUES ('카드코드', 'CARD_CD', '코드V20', '카드의 코드');
+INSERT INTO tmp_seed_term VALUES ('약관코드', 'TRMS_CD', '코드V20', '약관의 코드');
+INSERT INTO tmp_seed_term VALUES ('주문코드', 'ORDR_CD', '코드V20', '주문의 코드');
+INSERT INTO tmp_seed_term VALUES ('결제코드', 'STLM_CD', '코드V20', '결제의 코드');
+INSERT INTO tmp_seed_term VALUES ('배송코드', 'DLVR_CD', '코드V20', '배송의 코드');
+INSERT INTO tmp_seed_term VALUES ('계약코드', 'CTRT_CD', '코드V20', '계약의 코드');
+INSERT INTO tmp_seed_term VALUES ('청구코드', 'CLM_CD', '코드V20', '청구의 코드');
+INSERT INTO tmp_seed_term VALUES ('수납코드', 'RCPT_CD', '코드V20', '수납의 코드');
+INSERT INTO tmp_seed_term VALUES ('거래코드', 'TRSC_CD', '코드V20', '거래의 코드');
+INSERT INTO tmp_seed_term VALUES ('입고코드', 'WRHSNG_CD', '코드V20', '입고의 코드');
+INSERT INTO tmp_seed_term VALUES ('출고코드', 'RLS_CD', '코드V20', '출고의 코드');
+INSERT INTO tmp_seed_term VALUES ('구매코드', 'PRCHS_CD', '코드V20', '구매의 코드');
+INSERT INTO tmp_seed_term VALUES ('판매코드', 'SLS_CD', '코드V20', '판매의 코드');
+INSERT INTO tmp_seed_term VALUES ('견적코드', 'ESTMT_CD', '코드V20', '견적의 코드');
+INSERT INTO tmp_seed_term VALUES ('정산코드', 'CLCLN_CD', '코드V20', '정산의 코드');
+INSERT INTO tmp_seed_term VALUES ('반품코드', 'RTGD_CD', '코드V20', '반품의 코드');
+INSERT INTO tmp_seed_term VALUES ('환불코드', 'RFND_CD', '코드V20', '환불의 코드');
+INSERT INTO tmp_seed_term VALUES ('문의코드', 'INQ_CD', '코드V20', '문의의 코드');
+INSERT INTO tmp_seed_term VALUES ('신청코드', 'APLY_CD', '코드V20', '신청의 코드');
+INSERT INTO tmp_seed_term VALUES ('급여코드', 'SLRY_CD', '코드V20', '급여의 코드');
+INSERT INTO tmp_seed_term VALUES ('휴가코드', 'VCTN_CD', '코드V20', '휴가의 코드');
+INSERT INTO tmp_seed_term VALUES ('평가코드', 'EVL_CD', '코드V20', '평가의 코드');
+INSERT INTO tmp_seed_term VALUES ('비용코드', 'CST_CD', '코드V20', '비용의 코드');
+INSERT INTO tmp_seed_term VALUES ('전표코드', 'SLIP_CD', '코드V20', '전표의 코드');
+INSERT INTO tmp_seed_term VALUES ('재고코드', 'INVNTRY_CD', '코드V20', '재고의 코드');
+INSERT INTO tmp_seed_term VALUES ('포인트코드', 'PNT_CD', '코드V20', '포인트의 코드');
+INSERT INTO tmp_seed_term VALUES ('고객유형코드', 'CUST_TYPE_CD', '코드V20', '고객의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('회원유형코드', 'MBR_TYPE_CD', '코드V20', '회원의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('사용자유형코드', 'USER_TYPE_CD', '코드V20', '사용자의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('직원유형코드', 'EMP_TYPE_CD', '코드V20', '직원의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('담당자유형코드', 'PIC_TYPE_CD', '코드V20', '담당자의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('거래처유형코드', 'BCNC_TYPE_CD', '코드V20', '거래처의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('공급사유형코드', 'SPLR_TYPE_CD', '코드V20', '공급사의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('협력사유형코드', 'PTNR_TYPE_CD', '코드V20', '협력사의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('신청인유형코드', 'APLCNT_TYPE_CD', '코드V20', '신청인의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('부서유형코드', 'DEPT_TYPE_CD', '코드V20', '부서의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('조직유형코드', 'ORG_TYPE_CD', '코드V20', '조직의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('상품유형코드', 'PRDT_TYPE_CD', '코드V20', '상품의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('품목유형코드', 'ITEM_TYPE_CD', '코드V20', '품목의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('매장유형코드', 'STOR_TYPE_CD', '코드V20', '매장의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('창고유형코드', 'WRHS_TYPE_CD', '코드V20', '창고의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('메뉴유형코드', 'MENU_TYPE_CD', '코드V20', '메뉴의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('권한유형코드', 'AUTH_TYPE_CD', '코드V20', '권한의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('역할유형코드', 'ROLE_TYPE_CD', '코드V20', '역할의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('프로그램유형코드', 'PGM_TYPE_CD', '코드V20', '프로그램의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('파일유형코드', 'FILE_TYPE_CD', '코드V20', '파일의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('게시판유형코드', 'BBS_TYPE_CD', '코드V20', '게시판의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('게시물유형코드', 'PST_TYPE_CD', '코드V20', '게시물의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('공지유형코드', 'NTC_TYPE_CD', '코드V20', '공지의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('쿠폰유형코드', 'CPN_TYPE_CD', '코드V20', '쿠폰의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('이벤트유형코드', 'EVT_TYPE_CD', '코드V20', '이벤트의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('프로젝트유형코드', 'PRJ_TYPE_CD', '코드V20', '프로젝트의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('과제유형코드', 'TASK_TYPE_CD', '코드V20', '과제의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('자산유형코드', 'ASST_TYPE_CD', '코드V20', '자산의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('설비유형코드', 'EQPMNT_TYPE_CD', '코드V20', '설비의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('차량유형코드', 'VHCL_TYPE_CD', '코드V20', '차량의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('교육유형코드', 'EDU_TYPE_CD', '코드V20', '교육의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('계정유형코드', 'ACNT_TYPE_CD', '코드V20', '계정의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('예산유형코드', 'BGT_TYPE_CD', '코드V20', '예산의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('계좌유형코드', 'BACNT_TYPE_CD', '코드V20', '계좌의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('카드유형코드', 'CARD_TYPE_CD', '코드V20', '카드의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('약관유형코드', 'TRMS_TYPE_CD', '코드V20', '약관의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('주문유형코드', 'ORDR_TYPE_CD', '코드V20', '주문의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('결제유형코드', 'STLM_TYPE_CD', '코드V20', '결제의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('배송유형코드', 'DLVR_TYPE_CD', '코드V20', '배송의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('계약유형코드', 'CTRT_TYPE_CD', '코드V20', '계약의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('청구유형코드', 'CLM_TYPE_CD', '코드V20', '청구의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('수납유형코드', 'RCPT_TYPE_CD', '코드V20', '수납의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('거래유형코드', 'TRSC_TYPE_CD', '코드V20', '거래의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('입고유형코드', 'WRHSNG_TYPE_CD', '코드V20', '입고의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('출고유형코드', 'RLS_TYPE_CD', '코드V20', '출고의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('구매유형코드', 'PRCHS_TYPE_CD', '코드V20', '구매의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('판매유형코드', 'SLS_TYPE_CD', '코드V20', '판매의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('견적유형코드', 'ESTMT_TYPE_CD', '코드V20', '견적의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('정산유형코드', 'CLCLN_TYPE_CD', '코드V20', '정산의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('반품유형코드', 'RTGD_TYPE_CD', '코드V20', '반품의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('환불유형코드', 'RFND_TYPE_CD', '코드V20', '환불의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('문의유형코드', 'INQ_TYPE_CD', '코드V20', '문의의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('신청유형코드', 'APLY_TYPE_CD', '코드V20', '신청의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('급여유형코드', 'SLRY_TYPE_CD', '코드V20', '급여의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('휴가유형코드', 'VCTN_TYPE_CD', '코드V20', '휴가의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('평가유형코드', 'EVL_TYPE_CD', '코드V20', '평가의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('비용유형코드', 'CST_TYPE_CD', '코드V20', '비용의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('전표유형코드', 'SLIP_TYPE_CD', '코드V20', '전표의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('재고유형코드', 'INVNTRY_TYPE_CD', '코드V20', '재고의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('포인트유형코드', 'PNT_TYPE_CD', '코드V20', '포인트의 유형코드');
+INSERT INTO tmp_seed_term VALUES ('고객상태코드', 'CUST_STTS_CD', '코드V20', '고객의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('회원상태코드', 'MBR_STTS_CD', '코드V20', '회원의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('사용자상태코드', 'USER_STTS_CD', '코드V20', '사용자의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('직원상태코드', 'EMP_STTS_CD', '코드V20', '직원의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('담당자상태코드', 'PIC_STTS_CD', '코드V20', '담당자의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('거래처상태코드', 'BCNC_STTS_CD', '코드V20', '거래처의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('공급사상태코드', 'SPLR_STTS_CD', '코드V20', '공급사의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('협력사상태코드', 'PTNR_STTS_CD', '코드V20', '협력사의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('신청인상태코드', 'APLCNT_STTS_CD', '코드V20', '신청인의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('부서상태코드', 'DEPT_STTS_CD', '코드V20', '부서의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('조직상태코드', 'ORG_STTS_CD', '코드V20', '조직의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('상품상태코드', 'PRDT_STTS_CD', '코드V20', '상품의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('품목상태코드', 'ITEM_STTS_CD', '코드V20', '품목의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('매장상태코드', 'STOR_STTS_CD', '코드V20', '매장의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('창고상태코드', 'WRHS_STTS_CD', '코드V20', '창고의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('메뉴상태코드', 'MENU_STTS_CD', '코드V20', '메뉴의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('권한상태코드', 'AUTH_STTS_CD', '코드V20', '권한의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('역할상태코드', 'ROLE_STTS_CD', '코드V20', '역할의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('프로그램상태코드', 'PGM_STTS_CD', '코드V20', '프로그램의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('파일상태코드', 'FILE_STTS_CD', '코드V20', '파일의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('게시판상태코드', 'BBS_STTS_CD', '코드V20', '게시판의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('게시물상태코드', 'PST_STTS_CD', '코드V20', '게시물의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('공지상태코드', 'NTC_STTS_CD', '코드V20', '공지의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('쿠폰상태코드', 'CPN_STTS_CD', '코드V20', '쿠폰의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('이벤트상태코드', 'EVT_STTS_CD', '코드V20', '이벤트의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('프로젝트상태코드', 'PRJ_STTS_CD', '코드V20', '프로젝트의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('과제상태코드', 'TASK_STTS_CD', '코드V20', '과제의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('자산상태코드', 'ASST_STTS_CD', '코드V20', '자산의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('설비상태코드', 'EQPMNT_STTS_CD', '코드V20', '설비의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('차량상태코드', 'VHCL_STTS_CD', '코드V20', '차량의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('교육상태코드', 'EDU_STTS_CD', '코드V20', '교육의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('계정상태코드', 'ACNT_STTS_CD', '코드V20', '계정의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('예산상태코드', 'BGT_STTS_CD', '코드V20', '예산의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('계좌상태코드', 'BACNT_STTS_CD', '코드V20', '계좌의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('카드상태코드', 'CARD_STTS_CD', '코드V20', '카드의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('약관상태코드', 'TRMS_STTS_CD', '코드V20', '약관의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('주문상태코드', 'ORDR_STTS_CD', '코드V20', '주문의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('결제상태코드', 'STLM_STTS_CD', '코드V20', '결제의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('배송상태코드', 'DLVR_STTS_CD', '코드V20', '배송의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('계약상태코드', 'CTRT_STTS_CD', '코드V20', '계약의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('청구상태코드', 'CLM_STTS_CD', '코드V20', '청구의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('수납상태코드', 'RCPT_STTS_CD', '코드V20', '수납의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('거래상태코드', 'TRSC_STTS_CD', '코드V20', '거래의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('입고상태코드', 'WRHSNG_STTS_CD', '코드V20', '입고의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('출고상태코드', 'RLS_STTS_CD', '코드V20', '출고의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('구매상태코드', 'PRCHS_STTS_CD', '코드V20', '구매의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('판매상태코드', 'SLS_STTS_CD', '코드V20', '판매의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('견적상태코드', 'ESTMT_STTS_CD', '코드V20', '견적의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('정산상태코드', 'CLCLN_STTS_CD', '코드V20', '정산의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('반품상태코드', 'RTGD_STTS_CD', '코드V20', '반품의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('환불상태코드', 'RFND_STTS_CD', '코드V20', '환불의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('문의상태코드', 'INQ_STTS_CD', '코드V20', '문의의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('신청상태코드', 'APLY_STTS_CD', '코드V20', '신청의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('급여상태코드', 'SLRY_STTS_CD', '코드V20', '급여의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('휴가상태코드', 'VCTN_STTS_CD', '코드V20', '휴가의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('평가상태코드', 'EVL_STTS_CD', '코드V20', '평가의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('비용상태코드', 'CST_STTS_CD', '코드V20', '비용의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('전표상태코드', 'SLIP_STTS_CD', '코드V20', '전표의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('재고상태코드', 'INVNTRY_STTS_CD', '코드V20', '재고의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('포인트상태코드', 'PNT_STTS_CD', '코드V20', '포인트의 상태코드');
+INSERT INTO tmp_seed_term VALUES ('고객구분코드', 'CUST_SE_CD', '코드V20', '고객의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('회원구분코드', 'MBR_SE_CD', '코드V20', '회원의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('사용자구분코드', 'USER_SE_CD', '코드V20', '사용자의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('직원구분코드', 'EMP_SE_CD', '코드V20', '직원의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('담당자구분코드', 'PIC_SE_CD', '코드V20', '담당자의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('거래처구분코드', 'BCNC_SE_CD', '코드V20', '거래처의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('공급사구분코드', 'SPLR_SE_CD', '코드V20', '공급사의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('협력사구분코드', 'PTNR_SE_CD', '코드V20', '협력사의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('신청인구분코드', 'APLCNT_SE_CD', '코드V20', '신청인의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('부서구분코드', 'DEPT_SE_CD', '코드V20', '부서의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('조직구분코드', 'ORG_SE_CD', '코드V20', '조직의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('상품구분코드', 'PRDT_SE_CD', '코드V20', '상품의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('품목구분코드', 'ITEM_SE_CD', '코드V20', '품목의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('매장구분코드', 'STOR_SE_CD', '코드V20', '매장의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('창고구분코드', 'WRHS_SE_CD', '코드V20', '창고의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('메뉴구분코드', 'MENU_SE_CD', '코드V20', '메뉴의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('권한구분코드', 'AUTH_SE_CD', '코드V20', '권한의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('역할구분코드', 'ROLE_SE_CD', '코드V20', '역할의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('프로그램구분코드', 'PGM_SE_CD', '코드V20', '프로그램의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('파일구분코드', 'FILE_SE_CD', '코드V20', '파일의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('게시판구분코드', 'BBS_SE_CD', '코드V20', '게시판의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('게시물구분코드', 'PST_SE_CD', '코드V20', '게시물의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('공지구분코드', 'NTC_SE_CD', '코드V20', '공지의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('쿠폰구분코드', 'CPN_SE_CD', '코드V20', '쿠폰의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('이벤트구분코드', 'EVT_SE_CD', '코드V20', '이벤트의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('프로젝트구분코드', 'PRJ_SE_CD', '코드V20', '프로젝트의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('과제구분코드', 'TASK_SE_CD', '코드V20', '과제의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('자산구분코드', 'ASST_SE_CD', '코드V20', '자산의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('설비구분코드', 'EQPMNT_SE_CD', '코드V20', '설비의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('차량구분코드', 'VHCL_SE_CD', '코드V20', '차량의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('교육구분코드', 'EDU_SE_CD', '코드V20', '교육의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('계정구분코드', 'ACNT_SE_CD', '코드V20', '계정의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('예산구분코드', 'BGT_SE_CD', '코드V20', '예산의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('계좌구분코드', 'BACNT_SE_CD', '코드V20', '계좌의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('카드구분코드', 'CARD_SE_CD', '코드V20', '카드의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('약관구분코드', 'TRMS_SE_CD', '코드V20', '약관의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('주문구분코드', 'ORDR_SE_CD', '코드V20', '주문의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('결제구분코드', 'STLM_SE_CD', '코드V20', '결제의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('배송구분코드', 'DLVR_SE_CD', '코드V20', '배송의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('계약구분코드', 'CTRT_SE_CD', '코드V20', '계약의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('청구구분코드', 'CLM_SE_CD', '코드V20', '청구의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('수납구분코드', 'RCPT_SE_CD', '코드V20', '수납의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('거래구분코드', 'TRSC_SE_CD', '코드V20', '거래의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('입고구분코드', 'WRHSNG_SE_CD', '코드V20', '입고의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('출고구분코드', 'RLS_SE_CD', '코드V20', '출고의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('구매구분코드', 'PRCHS_SE_CD', '코드V20', '구매의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('판매구분코드', 'SLS_SE_CD', '코드V20', '판매의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('견적구분코드', 'ESTMT_SE_CD', '코드V20', '견적의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('정산구분코드', 'CLCLN_SE_CD', '코드V20', '정산의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('반품구분코드', 'RTGD_SE_CD', '코드V20', '반품의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('환불구분코드', 'RFND_SE_CD', '코드V20', '환불의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('문의구분코드', 'INQ_SE_CD', '코드V20', '문의의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('신청구분코드', 'APLY_SE_CD', '코드V20', '신청의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('급여구분코드', 'SLRY_SE_CD', '코드V20', '급여의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('휴가구분코드', 'VCTN_SE_CD', '코드V20', '휴가의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('평가구분코드', 'EVL_SE_CD', '코드V20', '평가의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('비용구분코드', 'CST_SE_CD', '코드V20', '비용의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('전표구분코드', 'SLIP_SE_CD', '코드V20', '전표의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('재고구분코드', 'INVNTRY_SE_CD', '코드V20', '재고의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('포인트구분코드', 'PNT_SE_CD', '코드V20', '포인트의 구분코드');
+INSERT INTO tmp_seed_term VALUES ('고객내용', 'CUST_CN', '내용V4000', '고객의 내용');
+INSERT INTO tmp_seed_term VALUES ('회원내용', 'MBR_CN', '내용V4000', '회원의 내용');
+INSERT INTO tmp_seed_term VALUES ('사용자내용', 'USER_CN', '내용V4000', '사용자의 내용');
+INSERT INTO tmp_seed_term VALUES ('직원내용', 'EMP_CN', '내용V4000', '직원의 내용');
+INSERT INTO tmp_seed_term VALUES ('담당자내용', 'PIC_CN', '내용V4000', '담당자의 내용');
+INSERT INTO tmp_seed_term VALUES ('거래처내용', 'BCNC_CN', '내용V4000', '거래처의 내용');
+INSERT INTO tmp_seed_term VALUES ('공급사내용', 'SPLR_CN', '내용V4000', '공급사의 내용');
+INSERT INTO tmp_seed_term VALUES ('협력사내용', 'PTNR_CN', '내용V4000', '협력사의 내용');
+INSERT INTO tmp_seed_term VALUES ('신청인내용', 'APLCNT_CN', '내용V4000', '신청인의 내용');
+INSERT INTO tmp_seed_term VALUES ('부서내용', 'DEPT_CN', '내용V4000', '부서의 내용');
+INSERT INTO tmp_seed_term VALUES ('조직내용', 'ORG_CN', '내용V4000', '조직의 내용');
+INSERT INTO tmp_seed_term VALUES ('상품내용', 'PRDT_CN', '내용V4000', '상품의 내용');
+INSERT INTO tmp_seed_term VALUES ('품목내용', 'ITEM_CN', '내용V4000', '품목의 내용');
+INSERT INTO tmp_seed_term VALUES ('매장내용', 'STOR_CN', '내용V4000', '매장의 내용');
+INSERT INTO tmp_seed_term VALUES ('창고내용', 'WRHS_CN', '내용V4000', '창고의 내용');
+INSERT INTO tmp_seed_term VALUES ('메뉴내용', 'MENU_CN', '내용V4000', '메뉴의 내용');
+INSERT INTO tmp_seed_term VALUES ('권한내용', 'AUTH_CN', '내용V4000', '권한의 내용');
+INSERT INTO tmp_seed_term VALUES ('역할내용', 'ROLE_CN', '내용V4000', '역할의 내용');
+INSERT INTO tmp_seed_term VALUES ('프로그램내용', 'PGM_CN', '내용V4000', '프로그램의 내용');
+INSERT INTO tmp_seed_term VALUES ('파일내용', 'FILE_CN', '내용V4000', '파일의 내용');
+INSERT INTO tmp_seed_term VALUES ('게시판내용', 'BBS_CN', '내용V4000', '게시판의 내용');
+INSERT INTO tmp_seed_term VALUES ('게시물내용', 'PST_CN', '내용V4000', '게시물의 내용');
+INSERT INTO tmp_seed_term VALUES ('공지내용', 'NTC_CN', '내용V4000', '공지의 내용');
+INSERT INTO tmp_seed_term VALUES ('쿠폰내용', 'CPN_CN', '내용V4000', '쿠폰의 내용');
+INSERT INTO tmp_seed_term VALUES ('이벤트내용', 'EVT_CN', '내용V4000', '이벤트의 내용');
+INSERT INTO tmp_seed_term VALUES ('프로젝트내용', 'PRJ_CN', '내용V4000', '프로젝트의 내용');
+INSERT INTO tmp_seed_term VALUES ('과제내용', 'TASK_CN', '내용V4000', '과제의 내용');
+INSERT INTO tmp_seed_term VALUES ('자산내용', 'ASST_CN', '내용V4000', '자산의 내용');
+INSERT INTO tmp_seed_term VALUES ('설비내용', 'EQPMNT_CN', '내용V4000', '설비의 내용');
+INSERT INTO tmp_seed_term VALUES ('차량내용', 'VHCL_CN', '내용V4000', '차량의 내용');
+INSERT INTO tmp_seed_term VALUES ('교육내용', 'EDU_CN', '내용V4000', '교육의 내용');
+INSERT INTO tmp_seed_term VALUES ('계정내용', 'ACNT_CN', '내용V4000', '계정의 내용');
+INSERT INTO tmp_seed_term VALUES ('예산내용', 'BGT_CN', '내용V4000', '예산의 내용');
+INSERT INTO tmp_seed_term VALUES ('계좌내용', 'BACNT_CN', '내용V4000', '계좌의 내용');
+INSERT INTO tmp_seed_term VALUES ('카드내용', 'CARD_CN', '내용V4000', '카드의 내용');
+INSERT INTO tmp_seed_term VALUES ('약관내용', 'TRMS_CN', '내용V4000', '약관의 내용');
+INSERT INTO tmp_seed_term VALUES ('주문내용', 'ORDR_CN', '내용V4000', '주문의 내용');
+INSERT INTO tmp_seed_term VALUES ('결제내용', 'STLM_CN', '내용V4000', '결제의 내용');
+INSERT INTO tmp_seed_term VALUES ('배송내용', 'DLVR_CN', '내용V4000', '배송의 내용');
+INSERT INTO tmp_seed_term VALUES ('계약내용', 'CTRT_CN', '내용V4000', '계약의 내용');
+INSERT INTO tmp_seed_term VALUES ('청구내용', 'CLM_CN', '내용V4000', '청구의 내용');
+INSERT INTO tmp_seed_term VALUES ('수납내용', 'RCPT_CN', '내용V4000', '수납의 내용');
+INSERT INTO tmp_seed_term VALUES ('거래내용', 'TRSC_CN', '내용V4000', '거래의 내용');
+INSERT INTO tmp_seed_term VALUES ('입고내용', 'WRHSNG_CN', '내용V4000', '입고의 내용');
+INSERT INTO tmp_seed_term VALUES ('출고내용', 'RLS_CN', '내용V4000', '출고의 내용');
+INSERT INTO tmp_seed_term VALUES ('구매내용', 'PRCHS_CN', '내용V4000', '구매의 내용');
+INSERT INTO tmp_seed_term VALUES ('판매내용', 'SLS_CN', '내용V4000', '판매의 내용');
+INSERT INTO tmp_seed_term VALUES ('견적내용', 'ESTMT_CN', '내용V4000', '견적의 내용');
+INSERT INTO tmp_seed_term VALUES ('정산내용', 'CLCLN_CN', '내용V4000', '정산의 내용');
+INSERT INTO tmp_seed_term VALUES ('반품내용', 'RTGD_CN', '내용V4000', '반품의 내용');
+INSERT INTO tmp_seed_term VALUES ('환불내용', 'RFND_CN', '내용V4000', '환불의 내용');
+INSERT INTO tmp_seed_term VALUES ('문의내용', 'INQ_CN', '내용V4000', '문의의 내용');
+INSERT INTO tmp_seed_term VALUES ('신청내용', 'APLY_CN', '내용V4000', '신청의 내용');
+INSERT INTO tmp_seed_term VALUES ('급여내용', 'SLRY_CN', '내용V4000', '급여의 내용');
+INSERT INTO tmp_seed_term VALUES ('휴가내용', 'VCTN_CN', '내용V4000', '휴가의 내용');
+INSERT INTO tmp_seed_term VALUES ('평가내용', 'EVL_CN', '내용V4000', '평가의 내용');
+INSERT INTO tmp_seed_term VALUES ('비용내용', 'CST_CN', '내용V4000', '비용의 내용');
+INSERT INTO tmp_seed_term VALUES ('전표내용', 'SLIP_CN', '내용V4000', '전표의 내용');
+INSERT INTO tmp_seed_term VALUES ('재고내용', 'INVNTRY_CN', '내용V4000', '재고의 내용');
+INSERT INTO tmp_seed_term VALUES ('포인트내용', 'PNT_CN', '내용V4000', '포인트의 내용');
+INSERT INTO tmp_seed_term VALUES ('고객등록일시', 'CUST_REG_DT', '일시DT', '고객의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('회원등록일시', 'MBR_REG_DT', '일시DT', '회원의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('사용자등록일시', 'USER_REG_DT', '일시DT', '사용자의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('직원등록일시', 'EMP_REG_DT', '일시DT', '직원의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('담당자등록일시', 'PIC_REG_DT', '일시DT', '담당자의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('거래처등록일시', 'BCNC_REG_DT', '일시DT', '거래처의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('공급사등록일시', 'SPLR_REG_DT', '일시DT', '공급사의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('협력사등록일시', 'PTNR_REG_DT', '일시DT', '협력사의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('신청인등록일시', 'APLCNT_REG_DT', '일시DT', '신청인의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('부서등록일시', 'DEPT_REG_DT', '일시DT', '부서의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('조직등록일시', 'ORG_REG_DT', '일시DT', '조직의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('상품등록일시', 'PRDT_REG_DT', '일시DT', '상품의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('품목등록일시', 'ITEM_REG_DT', '일시DT', '품목의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('매장등록일시', 'STOR_REG_DT', '일시DT', '매장의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('창고등록일시', 'WRHS_REG_DT', '일시DT', '창고의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('메뉴등록일시', 'MENU_REG_DT', '일시DT', '메뉴의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('권한등록일시', 'AUTH_REG_DT', '일시DT', '권한의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('역할등록일시', 'ROLE_REG_DT', '일시DT', '역할의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('프로그램등록일시', 'PGM_REG_DT', '일시DT', '프로그램의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('파일등록일시', 'FILE_REG_DT', '일시DT', '파일의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('게시판등록일시', 'BBS_REG_DT', '일시DT', '게시판의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('게시물등록일시', 'PST_REG_DT', '일시DT', '게시물의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('공지등록일시', 'NTC_REG_DT', '일시DT', '공지의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('쿠폰등록일시', 'CPN_REG_DT', '일시DT', '쿠폰의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('이벤트등록일시', 'EVT_REG_DT', '일시DT', '이벤트의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('프로젝트등록일시', 'PRJ_REG_DT', '일시DT', '프로젝트의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('과제등록일시', 'TASK_REG_DT', '일시DT', '과제의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('자산등록일시', 'ASST_REG_DT', '일시DT', '자산의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('설비등록일시', 'EQPMNT_REG_DT', '일시DT', '설비의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('차량등록일시', 'VHCL_REG_DT', '일시DT', '차량의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('교육등록일시', 'EDU_REG_DT', '일시DT', '교육의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('계정등록일시', 'ACNT_REG_DT', '일시DT', '계정의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('예산등록일시', 'BGT_REG_DT', '일시DT', '예산의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('계좌등록일시', 'BACNT_REG_DT', '일시DT', '계좌의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('카드등록일시', 'CARD_REG_DT', '일시DT', '카드의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('약관등록일시', 'TRMS_REG_DT', '일시DT', '약관의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('주문등록일시', 'ORDR_REG_DT', '일시DT', '주문의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('결제등록일시', 'STLM_REG_DT', '일시DT', '결제의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('배송등록일시', 'DLVR_REG_DT', '일시DT', '배송의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('계약등록일시', 'CTRT_REG_DT', '일시DT', '계약의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('청구등록일시', 'CLM_REG_DT', '일시DT', '청구의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('수납등록일시', 'RCPT_REG_DT', '일시DT', '수납의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('거래등록일시', 'TRSC_REG_DT', '일시DT', '거래의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('입고등록일시', 'WRHSNG_REG_DT', '일시DT', '입고의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('출고등록일시', 'RLS_REG_DT', '일시DT', '출고의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('구매등록일시', 'PRCHS_REG_DT', '일시DT', '구매의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('판매등록일시', 'SLS_REG_DT', '일시DT', '판매의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('견적등록일시', 'ESTMT_REG_DT', '일시DT', '견적의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('정산등록일시', 'CLCLN_REG_DT', '일시DT', '정산의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('반품등록일시', 'RTGD_REG_DT', '일시DT', '반품의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('환불등록일시', 'RFND_REG_DT', '일시DT', '환불의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('문의등록일시', 'INQ_REG_DT', '일시DT', '문의의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('신청등록일시', 'APLY_REG_DT', '일시DT', '신청의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('급여등록일시', 'SLRY_REG_DT', '일시DT', '급여의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('휴가등록일시', 'VCTN_REG_DT', '일시DT', '휴가의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('평가등록일시', 'EVL_REG_DT', '일시DT', '평가의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('비용등록일시', 'CST_REG_DT', '일시DT', '비용의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('전표등록일시', 'SLIP_REG_DT', '일시DT', '전표의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('재고등록일시', 'INVNTRY_REG_DT', '일시DT', '재고의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('포인트등록일시', 'PNT_REG_DT', '일시DT', '포인트의 등록일시');
+INSERT INTO tmp_seed_term VALUES ('고객수정일시', 'CUST_MDFCN_DT', '일시DT', '고객의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('회원수정일시', 'MBR_MDFCN_DT', '일시DT', '회원의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('사용자수정일시', 'USER_MDFCN_DT', '일시DT', '사용자의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('직원수정일시', 'EMP_MDFCN_DT', '일시DT', '직원의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('담당자수정일시', 'PIC_MDFCN_DT', '일시DT', '담당자의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('거래처수정일시', 'BCNC_MDFCN_DT', '일시DT', '거래처의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('공급사수정일시', 'SPLR_MDFCN_DT', '일시DT', '공급사의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('협력사수정일시', 'PTNR_MDFCN_DT', '일시DT', '협력사의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('신청인수정일시', 'APLCNT_MDFCN_DT', '일시DT', '신청인의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('부서수정일시', 'DEPT_MDFCN_DT', '일시DT', '부서의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('조직수정일시', 'ORG_MDFCN_DT', '일시DT', '조직의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('상품수정일시', 'PRDT_MDFCN_DT', '일시DT', '상품의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('품목수정일시', 'ITEM_MDFCN_DT', '일시DT', '품목의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('매장수정일시', 'STOR_MDFCN_DT', '일시DT', '매장의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('창고수정일시', 'WRHS_MDFCN_DT', '일시DT', '창고의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('메뉴수정일시', 'MENU_MDFCN_DT', '일시DT', '메뉴의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('권한수정일시', 'AUTH_MDFCN_DT', '일시DT', '권한의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('역할수정일시', 'ROLE_MDFCN_DT', '일시DT', '역할의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('프로그램수정일시', 'PGM_MDFCN_DT', '일시DT', '프로그램의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('파일수정일시', 'FILE_MDFCN_DT', '일시DT', '파일의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('게시판수정일시', 'BBS_MDFCN_DT', '일시DT', '게시판의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('게시물수정일시', 'PST_MDFCN_DT', '일시DT', '게시물의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('공지수정일시', 'NTC_MDFCN_DT', '일시DT', '공지의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('쿠폰수정일시', 'CPN_MDFCN_DT', '일시DT', '쿠폰의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('이벤트수정일시', 'EVT_MDFCN_DT', '일시DT', '이벤트의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('프로젝트수정일시', 'PRJ_MDFCN_DT', '일시DT', '프로젝트의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('과제수정일시', 'TASK_MDFCN_DT', '일시DT', '과제의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('자산수정일시', 'ASST_MDFCN_DT', '일시DT', '자산의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('설비수정일시', 'EQPMNT_MDFCN_DT', '일시DT', '설비의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('차량수정일시', 'VHCL_MDFCN_DT', '일시DT', '차량의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('교육수정일시', 'EDU_MDFCN_DT', '일시DT', '교육의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('계정수정일시', 'ACNT_MDFCN_DT', '일시DT', '계정의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('예산수정일시', 'BGT_MDFCN_DT', '일시DT', '예산의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('계좌수정일시', 'BACNT_MDFCN_DT', '일시DT', '계좌의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('카드수정일시', 'CARD_MDFCN_DT', '일시DT', '카드의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('약관수정일시', 'TRMS_MDFCN_DT', '일시DT', '약관의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('주문수정일시', 'ORDR_MDFCN_DT', '일시DT', '주문의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('결제수정일시', 'STLM_MDFCN_DT', '일시DT', '결제의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('배송수정일시', 'DLVR_MDFCN_DT', '일시DT', '배송의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('계약수정일시', 'CTRT_MDFCN_DT', '일시DT', '계약의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('청구수정일시', 'CLM_MDFCN_DT', '일시DT', '청구의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('수납수정일시', 'RCPT_MDFCN_DT', '일시DT', '수납의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('거래수정일시', 'TRSC_MDFCN_DT', '일시DT', '거래의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('입고수정일시', 'WRHSNG_MDFCN_DT', '일시DT', '입고의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('출고수정일시', 'RLS_MDFCN_DT', '일시DT', '출고의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('구매수정일시', 'PRCHS_MDFCN_DT', '일시DT', '구매의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('판매수정일시', 'SLS_MDFCN_DT', '일시DT', '판매의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('견적수정일시', 'ESTMT_MDFCN_DT', '일시DT', '견적의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('정산수정일시', 'CLCLN_MDFCN_DT', '일시DT', '정산의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('반품수정일시', 'RTGD_MDFCN_DT', '일시DT', '반품의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('환불수정일시', 'RFND_MDFCN_DT', '일시DT', '환불의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('문의수정일시', 'INQ_MDFCN_DT', '일시DT', '문의의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('신청수정일시', 'APLY_MDFCN_DT', '일시DT', '신청의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('급여수정일시', 'SLRY_MDFCN_DT', '일시DT', '급여의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('휴가수정일시', 'VCTN_MDFCN_DT', '일시DT', '휴가의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('평가수정일시', 'EVL_MDFCN_DT', '일시DT', '평가의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('비용수정일시', 'CST_MDFCN_DT', '일시DT', '비용의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('전표수정일시', 'SLIP_MDFCN_DT', '일시DT', '전표의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('재고수정일시', 'INVNTRY_MDFCN_DT', '일시DT', '재고의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('포인트수정일시', 'PNT_MDFCN_DT', '일시DT', '포인트의 수정일시');
+INSERT INTO tmp_seed_term VALUES ('고객사용여부', 'CUST_USE_YN', '여부C1', '고객의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('회원사용여부', 'MBR_USE_YN', '여부C1', '회원의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('사용자사용여부', 'USER_USE_YN', '여부C1', '사용자의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('직원사용여부', 'EMP_USE_YN', '여부C1', '직원의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('담당자사용여부', 'PIC_USE_YN', '여부C1', '담당자의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('거래처사용여부', 'BCNC_USE_YN', '여부C1', '거래처의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('공급사사용여부', 'SPLR_USE_YN', '여부C1', '공급사의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('협력사사용여부', 'PTNR_USE_YN', '여부C1', '협력사의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('신청인사용여부', 'APLCNT_USE_YN', '여부C1', '신청인의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('부서사용여부', 'DEPT_USE_YN', '여부C1', '부서의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('조직사용여부', 'ORG_USE_YN', '여부C1', '조직의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('상품사용여부', 'PRDT_USE_YN', '여부C1', '상품의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('품목사용여부', 'ITEM_USE_YN', '여부C1', '품목의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('매장사용여부', 'STOR_USE_YN', '여부C1', '매장의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('창고사용여부', 'WRHS_USE_YN', '여부C1', '창고의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('메뉴사용여부', 'MENU_USE_YN', '여부C1', '메뉴의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('권한사용여부', 'AUTH_USE_YN', '여부C1', '권한의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('역할사용여부', 'ROLE_USE_YN', '여부C1', '역할의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('프로그램사용여부', 'PGM_USE_YN', '여부C1', '프로그램의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('파일사용여부', 'FILE_USE_YN', '여부C1', '파일의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('게시판사용여부', 'BBS_USE_YN', '여부C1', '게시판의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('게시물사용여부', 'PST_USE_YN', '여부C1', '게시물의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('공지사용여부', 'NTC_USE_YN', '여부C1', '공지의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('쿠폰사용여부', 'CPN_USE_YN', '여부C1', '쿠폰의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('이벤트사용여부', 'EVT_USE_YN', '여부C1', '이벤트의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('프로젝트사용여부', 'PRJ_USE_YN', '여부C1', '프로젝트의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('과제사용여부', 'TASK_USE_YN', '여부C1', '과제의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('자산사용여부', 'ASST_USE_YN', '여부C1', '자산의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('설비사용여부', 'EQPMNT_USE_YN', '여부C1', '설비의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('차량사용여부', 'VHCL_USE_YN', '여부C1', '차량의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('교육사용여부', 'EDU_USE_YN', '여부C1', '교육의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('계정사용여부', 'ACNT_USE_YN', '여부C1', '계정의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('예산사용여부', 'BGT_USE_YN', '여부C1', '예산의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('계좌사용여부', 'BACNT_USE_YN', '여부C1', '계좌의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('카드사용여부', 'CARD_USE_YN', '여부C1', '카드의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('약관사용여부', 'TRMS_USE_YN', '여부C1', '약관의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('주문사용여부', 'ORDR_USE_YN', '여부C1', '주문의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('결제사용여부', 'STLM_USE_YN', '여부C1', '결제의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('배송사용여부', 'DLVR_USE_YN', '여부C1', '배송의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('계약사용여부', 'CTRT_USE_YN', '여부C1', '계약의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('청구사용여부', 'CLM_USE_YN', '여부C1', '청구의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('수납사용여부', 'RCPT_USE_YN', '여부C1', '수납의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('거래사용여부', 'TRSC_USE_YN', '여부C1', '거래의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('입고사용여부', 'WRHSNG_USE_YN', '여부C1', '입고의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('출고사용여부', 'RLS_USE_YN', '여부C1', '출고의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('구매사용여부', 'PRCHS_USE_YN', '여부C1', '구매의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('판매사용여부', 'SLS_USE_YN', '여부C1', '판매의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('견적사용여부', 'ESTMT_USE_YN', '여부C1', '견적의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('정산사용여부', 'CLCLN_USE_YN', '여부C1', '정산의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('반품사용여부', 'RTGD_USE_YN', '여부C1', '반품의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('환불사용여부', 'RFND_USE_YN', '여부C1', '환불의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('문의사용여부', 'INQ_USE_YN', '여부C1', '문의의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('신청사용여부', 'APLY_USE_YN', '여부C1', '신청의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('급여사용여부', 'SLRY_USE_YN', '여부C1', '급여의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('휴가사용여부', 'VCTN_USE_YN', '여부C1', '휴가의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('평가사용여부', 'EVL_USE_YN', '여부C1', '평가의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('비용사용여부', 'CST_USE_YN', '여부C1', '비용의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('전표사용여부', 'SLIP_USE_YN', '여부C1', '전표의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('재고사용여부', 'INVNTRY_USE_YN', '여부C1', '재고의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('포인트사용여부', 'PNT_USE_YN', '여부C1', '포인트의 사용여부');
+INSERT INTO tmp_seed_term VALUES ('고객삭제여부', 'CUST_DEL_YN', '여부C1', '고객의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('회원삭제여부', 'MBR_DEL_YN', '여부C1', '회원의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('사용자삭제여부', 'USER_DEL_YN', '여부C1', '사용자의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('직원삭제여부', 'EMP_DEL_YN', '여부C1', '직원의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('담당자삭제여부', 'PIC_DEL_YN', '여부C1', '담당자의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('거래처삭제여부', 'BCNC_DEL_YN', '여부C1', '거래처의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('공급사삭제여부', 'SPLR_DEL_YN', '여부C1', '공급사의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('협력사삭제여부', 'PTNR_DEL_YN', '여부C1', '협력사의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('신청인삭제여부', 'APLCNT_DEL_YN', '여부C1', '신청인의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('부서삭제여부', 'DEPT_DEL_YN', '여부C1', '부서의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('조직삭제여부', 'ORG_DEL_YN', '여부C1', '조직의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('상품삭제여부', 'PRDT_DEL_YN', '여부C1', '상품의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('품목삭제여부', 'ITEM_DEL_YN', '여부C1', '품목의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('매장삭제여부', 'STOR_DEL_YN', '여부C1', '매장의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('창고삭제여부', 'WRHS_DEL_YN', '여부C1', '창고의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('메뉴삭제여부', 'MENU_DEL_YN', '여부C1', '메뉴의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('권한삭제여부', 'AUTH_DEL_YN', '여부C1', '권한의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('역할삭제여부', 'ROLE_DEL_YN', '여부C1', '역할의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('프로그램삭제여부', 'PGM_DEL_YN', '여부C1', '프로그램의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('파일삭제여부', 'FILE_DEL_YN', '여부C1', '파일의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('게시판삭제여부', 'BBS_DEL_YN', '여부C1', '게시판의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('게시물삭제여부', 'PST_DEL_YN', '여부C1', '게시물의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('공지삭제여부', 'NTC_DEL_YN', '여부C1', '공지의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('쿠폰삭제여부', 'CPN_DEL_YN', '여부C1', '쿠폰의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('이벤트삭제여부', 'EVT_DEL_YN', '여부C1', '이벤트의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('프로젝트삭제여부', 'PRJ_DEL_YN', '여부C1', '프로젝트의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('과제삭제여부', 'TASK_DEL_YN', '여부C1', '과제의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('자산삭제여부', 'ASST_DEL_YN', '여부C1', '자산의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('설비삭제여부', 'EQPMNT_DEL_YN', '여부C1', '설비의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('차량삭제여부', 'VHCL_DEL_YN', '여부C1', '차량의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('교육삭제여부', 'EDU_DEL_YN', '여부C1', '교육의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('계정삭제여부', 'ACNT_DEL_YN', '여부C1', '계정의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('예산삭제여부', 'BGT_DEL_YN', '여부C1', '예산의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('계좌삭제여부', 'BACNT_DEL_YN', '여부C1', '계좌의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('카드삭제여부', 'CARD_DEL_YN', '여부C1', '카드의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('약관삭제여부', 'TRMS_DEL_YN', '여부C1', '약관의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('주문삭제여부', 'ORDR_DEL_YN', '여부C1', '주문의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('결제삭제여부', 'STLM_DEL_YN', '여부C1', '결제의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('배송삭제여부', 'DLVR_DEL_YN', '여부C1', '배송의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('계약삭제여부', 'CTRT_DEL_YN', '여부C1', '계약의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('청구삭제여부', 'CLM_DEL_YN', '여부C1', '청구의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('수납삭제여부', 'RCPT_DEL_YN', '여부C1', '수납의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('거래삭제여부', 'TRSC_DEL_YN', '여부C1', '거래의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('입고삭제여부', 'WRHSNG_DEL_YN', '여부C1', '입고의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('출고삭제여부', 'RLS_DEL_YN', '여부C1', '출고의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('구매삭제여부', 'PRCHS_DEL_YN', '여부C1', '구매의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('판매삭제여부', 'SLS_DEL_YN', '여부C1', '판매의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('견적삭제여부', 'ESTMT_DEL_YN', '여부C1', '견적의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('정산삭제여부', 'CLCLN_DEL_YN', '여부C1', '정산의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('반품삭제여부', 'RTGD_DEL_YN', '여부C1', '반품의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('환불삭제여부', 'RFND_DEL_YN', '여부C1', '환불의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('문의삭제여부', 'INQ_DEL_YN', '여부C1', '문의의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('신청삭제여부', 'APLY_DEL_YN', '여부C1', '신청의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('급여삭제여부', 'SLRY_DEL_YN', '여부C1', '급여의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('휴가삭제여부', 'VCTN_DEL_YN', '여부C1', '휴가의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('평가삭제여부', 'EVL_DEL_YN', '여부C1', '평가의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('비용삭제여부', 'CST_DEL_YN', '여부C1', '비용의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('전표삭제여부', 'SLIP_DEL_YN', '여부C1', '전표의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('재고삭제여부', 'INVNTRY_DEL_YN', '여부C1', '재고의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('포인트삭제여부', 'PNT_DEL_YN', '여부C1', '포인트의 삭제여부');
+INSERT INTO tmp_seed_term VALUES ('고객순번', 'CUST_SN', '순번I', '고객의 순번');
+INSERT INTO tmp_seed_term VALUES ('회원순번', 'MBR_SN', '순번I', '회원의 순번');
+INSERT INTO tmp_seed_term VALUES ('사용자순번', 'USER_SN', '순번I', '사용자의 순번');
+INSERT INTO tmp_seed_term VALUES ('직원순번', 'EMP_SN', '순번I', '직원의 순번');
+INSERT INTO tmp_seed_term VALUES ('담당자순번', 'PIC_SN', '순번I', '담당자의 순번');
+INSERT INTO tmp_seed_term VALUES ('거래처순번', 'BCNC_SN', '순번I', '거래처의 순번');
+INSERT INTO tmp_seed_term VALUES ('공급사순번', 'SPLR_SN', '순번I', '공급사의 순번');
+INSERT INTO tmp_seed_term VALUES ('협력사순번', 'PTNR_SN', '순번I', '협력사의 순번');
+INSERT INTO tmp_seed_term VALUES ('신청인순번', 'APLCNT_SN', '순번I', '신청인의 순번');
+INSERT INTO tmp_seed_term VALUES ('부서순번', 'DEPT_SN', '순번I', '부서의 순번');
+INSERT INTO tmp_seed_term VALUES ('조직순번', 'ORG_SN', '순번I', '조직의 순번');
+INSERT INTO tmp_seed_term VALUES ('상품순번', 'PRDT_SN', '순번I', '상품의 순번');
+INSERT INTO tmp_seed_term VALUES ('품목순번', 'ITEM_SN', '순번I', '품목의 순번');
+INSERT INTO tmp_seed_term VALUES ('매장순번', 'STOR_SN', '순번I', '매장의 순번');
+INSERT INTO tmp_seed_term VALUES ('창고순번', 'WRHS_SN', '순번I', '창고의 순번');
+INSERT INTO tmp_seed_term VALUES ('메뉴순번', 'MENU_SN', '순번I', '메뉴의 순번');
+INSERT INTO tmp_seed_term VALUES ('권한순번', 'AUTH_SN', '순번I', '권한의 순번');
+INSERT INTO tmp_seed_term VALUES ('역할순번', 'ROLE_SN', '순번I', '역할의 순번');
+INSERT INTO tmp_seed_term VALUES ('프로그램순번', 'PGM_SN', '순번I', '프로그램의 순번');
+INSERT INTO tmp_seed_term VALUES ('파일순번', 'FILE_SN', '순번I', '파일의 순번');
+INSERT INTO tmp_seed_term VALUES ('게시판순번', 'BBS_SN', '순번I', '게시판의 순번');
+INSERT INTO tmp_seed_term VALUES ('게시물순번', 'PST_SN', '순번I', '게시물의 순번');
+INSERT INTO tmp_seed_term VALUES ('공지순번', 'NTC_SN', '순번I', '공지의 순번');
+INSERT INTO tmp_seed_term VALUES ('쿠폰순번', 'CPN_SN', '순번I', '쿠폰의 순번');
+INSERT INTO tmp_seed_term VALUES ('이벤트순번', 'EVT_SN', '순번I', '이벤트의 순번');
+INSERT INTO tmp_seed_term VALUES ('프로젝트순번', 'PRJ_SN', '순번I', '프로젝트의 순번');
+INSERT INTO tmp_seed_term VALUES ('과제순번', 'TASK_SN', '순번I', '과제의 순번');
+INSERT INTO tmp_seed_term VALUES ('자산순번', 'ASST_SN', '순번I', '자산의 순번');
+INSERT INTO tmp_seed_term VALUES ('설비순번', 'EQPMNT_SN', '순번I', '설비의 순번');
+INSERT INTO tmp_seed_term VALUES ('차량순번', 'VHCL_SN', '순번I', '차량의 순번');
+INSERT INTO tmp_seed_term VALUES ('교육순번', 'EDU_SN', '순번I', '교육의 순번');
+INSERT INTO tmp_seed_term VALUES ('계정순번', 'ACNT_SN', '순번I', '계정의 순번');
+INSERT INTO tmp_seed_term VALUES ('예산순번', 'BGT_SN', '순번I', '예산의 순번');
+INSERT INTO tmp_seed_term VALUES ('계좌순번', 'BACNT_SN', '순번I', '계좌의 순번');
+INSERT INTO tmp_seed_term VALUES ('카드순번', 'CARD_SN', '순번I', '카드의 순번');
+INSERT INTO tmp_seed_term VALUES ('약관순번', 'TRMS_SN', '순번I', '약관의 순번');
+INSERT INTO tmp_seed_term VALUES ('주문순번', 'ORDR_SN', '순번I', '주문의 순번');
+INSERT INTO tmp_seed_term VALUES ('결제순번', 'STLM_SN', '순번I', '결제의 순번');
+INSERT INTO tmp_seed_term VALUES ('배송순번', 'DLVR_SN', '순번I', '배송의 순번');
+INSERT INTO tmp_seed_term VALUES ('계약순번', 'CTRT_SN', '순번I', '계약의 순번');
+INSERT INTO tmp_seed_term VALUES ('청구순번', 'CLM_SN', '순번I', '청구의 순번');
+INSERT INTO tmp_seed_term VALUES ('수납순번', 'RCPT_SN', '순번I', '수납의 순번');
+INSERT INTO tmp_seed_term VALUES ('거래순번', 'TRSC_SN', '순번I', '거래의 순번');
+INSERT INTO tmp_seed_term VALUES ('입고순번', 'WRHSNG_SN', '순번I', '입고의 순번');
+INSERT INTO tmp_seed_term VALUES ('출고순번', 'RLS_SN', '순번I', '출고의 순번');
+INSERT INTO tmp_seed_term VALUES ('구매순번', 'PRCHS_SN', '순번I', '구매의 순번');
+INSERT INTO tmp_seed_term VALUES ('판매순번', 'SLS_SN', '순번I', '판매의 순번');
+INSERT INTO tmp_seed_term VALUES ('견적순번', 'ESTMT_SN', '순번I', '견적의 순번');
+INSERT INTO tmp_seed_term VALUES ('정산순번', 'CLCLN_SN', '순번I', '정산의 순번');
+INSERT INTO tmp_seed_term VALUES ('반품순번', 'RTGD_SN', '순번I', '반품의 순번');
+INSERT INTO tmp_seed_term VALUES ('환불순번', 'RFND_SN', '순번I', '환불의 순번');
+INSERT INTO tmp_seed_term VALUES ('문의순번', 'INQ_SN', '순번I', '문의의 순번');
+INSERT INTO tmp_seed_term VALUES ('신청순번', 'APLY_SN', '순번I', '신청의 순번');
+INSERT INTO tmp_seed_term VALUES ('급여순번', 'SLRY_SN', '순번I', '급여의 순번');
+INSERT INTO tmp_seed_term VALUES ('휴가순번', 'VCTN_SN', '순번I', '휴가의 순번');
+INSERT INTO tmp_seed_term VALUES ('평가순번', 'EVL_SN', '순번I', '평가의 순번');
+INSERT INTO tmp_seed_term VALUES ('비용순번', 'CST_SN', '순번I', '비용의 순번');
+INSERT INTO tmp_seed_term VALUES ('전표순번', 'SLIP_SN', '순번I', '전표의 순번');
+INSERT INTO tmp_seed_term VALUES ('재고순번', 'INVNTRY_SN', '순번I', '재고의 순번');
+INSERT INTO tmp_seed_term VALUES ('포인트순번', 'PNT_SN', '순번I', '포인트의 순번');
+INSERT INTO tmp_seed_term VALUES ('고객아이디', 'CUST_ID', '아이디V50', '고객의 아이디');
+INSERT INTO tmp_seed_term VALUES ('회원아이디', 'MBR_ID', '아이디V50', '회원의 아이디');
+INSERT INTO tmp_seed_term VALUES ('사용자아이디', 'USER_ID', '아이디V50', '사용자의 아이디');
+INSERT INTO tmp_seed_term VALUES ('직원아이디', 'EMP_ID', '아이디V50', '직원의 아이디');
+INSERT INTO tmp_seed_term VALUES ('담당자아이디', 'PIC_ID', '아이디V50', '담당자의 아이디');
+INSERT INTO tmp_seed_term VALUES ('거래처아이디', 'BCNC_ID', '아이디V50', '거래처의 아이디');
+INSERT INTO tmp_seed_term VALUES ('공급사아이디', 'SPLR_ID', '아이디V50', '공급사의 아이디');
+INSERT INTO tmp_seed_term VALUES ('협력사아이디', 'PTNR_ID', '아이디V50', '협력사의 아이디');
+INSERT INTO tmp_seed_term VALUES ('신청인아이디', 'APLCNT_ID', '아이디V50', '신청인의 아이디');
+INSERT INTO tmp_seed_term VALUES ('부서시작일자', 'DEPT_BGNG_YMD', '일자D', '부서의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('조직시작일자', 'ORG_BGNG_YMD', '일자D', '조직의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('상품시작일자', 'PRDT_BGNG_YMD', '일자D', '상품의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('품목시작일자', 'ITEM_BGNG_YMD', '일자D', '품목의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('매장시작일자', 'STOR_BGNG_YMD', '일자D', '매장의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('창고시작일자', 'WRHS_BGNG_YMD', '일자D', '창고의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('메뉴시작일자', 'MENU_BGNG_YMD', '일자D', '메뉴의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('권한시작일자', 'AUTH_BGNG_YMD', '일자D', '권한의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('역할시작일자', 'ROLE_BGNG_YMD', '일자D', '역할의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('프로그램시작일자', 'PGM_BGNG_YMD', '일자D', '프로그램의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('파일시작일자', 'FILE_BGNG_YMD', '일자D', '파일의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('게시판시작일자', 'BBS_BGNG_YMD', '일자D', '게시판의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('게시물시작일자', 'PST_BGNG_YMD', '일자D', '게시물의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('공지시작일자', 'NTC_BGNG_YMD', '일자D', '공지의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('쿠폰시작일자', 'CPN_BGNG_YMD', '일자D', '쿠폰의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('이벤트시작일자', 'EVT_BGNG_YMD', '일자D', '이벤트의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('프로젝트시작일자', 'PRJ_BGNG_YMD', '일자D', '프로젝트의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('과제시작일자', 'TASK_BGNG_YMD', '일자D', '과제의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('자산시작일자', 'ASST_BGNG_YMD', '일자D', '자산의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('설비시작일자', 'EQPMNT_BGNG_YMD', '일자D', '설비의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('차량시작일자', 'VHCL_BGNG_YMD', '일자D', '차량의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('교육시작일자', 'EDU_BGNG_YMD', '일자D', '교육의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('계정시작일자', 'ACNT_BGNG_YMD', '일자D', '계정의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('예산시작일자', 'BGT_BGNG_YMD', '일자D', '예산의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('계좌시작일자', 'BACNT_BGNG_YMD', '일자D', '계좌의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('카드시작일자', 'CARD_BGNG_YMD', '일자D', '카드의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('약관시작일자', 'TRMS_BGNG_YMD', '일자D', '약관의 시작일자');
+INSERT INTO tmp_seed_term VALUES ('주문일자', 'ORDR_YMD', '일자D', '주문의 일자');
+INSERT INTO tmp_seed_term VALUES ('결제일자', 'STLM_YMD', '일자D', '결제의 일자');
+INSERT INTO tmp_seed_term VALUES ('배송일자', 'DLVR_YMD', '일자D', '배송의 일자');
+INSERT INTO tmp_seed_term VALUES ('계약일자', 'CTRT_YMD', '일자D', '계약의 일자');
+INSERT INTO tmp_seed_term VALUES ('청구일자', 'CLM_YMD', '일자D', '청구의 일자');
+INSERT INTO tmp_seed_term VALUES ('수납일자', 'RCPT_YMD', '일자D', '수납의 일자');
+INSERT INTO tmp_seed_term VALUES ('거래일자', 'TRSC_YMD', '일자D', '거래의 일자');
+INSERT INTO tmp_seed_term VALUES ('입고일자', 'WRHSNG_YMD', '일자D', '입고의 일자');
+INSERT INTO tmp_seed_term VALUES ('출고일자', 'RLS_YMD', '일자D', '출고의 일자');
+INSERT INTO tmp_seed_term VALUES ('구매일자', 'PRCHS_YMD', '일자D', '구매의 일자');
+INSERT INTO tmp_seed_term VALUES ('판매일자', 'SLS_YMD', '일자D', '판매의 일자');
+INSERT INTO tmp_seed_term VALUES ('견적일자', 'ESTMT_YMD', '일자D', '견적의 일자');
+INSERT INTO tmp_seed_term VALUES ('정산일자', 'CLCLN_YMD', '일자D', '정산의 일자');
+INSERT INTO tmp_seed_term VALUES ('반품일자', 'RTGD_YMD', '일자D', '반품의 일자');
+INSERT INTO tmp_seed_term VALUES ('환불일자', 'RFND_YMD', '일자D', '환불의 일자');
+INSERT INTO tmp_seed_term VALUES ('문의일자', 'INQ_YMD', '일자D', '문의의 일자');
+INSERT INTO tmp_seed_term VALUES ('신청일자', 'APLY_YMD', '일자D', '신청의 일자');
+INSERT INTO tmp_seed_term VALUES ('급여일자', 'SLRY_YMD', '일자D', '급여의 일자');
+INSERT INTO tmp_seed_term VALUES ('휴가일자', 'VCTN_YMD', '일자D', '휴가의 일자');
+INSERT INTO tmp_seed_term VALUES ('평가일자', 'EVL_YMD', '일자D', '평가의 일자');
+INSERT INTO tmp_seed_term VALUES ('비용일자', 'CST_YMD', '일자D', '비용의 일자');
+INSERT INTO tmp_seed_term VALUES ('전표일자', 'SLIP_YMD', '일자D', '전표의 일자');
+INSERT INTO tmp_seed_term VALUES ('재고일자', 'INVNTRY_YMD', '일자D', '재고의 일자');
+INSERT INTO tmp_seed_term VALUES ('포인트일자', 'PNT_YMD', '일자D', '포인트의 일자');
+INSERT INTO tmp_seed_term VALUES ('고객전화번호', 'CUST_TELNO', '전화번호V20', '고객의 전화번호');
+INSERT INTO tmp_seed_term VALUES ('회원전화번호', 'MBR_TELNO', '전화번호V20', '회원의 전화번호');
+INSERT INTO tmp_seed_term VALUES ('사용자전화번호', 'USER_TELNO', '전화번호V20', '사용자의 전화번호');
+INSERT INTO tmp_seed_term VALUES ('직원전화번호', 'EMP_TELNO', '전화번호V20', '직원의 전화번호');
+INSERT INTO tmp_seed_term VALUES ('담당자전화번호', 'PIC_TELNO', '전화번호V20', '담당자의 전화번호');
+INSERT INTO tmp_seed_term VALUES ('거래처전화번호', 'BCNC_TELNO', '전화번호V20', '거래처의 전화번호');
+INSERT INTO tmp_seed_term VALUES ('공급사전화번호', 'SPLR_TELNO', '전화번호V20', '공급사의 전화번호');
+INSERT INTO tmp_seed_term VALUES ('협력사전화번호', 'PTNR_TELNO', '전화번호V20', '협력사의 전화번호');
+INSERT INTO tmp_seed_term VALUES ('신청인전화번호', 'APLCNT_TELNO', '전화번호V20', '신청인의 전화번호');
+INSERT INTO tmp_seed_term VALUES ('부서종료일자', 'DEPT_END_YMD', '일자D', '부서의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('조직종료일자', 'ORG_END_YMD', '일자D', '조직의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('상품종료일자', 'PRDT_END_YMD', '일자D', '상품의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('품목종료일자', 'ITEM_END_YMD', '일자D', '품목의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('매장종료일자', 'STOR_END_YMD', '일자D', '매장의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('창고종료일자', 'WRHS_END_YMD', '일자D', '창고의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('메뉴종료일자', 'MENU_END_YMD', '일자D', '메뉴의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('권한종료일자', 'AUTH_END_YMD', '일자D', '권한의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('역할종료일자', 'ROLE_END_YMD', '일자D', '역할의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('프로그램종료일자', 'PGM_END_YMD', '일자D', '프로그램의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('파일종료일자', 'FILE_END_YMD', '일자D', '파일의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('게시판종료일자', 'BBS_END_YMD', '일자D', '게시판의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('게시물종료일자', 'PST_END_YMD', '일자D', '게시물의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('공지종료일자', 'NTC_END_YMD', '일자D', '공지의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('쿠폰종료일자', 'CPN_END_YMD', '일자D', '쿠폰의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('이벤트종료일자', 'EVT_END_YMD', '일자D', '이벤트의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('프로젝트종료일자', 'PRJ_END_YMD', '일자D', '프로젝트의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('과제종료일자', 'TASK_END_YMD', '일자D', '과제의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('자산종료일자', 'ASST_END_YMD', '일자D', '자산의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('설비종료일자', 'EQPMNT_END_YMD', '일자D', '설비의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('차량종료일자', 'VHCL_END_YMD', '일자D', '차량의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('교육종료일자', 'EDU_END_YMD', '일자D', '교육의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('계정종료일자', 'ACNT_END_YMD', '일자D', '계정의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('예산종료일자', 'BGT_END_YMD', '일자D', '예산의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('계좌종료일자', 'BACNT_END_YMD', '일자D', '계좌의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('카드종료일자', 'CARD_END_YMD', '일자D', '카드의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('약관종료일자', 'TRMS_END_YMD', '일자D', '약관의 종료일자');
+INSERT INTO tmp_seed_term VALUES ('주문일시', 'ORDR_DT', '일시DT', '주문의 일시');
+INSERT INTO tmp_seed_term VALUES ('결제일시', 'STLM_DT', '일시DT', '결제의 일시');
+INSERT INTO tmp_seed_term VALUES ('배송일시', 'DLVR_DT', '일시DT', '배송의 일시');
+INSERT INTO tmp_seed_term VALUES ('계약일시', 'CTRT_DT', '일시DT', '계약의 일시');
+INSERT INTO tmp_seed_term VALUES ('청구일시', 'CLM_DT', '일시DT', '청구의 일시');
+INSERT INTO tmp_seed_term VALUES ('수납일시', 'RCPT_DT', '일시DT', '수납의 일시');
+INSERT INTO tmp_seed_term VALUES ('거래일시', 'TRSC_DT', '일시DT', '거래의 일시');
+INSERT INTO tmp_seed_term VALUES ('입고일시', 'WRHSNG_DT', '일시DT', '입고의 일시');
+INSERT INTO tmp_seed_term VALUES ('출고일시', 'RLS_DT', '일시DT', '출고의 일시');
+INSERT INTO tmp_seed_term VALUES ('구매일시', 'PRCHS_DT', '일시DT', '구매의 일시');
+INSERT INTO tmp_seed_term VALUES ('판매일시', 'SLS_DT', '일시DT', '판매의 일시');
+INSERT INTO tmp_seed_term VALUES ('견적일시', 'ESTMT_DT', '일시DT', '견적의 일시');
+INSERT INTO tmp_seed_term VALUES ('정산일시', 'CLCLN_DT', '일시DT', '정산의 일시');
+INSERT INTO tmp_seed_term VALUES ('반품일시', 'RTGD_DT', '일시DT', '반품의 일시');
+INSERT INTO tmp_seed_term VALUES ('환불일시', 'RFND_DT', '일시DT', '환불의 일시');
+INSERT INTO tmp_seed_term VALUES ('문의일시', 'INQ_DT', '일시DT', '문의의 일시');
+INSERT INTO tmp_seed_term VALUES ('신청일시', 'APLY_DT', '일시DT', '신청의 일시');
+INSERT INTO tmp_seed_term VALUES ('급여일시', 'SLRY_DT', '일시DT', '급여의 일시');
+INSERT INTO tmp_seed_term VALUES ('휴가일시', 'VCTN_DT', '일시DT', '휴가의 일시');
+INSERT INTO tmp_seed_term VALUES ('평가일시', 'EVL_DT', '일시DT', '평가의 일시');
+INSERT INTO tmp_seed_term VALUES ('비용일시', 'CST_DT', '일시DT', '비용의 일시');
+INSERT INTO tmp_seed_term VALUES ('전표일시', 'SLIP_DT', '일시DT', '전표의 일시');
+INSERT INTO tmp_seed_term VALUES ('재고일시', 'INVNTRY_DT', '일시DT', '재고의 일시');
+INSERT INTO tmp_seed_term VALUES ('포인트일시', 'PNT_DT', '일시DT', '포인트의 일시');
+INSERT INTO tmp_seed_term VALUES ('고객휴대전화번호', 'CUST_MBL_TELNO', '전화번호V20', '고객의 휴대전화번호');
+INSERT INTO tmp_seed_term VALUES ('회원휴대전화번호', 'MBR_MBL_TELNO', '전화번호V20', '회원의 휴대전화번호');
+INSERT INTO tmp_seed_term VALUES ('사용자휴대전화번호', 'USER_MBL_TELNO', '전화번호V20', '사용자의 휴대전화번호');
+INSERT INTO tmp_seed_term VALUES ('직원휴대전화번호', 'EMP_MBL_TELNO', '전화번호V20', '직원의 휴대전화번호');
+INSERT INTO tmp_seed_term VALUES ('담당자휴대전화번호', 'PIC_MBL_TELNO', '전화번호V20', '담당자의 휴대전화번호');
+INSERT INTO tmp_seed_term VALUES ('거래처휴대전화번호', 'BCNC_MBL_TELNO', '전화번호V20', '거래처의 휴대전화번호');
+INSERT INTO tmp_seed_term VALUES ('공급사휴대전화번호', 'SPLR_MBL_TELNO', '전화번호V20', '공급사의 휴대전화번호');
+INSERT INTO tmp_seed_term VALUES ('협력사휴대전화번호', 'PTNR_MBL_TELNO', '전화번호V20', '협력사의 휴대전화번호');
+INSERT INTO tmp_seed_term VALUES ('신청인휴대전화번호', 'APLCNT_MBL_TELNO', '전화번호V20', '신청인의 휴대전화번호');
+INSERT INTO tmp_seed_term VALUES ('부서만료일자', 'DEPT_EXPRY_YMD', '일자D', '부서의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('조직만료일자', 'ORG_EXPRY_YMD', '일자D', '조직의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('상품만료일자', 'PRDT_EXPRY_YMD', '일자D', '상품의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('품목만료일자', 'ITEM_EXPRY_YMD', '일자D', '품목의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('매장만료일자', 'STOR_EXPRY_YMD', '일자D', '매장의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('창고만료일자', 'WRHS_EXPRY_YMD', '일자D', '창고의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('메뉴만료일자', 'MENU_EXPRY_YMD', '일자D', '메뉴의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('권한만료일자', 'AUTH_EXPRY_YMD', '일자D', '권한의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('역할만료일자', 'ROLE_EXPRY_YMD', '일자D', '역할의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('프로그램만료일자', 'PGM_EXPRY_YMD', '일자D', '프로그램의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('파일만료일자', 'FILE_EXPRY_YMD', '일자D', '파일의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('게시판만료일자', 'BBS_EXPRY_YMD', '일자D', '게시판의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('게시물만료일자', 'PST_EXPRY_YMD', '일자D', '게시물의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('공지만료일자', 'NTC_EXPRY_YMD', '일자D', '공지의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('쿠폰만료일자', 'CPN_EXPRY_YMD', '일자D', '쿠폰의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('이벤트만료일자', 'EVT_EXPRY_YMD', '일자D', '이벤트의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('프로젝트만료일자', 'PRJ_EXPRY_YMD', '일자D', '프로젝트의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('과제만료일자', 'TASK_EXPRY_YMD', '일자D', '과제의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('자산만료일자', 'ASST_EXPRY_YMD', '일자D', '자산의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('설비만료일자', 'EQPMNT_EXPRY_YMD', '일자D', '설비의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('차량만료일자', 'VHCL_EXPRY_YMD', '일자D', '차량의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('교육만료일자', 'EDU_EXPRY_YMD', '일자D', '교육의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('계정만료일자', 'ACNT_EXPRY_YMD', '일자D', '계정의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('예산만료일자', 'BGT_EXPRY_YMD', '일자D', '예산의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('계좌만료일자', 'BACNT_EXPRY_YMD', '일자D', '계좌의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('카드만료일자', 'CARD_EXPRY_YMD', '일자D', '카드의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('약관만료일자', 'TRMS_EXPRY_YMD', '일자D', '약관의 만료일자');
+INSERT INTO tmp_seed_term VALUES ('주문금액', 'ORDR_AMT', '금액N18', '주문의 금액');
+INSERT INTO tmp_seed_term VALUES ('결제금액', 'STLM_AMT', '금액N18', '결제의 금액');
+INSERT INTO tmp_seed_term VALUES ('배송금액', 'DLVR_AMT', '금액N18', '배송의 금액');
+INSERT INTO tmp_seed_term VALUES ('계약금액', 'CTRT_AMT', '금액N18', '계약의 금액');
+INSERT INTO tmp_seed_term VALUES ('청구금액', 'CLM_AMT', '금액N18', '청구의 금액');
+INSERT INTO tmp_seed_term VALUES ('수납금액', 'RCPT_AMT', '금액N18', '수납의 금액');
+INSERT INTO tmp_seed_term VALUES ('거래금액', 'TRSC_AMT', '금액N18', '거래의 금액');
+INSERT INTO tmp_seed_term VALUES ('입고금액', 'WRHSNG_AMT', '금액N18', '입고의 금액');
+INSERT INTO tmp_seed_term VALUES ('출고금액', 'RLS_AMT', '금액N18', '출고의 금액');
+INSERT INTO tmp_seed_term VALUES ('구매금액', 'PRCHS_AMT', '금액N18', '구매의 금액');
+INSERT INTO tmp_seed_term VALUES ('판매금액', 'SLS_AMT', '금액N18', '판매의 금액');
+INSERT INTO tmp_seed_term VALUES ('견적금액', 'ESTMT_AMT', '금액N18', '견적의 금액');
+INSERT INTO tmp_seed_term VALUES ('정산금액', 'CLCLN_AMT', '금액N18', '정산의 금액');
+INSERT INTO tmp_seed_term VALUES ('반품금액', 'RTGD_AMT', '금액N18', '반품의 금액');
+INSERT INTO tmp_seed_term VALUES ('환불금액', 'RFND_AMT', '금액N18', '환불의 금액');
+INSERT INTO tmp_seed_term VALUES ('문의금액', 'INQ_AMT', '금액N18', '문의의 금액');
+INSERT INTO tmp_seed_term VALUES ('신청금액', 'APLY_AMT', '금액N18', '신청의 금액');
+INSERT INTO tmp_seed_term VALUES ('급여금액', 'SLRY_AMT', '금액N18', '급여의 금액');
+INSERT INTO tmp_seed_term VALUES ('휴가금액', 'VCTN_AMT', '금액N18', '휴가의 금액');
+INSERT INTO tmp_seed_term VALUES ('평가금액', 'EVL_AMT', '금액N18', '평가의 금액');
+INSERT INTO tmp_seed_term VALUES ('비용금액', 'CST_AMT', '금액N18', '비용의 금액');
+INSERT INTO tmp_seed_term VALUES ('전표금액', 'SLIP_AMT', '금액N18', '전표의 금액');
+INSERT INTO tmp_seed_term VALUES ('재고금액', 'INVNTRY_AMT', '금액N18', '재고의 금액');
+INSERT INTO tmp_seed_term VALUES ('포인트금액', 'PNT_AMT', '금액N18', '포인트의 금액');
+INSERT INTO tmp_seed_term VALUES ('고객이메일', 'CUST_EML', '이메일V100', '고객의 이메일');
+INSERT INTO tmp_seed_term VALUES ('회원이메일', 'MBR_EML', '이메일V100', '회원의 이메일');
+INSERT INTO tmp_seed_term VALUES ('사용자이메일', 'USER_EML', '이메일V100', '사용자의 이메일');
+INSERT INTO tmp_seed_term VALUES ('직원이메일', 'EMP_EML', '이메일V100', '직원의 이메일');
+INSERT INTO tmp_seed_term VALUES ('담당자이메일', 'PIC_EML', '이메일V100', '담당자의 이메일');
+INSERT INTO tmp_seed_term VALUES ('거래처이메일', 'BCNC_EML', '이메일V100', '거래처의 이메일');
+INSERT INTO tmp_seed_term VALUES ('공급사이메일', 'SPLR_EML', '이메일V100', '공급사의 이메일');
+INSERT INTO tmp_seed_term VALUES ('협력사이메일', 'PTNR_EML', '이메일V100', '협력사의 이메일');
+INSERT INTO tmp_seed_term VALUES ('신청인이메일', 'APLCNT_EML', '이메일V100', '신청인의 이메일');
+INSERT INTO tmp_seed_term VALUES ('부서정렬순번', 'DEPT_SORT_SN', '순번I', '부서의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('조직정렬순번', 'ORG_SORT_SN', '순번I', '조직의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('상품정렬순번', 'PRDT_SORT_SN', '순번I', '상품의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('품목정렬순번', 'ITEM_SORT_SN', '순번I', '품목의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('매장정렬순번', 'STOR_SORT_SN', '순번I', '매장의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('창고정렬순번', 'WRHS_SORT_SN', '순번I', '창고의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('메뉴정렬순번', 'MENU_SORT_SN', '순번I', '메뉴의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('권한정렬순번', 'AUTH_SORT_SN', '순번I', '권한의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('역할정렬순번', 'ROLE_SORT_SN', '순번I', '역할의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('프로그램정렬순번', 'PGM_SORT_SN', '순번I', '프로그램의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('파일정렬순번', 'FILE_SORT_SN', '순번I', '파일의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('게시판정렬순번', 'BBS_SORT_SN', '순번I', '게시판의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('게시물정렬순번', 'PST_SORT_SN', '순번I', '게시물의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('공지정렬순번', 'NTC_SORT_SN', '순번I', '공지의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('쿠폰정렬순번', 'CPN_SORT_SN', '순번I', '쿠폰의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('이벤트정렬순번', 'EVT_SORT_SN', '순번I', '이벤트의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('프로젝트정렬순번', 'PRJ_SORT_SN', '순번I', '프로젝트의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('과제정렬순번', 'TASK_SORT_SN', '순번I', '과제의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('자산정렬순번', 'ASST_SORT_SN', '순번I', '자산의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('설비정렬순번', 'EQPMNT_SORT_SN', '순번I', '설비의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('차량정렬순번', 'VHCL_SORT_SN', '순번I', '차량의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('교육정렬순번', 'EDU_SORT_SN', '순번I', '교육의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('계정정렬순번', 'ACNT_SORT_SN', '순번I', '계정의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('예산정렬순번', 'BGT_SORT_SN', '순번I', '예산의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('계좌정렬순번', 'BACNT_SORT_SN', '순번I', '계좌의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('카드정렬순번', 'CARD_SORT_SN', '순번I', '카드의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('약관정렬순번', 'TRMS_SORT_SN', '순번I', '약관의 정렬순번');
+INSERT INTO tmp_seed_term VALUES ('주문수량', 'ORDR_QTY', '수량N10', '주문의 수량');
+INSERT INTO tmp_seed_term VALUES ('결제수량', 'STLM_QTY', '수량N10', '결제의 수량');
+INSERT INTO tmp_seed_term VALUES ('배송수량', 'DLVR_QTY', '수량N10', '배송의 수량');
+INSERT INTO tmp_seed_term VALUES ('계약수량', 'CTRT_QTY', '수량N10', '계약의 수량');
+INSERT INTO tmp_seed_term VALUES ('청구수량', 'CLM_QTY', '수량N10', '청구의 수량');
+INSERT INTO tmp_seed_term VALUES ('수납수량', 'RCPT_QTY', '수량N10', '수납의 수량');
+INSERT INTO tmp_seed_term VALUES ('거래수량', 'TRSC_QTY', '수량N10', '거래의 수량');
+INSERT INTO tmp_seed_term VALUES ('입고수량', 'WRHSNG_QTY', '수량N10', '입고의 수량');
+INSERT INTO tmp_seed_term VALUES ('출고수량', 'RLS_QTY', '수량N10', '출고의 수량');
+INSERT INTO tmp_seed_term VALUES ('구매수량', 'PRCHS_QTY', '수량N10', '구매의 수량');
+INSERT INTO tmp_seed_term VALUES ('판매수량', 'SLS_QTY', '수량N10', '판매의 수량');
+INSERT INTO tmp_seed_term VALUES ('견적수량', 'ESTMT_QTY', '수량N10', '견적의 수량');
+INSERT INTO tmp_seed_term VALUES ('정산수량', 'CLCLN_QTY', '수량N10', '정산의 수량');
+INSERT INTO tmp_seed_term VALUES ('반품수량', 'RTGD_QTY', '수량N10', '반품의 수량');
+INSERT INTO tmp_seed_term VALUES ('환불수량', 'RFND_QTY', '수량N10', '환불의 수량');
+INSERT INTO tmp_seed_term VALUES ('문의수량', 'INQ_QTY', '수량N10', '문의의 수량');
+INSERT INTO tmp_seed_term VALUES ('신청수량', 'APLY_QTY', '수량N10', '신청의 수량');
+INSERT INTO tmp_seed_term VALUES ('급여수량', 'SLRY_QTY', '수량N10', '급여의 수량');
+INSERT INTO tmp_seed_term VALUES ('휴가수량', 'VCTN_QTY', '수량N10', '휴가의 수량');
+INSERT INTO tmp_seed_term VALUES ('평가수량', 'EVL_QTY', '수량N10', '평가의 수량');
+INSERT INTO tmp_seed_term VALUES ('비용수량', 'CST_QTY', '수량N10', '비용의 수량');
+INSERT INTO tmp_seed_term VALUES ('전표수량', 'SLIP_QTY', '수량N10', '전표의 수량');
+INSERT INTO tmp_seed_term VALUES ('재고수량', 'INVNTRY_QTY', '수량N10', '재고의 수량');
+INSERT INTO tmp_seed_term VALUES ('포인트수량', 'PNT_QTY', '수량N10', '포인트의 수량');
+INSERT INTO tmp_seed_term VALUES ('고객주소', 'CUST_ADDR', '주소V200', '고객의 주소');
+INSERT INTO tmp_seed_term VALUES ('회원주소', 'MBR_ADDR', '주소V200', '회원의 주소');
+INSERT INTO tmp_seed_term VALUES ('사용자주소', 'USER_ADDR', '주소V200', '사용자의 주소');
+INSERT INTO tmp_seed_term VALUES ('직원주소', 'EMP_ADDR', '주소V200', '직원의 주소');
+INSERT INTO tmp_seed_term VALUES ('담당자주소', 'PIC_ADDR', '주소V200', '담당자의 주소');
+INSERT INTO tmp_seed_term VALUES ('거래처주소', 'BCNC_ADDR', '주소V200', '거래처의 주소');
+INSERT INTO tmp_seed_term VALUES ('공급사주소', 'SPLR_ADDR', '주소V200', '공급사의 주소');
+INSERT INTO tmp_seed_term VALUES ('협력사주소', 'PTNR_ADDR', '주소V200', '협력사의 주소');
+INSERT INTO tmp_seed_term VALUES ('신청인주소', 'APLCNT_ADDR', '주소V200', '신청인의 주소');
+INSERT INTO tmp_seed_term VALUES ('부서표시여부', 'DEPT_INDCT_YN', '여부C1', '부서의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('조직표시여부', 'ORG_INDCT_YN', '여부C1', '조직의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('상품표시여부', 'PRDT_INDCT_YN', '여부C1', '상품의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('품목표시여부', 'ITEM_INDCT_YN', '여부C1', '품목의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('매장표시여부', 'STOR_INDCT_YN', '여부C1', '매장의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('창고표시여부', 'WRHS_INDCT_YN', '여부C1', '창고의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('메뉴표시여부', 'MENU_INDCT_YN', '여부C1', '메뉴의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('권한표시여부', 'AUTH_INDCT_YN', '여부C1', '권한의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('역할표시여부', 'ROLE_INDCT_YN', '여부C1', '역할의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('프로그램표시여부', 'PGM_INDCT_YN', '여부C1', '프로그램의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('파일표시여부', 'FILE_INDCT_YN', '여부C1', '파일의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('게시판표시여부', 'BBS_INDCT_YN', '여부C1', '게시판의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('게시물표시여부', 'PST_INDCT_YN', '여부C1', '게시물의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('공지표시여부', 'NTC_INDCT_YN', '여부C1', '공지의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('쿠폰표시여부', 'CPN_INDCT_YN', '여부C1', '쿠폰의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('이벤트표시여부', 'EVT_INDCT_YN', '여부C1', '이벤트의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('프로젝트표시여부', 'PRJ_INDCT_YN', '여부C1', '프로젝트의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('과제표시여부', 'TASK_INDCT_YN', '여부C1', '과제의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('자산표시여부', 'ASST_INDCT_YN', '여부C1', '자산의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('설비표시여부', 'EQPMNT_INDCT_YN', '여부C1', '설비의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('차량표시여부', 'VHCL_INDCT_YN', '여부C1', '차량의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('교육표시여부', 'EDU_INDCT_YN', '여부C1', '교육의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('계정표시여부', 'ACNT_INDCT_YN', '여부C1', '계정의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('예산표시여부', 'BGT_INDCT_YN', '여부C1', '예산의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('계좌표시여부', 'BACNT_INDCT_YN', '여부C1', '계좌의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('카드표시여부', 'CARD_INDCT_YN', '여부C1', '카드의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('약관표시여부', 'TRMS_INDCT_YN', '여부C1', '약관의 표시여부');
+INSERT INTO tmp_seed_term VALUES ('주문총금액', 'ORDR_TOT_AMT', '금액N18', '주문의 총금액');
+INSERT INTO tmp_seed_term VALUES ('결제총금액', 'STLM_TOT_AMT', '금액N18', '결제의 총금액');
+INSERT INTO tmp_seed_term VALUES ('배송총금액', 'DLVR_TOT_AMT', '금액N18', '배송의 총금액');
+INSERT INTO tmp_seed_term VALUES ('계약총금액', 'CTRT_TOT_AMT', '금액N18', '계약의 총금액');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_NO', 1, 'CUST');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_NO', 1, 'MBR');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('USER_NO', 1, 'USER');
+INSERT INTO tmp_seed_term_word VALUES ('USER_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_NO', 1, 'EMP');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_NO', 1, 'PIC');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_NO', 1, 'BCNC');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_NO', 1, 'SPLR');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_NO', 1, 'PTNR');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_NO', 1, 'APLCNT');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_NO', 1, 'DEPT');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_NO', 1, 'ORG');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_NO', 1, 'PRDT');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_NO', 1, 'ITEM');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_NO', 1, 'STOR');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_NO', 1, 'WRHS');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_NO', 1, 'MENU');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_NO', 1, 'AUTH');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_NO', 1, 'ROLE');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_NO', 1, 'PGM');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_NO', 1, 'FILE');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_NO', 1, 'BBS');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('PST_NO', 1, 'PST');
+INSERT INTO tmp_seed_term_word VALUES ('PST_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_NO', 1, 'NTC');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_NO', 1, 'CPN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_NO', 1, 'EVT');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_NO', 1, 'PRJ');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_NO', 1, 'TASK');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_NO', 1, 'ASST');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_NO', 1, 'EQPMNT');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_NO', 1, 'VHCL');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_NO', 1, 'EDU');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_NO', 1, 'ACNT');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_NO', 1, 'BGT');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_NO', 1, 'BACNT');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_NO', 1, 'CARD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_NO', 1, 'TRMS');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_NO', 1, 'ORDR');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_NO', 1, 'STLM');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_NO', 1, 'DLVR');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_NO', 1, 'CTRT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_NO', 1, 'CLM');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_NO', 1, 'RCPT');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_NO', 1, 'TRSC');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_NO', 1, 'WRHSNG');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_NO', 1, 'RLS');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_NO', 1, 'PRCHS');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_NO', 1, 'SLS');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_NO', 1, 'ESTMT');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_NO', 1, 'CLCLN');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_NO', 1, 'RTGD');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_NO', 1, 'RFND');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_NO', 1, 'INQ');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_NO', 1, 'APLY');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_NO', 1, 'SLRY');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_NO', 1, 'VCTN');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_NO', 1, 'EVL');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('CST_NO', 1, 'CST');
+INSERT INTO tmp_seed_term_word VALUES ('CST_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_NO', 1, 'SLIP');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_NO', 1, 'INVNTRY');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_NO', 1, 'PNT');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_NO', 2, 'NO');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_NM', 1, 'CUST');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_NM', 1, 'MBR');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('USER_NM', 1, 'USER');
+INSERT INTO tmp_seed_term_word VALUES ('USER_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_NM', 1, 'EMP');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_NM', 1, 'PIC');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_NM', 1, 'BCNC');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_NM', 1, 'SPLR');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_NM', 1, 'PTNR');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_NM', 1, 'APLCNT');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_NM', 1, 'DEPT');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_NM', 1, 'ORG');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_NM', 1, 'PRDT');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_NM', 1, 'ITEM');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_NM', 1, 'STOR');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_NM', 1, 'WRHS');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_NM', 1, 'MENU');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_NM', 1, 'AUTH');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_NM', 1, 'ROLE');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_NM', 1, 'PGM');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_NM', 1, 'FILE');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_NM', 1, 'BBS');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('PST_NM', 1, 'PST');
+INSERT INTO tmp_seed_term_word VALUES ('PST_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_NM', 1, 'NTC');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_NM', 1, 'CPN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_NM', 1, 'EVT');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_NM', 1, 'PRJ');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_NM', 1, 'TASK');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_NM', 1, 'ASST');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_NM', 1, 'EQPMNT');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_NM', 1, 'VHCL');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_NM', 1, 'EDU');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_NM', 1, 'ACNT');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_NM', 1, 'BGT');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_NM', 1, 'BACNT');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_NM', 1, 'CARD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_NM', 1, 'TRMS');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_NM', 1, 'ORDR');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_NM', 1, 'STLM');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_NM', 1, 'DLVR');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_NM', 1, 'CTRT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_NM', 1, 'CLM');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_NM', 1, 'RCPT');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_NM', 1, 'TRSC');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_NM', 1, 'WRHSNG');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_NM', 1, 'RLS');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_NM', 1, 'PRCHS');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_NM', 1, 'SLS');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_NM', 1, 'ESTMT');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_NM', 1, 'CLCLN');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_NM', 1, 'RTGD');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_NM', 1, 'RFND');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_NM', 1, 'INQ');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_NM', 1, 'APLY');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_NM', 1, 'SLRY');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_NM', 1, 'VCTN');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_NM', 1, 'EVL');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('CST_NM', 1, 'CST');
+INSERT INTO tmp_seed_term_word VALUES ('CST_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_NM', 1, 'SLIP');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_NM', 1, 'INVNTRY');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_NM', 1, 'PNT');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_NM', 2, 'NM');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_CD', 1, 'CUST');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_CD', 1, 'MBR');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('USER_CD', 1, 'USER');
+INSERT INTO tmp_seed_term_word VALUES ('USER_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_CD', 1, 'EMP');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_CD', 1, 'PIC');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_CD', 1, 'BCNC');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_CD', 1, 'SPLR');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_CD', 1, 'PTNR');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_CD', 1, 'APLCNT');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_CD', 1, 'DEPT');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_CD', 1, 'ORG');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_CD', 1, 'PRDT');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_CD', 1, 'ITEM');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_CD', 1, 'STOR');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_CD', 1, 'WRHS');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_CD', 1, 'MENU');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_CD', 1, 'AUTH');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_CD', 1, 'ROLE');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_CD', 1, 'PGM');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_CD', 1, 'FILE');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_CD', 1, 'BBS');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PST_CD', 1, 'PST');
+INSERT INTO tmp_seed_term_word VALUES ('PST_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_CD', 1, 'NTC');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_CD', 1, 'CPN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_CD', 1, 'EVT');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_CD', 1, 'PRJ');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_CD', 1, 'TASK');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_CD', 1, 'ASST');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_CD', 1, 'EQPMNT');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_CD', 1, 'VHCL');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_CD', 1, 'EDU');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_CD', 1, 'ACNT');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_CD', 1, 'BGT');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_CD', 1, 'BACNT');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_CD', 1, 'CARD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_CD', 1, 'TRMS');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_CD', 1, 'ORDR');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_CD', 1, 'STLM');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_CD', 1, 'DLVR');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_CD', 1, 'CTRT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_CD', 1, 'CLM');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_CD', 1, 'RCPT');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_CD', 1, 'TRSC');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_CD', 1, 'WRHSNG');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_CD', 1, 'RLS');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_CD', 1, 'PRCHS');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_CD', 1, 'SLS');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_CD', 1, 'ESTMT');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_CD', 1, 'CLCLN');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_CD', 1, 'RTGD');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_CD', 1, 'RFND');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_CD', 1, 'INQ');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_CD', 1, 'APLY');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_CD', 1, 'SLRY');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_CD', 1, 'VCTN');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_CD', 1, 'EVL');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CST_CD', 1, 'CST');
+INSERT INTO tmp_seed_term_word VALUES ('CST_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_CD', 1, 'SLIP');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_CD', 1, 'INVNTRY');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_CD', 1, 'PNT');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_CD', 2, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_TYPE_CD', 1, 'CUST');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_TYPE_CD', 1, 'MBR');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('USER_TYPE_CD', 1, 'USER');
+INSERT INTO tmp_seed_term_word VALUES ('USER_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('USER_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_TYPE_CD', 1, 'EMP');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_TYPE_CD', 1, 'PIC');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_TYPE_CD', 1, 'BCNC');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_TYPE_CD', 1, 'SPLR');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_TYPE_CD', 1, 'PTNR');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_TYPE_CD', 1, 'APLCNT');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_TYPE_CD', 1, 'DEPT');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_TYPE_CD', 1, 'ORG');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_TYPE_CD', 1, 'PRDT');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_TYPE_CD', 1, 'ITEM');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_TYPE_CD', 1, 'STOR');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_TYPE_CD', 1, 'WRHS');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_TYPE_CD', 1, 'MENU');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_TYPE_CD', 1, 'AUTH');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_TYPE_CD', 1, 'ROLE');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_TYPE_CD', 1, 'PGM');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_TYPE_CD', 1, 'FILE');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_TYPE_CD', 1, 'BBS');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PST_TYPE_CD', 1, 'PST');
+INSERT INTO tmp_seed_term_word VALUES ('PST_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('PST_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_TYPE_CD', 1, 'NTC');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_TYPE_CD', 1, 'CPN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_TYPE_CD', 1, 'EVT');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_TYPE_CD', 1, 'PRJ');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_TYPE_CD', 1, 'TASK');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_TYPE_CD', 1, 'ASST');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_TYPE_CD', 1, 'EQPMNT');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_TYPE_CD', 1, 'VHCL');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_TYPE_CD', 1, 'EDU');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_TYPE_CD', 1, 'ACNT');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_TYPE_CD', 1, 'BGT');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_TYPE_CD', 1, 'BACNT');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_TYPE_CD', 1, 'CARD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_TYPE_CD', 1, 'TRMS');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_TYPE_CD', 1, 'ORDR');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_TYPE_CD', 1, 'STLM');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_TYPE_CD', 1, 'DLVR');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_TYPE_CD', 1, 'CTRT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_TYPE_CD', 1, 'CLM');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_TYPE_CD', 1, 'RCPT');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_TYPE_CD', 1, 'TRSC');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_TYPE_CD', 1, 'WRHSNG');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_TYPE_CD', 1, 'RLS');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_TYPE_CD', 1, 'PRCHS');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_TYPE_CD', 1, 'SLS');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_TYPE_CD', 1, 'ESTMT');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_TYPE_CD', 1, 'CLCLN');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_TYPE_CD', 1, 'RTGD');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_TYPE_CD', 1, 'RFND');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_TYPE_CD', 1, 'INQ');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_TYPE_CD', 1, 'APLY');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_TYPE_CD', 1, 'SLRY');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_TYPE_CD', 1, 'VCTN');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_TYPE_CD', 1, 'EVL');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CST_TYPE_CD', 1, 'CST');
+INSERT INTO tmp_seed_term_word VALUES ('CST_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('CST_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_TYPE_CD', 1, 'SLIP');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_TYPE_CD', 1, 'INVNTRY');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_TYPE_CD', 1, 'PNT');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_TYPE_CD', 2, 'TYPE');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_TYPE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_STTS_CD', 1, 'CUST');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_STTS_CD', 1, 'MBR');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('USER_STTS_CD', 1, 'USER');
+INSERT INTO tmp_seed_term_word VALUES ('USER_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('USER_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_STTS_CD', 1, 'EMP');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_STTS_CD', 1, 'PIC');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_STTS_CD', 1, 'BCNC');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_STTS_CD', 1, 'SPLR');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_STTS_CD', 1, 'PTNR');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_STTS_CD', 1, 'APLCNT');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_STTS_CD', 1, 'DEPT');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_STTS_CD', 1, 'ORG');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_STTS_CD', 1, 'PRDT');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_STTS_CD', 1, 'ITEM');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_STTS_CD', 1, 'STOR');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_STTS_CD', 1, 'WRHS');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_STTS_CD', 1, 'MENU');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_STTS_CD', 1, 'AUTH');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_STTS_CD', 1, 'ROLE');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_STTS_CD', 1, 'PGM');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_STTS_CD', 1, 'FILE');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_STTS_CD', 1, 'BBS');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PST_STTS_CD', 1, 'PST');
+INSERT INTO tmp_seed_term_word VALUES ('PST_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('PST_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_STTS_CD', 1, 'NTC');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_STTS_CD', 1, 'CPN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_STTS_CD', 1, 'EVT');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_STTS_CD', 1, 'PRJ');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_STTS_CD', 1, 'TASK');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_STTS_CD', 1, 'ASST');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_STTS_CD', 1, 'EQPMNT');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_STTS_CD', 1, 'VHCL');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_STTS_CD', 1, 'EDU');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_STTS_CD', 1, 'ACNT');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_STTS_CD', 1, 'BGT');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_STTS_CD', 1, 'BACNT');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_STTS_CD', 1, 'CARD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_STTS_CD', 1, 'TRMS');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_STTS_CD', 1, 'ORDR');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_STTS_CD', 1, 'STLM');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_STTS_CD', 1, 'DLVR');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_STTS_CD', 1, 'CTRT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_STTS_CD', 1, 'CLM');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_STTS_CD', 1, 'RCPT');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_STTS_CD', 1, 'TRSC');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_STTS_CD', 1, 'WRHSNG');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_STTS_CD', 1, 'RLS');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_STTS_CD', 1, 'PRCHS');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_STTS_CD', 1, 'SLS');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_STTS_CD', 1, 'ESTMT');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_STTS_CD', 1, 'CLCLN');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_STTS_CD', 1, 'RTGD');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_STTS_CD', 1, 'RFND');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_STTS_CD', 1, 'INQ');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_STTS_CD', 1, 'APLY');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_STTS_CD', 1, 'SLRY');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_STTS_CD', 1, 'VCTN');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_STTS_CD', 1, 'EVL');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CST_STTS_CD', 1, 'CST');
+INSERT INTO tmp_seed_term_word VALUES ('CST_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('CST_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_STTS_CD', 1, 'SLIP');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_STTS_CD', 1, 'INVNTRY');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_STTS_CD', 1, 'PNT');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_STTS_CD', 2, 'STTS');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_STTS_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_SE_CD', 1, 'CUST');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_SE_CD', 1, 'MBR');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('USER_SE_CD', 1, 'USER');
+INSERT INTO tmp_seed_term_word VALUES ('USER_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('USER_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_SE_CD', 1, 'EMP');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_SE_CD', 1, 'PIC');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_SE_CD', 1, 'BCNC');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_SE_CD', 1, 'SPLR');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_SE_CD', 1, 'PTNR');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_SE_CD', 1, 'APLCNT');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_SE_CD', 1, 'DEPT');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_SE_CD', 1, 'ORG');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_SE_CD', 1, 'PRDT');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_SE_CD', 1, 'ITEM');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_SE_CD', 1, 'STOR');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_SE_CD', 1, 'WRHS');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_SE_CD', 1, 'MENU');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_SE_CD', 1, 'AUTH');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_SE_CD', 1, 'ROLE');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_SE_CD', 1, 'PGM');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_SE_CD', 1, 'FILE');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_SE_CD', 1, 'BBS');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PST_SE_CD', 1, 'PST');
+INSERT INTO tmp_seed_term_word VALUES ('PST_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('PST_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_SE_CD', 1, 'NTC');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_SE_CD', 1, 'CPN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_SE_CD', 1, 'EVT');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_SE_CD', 1, 'PRJ');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_SE_CD', 1, 'TASK');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_SE_CD', 1, 'ASST');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_SE_CD', 1, 'EQPMNT');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_SE_CD', 1, 'VHCL');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_SE_CD', 1, 'EDU');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_SE_CD', 1, 'ACNT');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_SE_CD', 1, 'BGT');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_SE_CD', 1, 'BACNT');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_SE_CD', 1, 'CARD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_SE_CD', 1, 'TRMS');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_SE_CD', 1, 'ORDR');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_SE_CD', 1, 'STLM');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_SE_CD', 1, 'DLVR');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_SE_CD', 1, 'CTRT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_SE_CD', 1, 'CLM');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_SE_CD', 1, 'RCPT');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_SE_CD', 1, 'TRSC');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_SE_CD', 1, 'WRHSNG');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_SE_CD', 1, 'RLS');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_SE_CD', 1, 'PRCHS');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_SE_CD', 1, 'SLS');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_SE_CD', 1, 'ESTMT');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_SE_CD', 1, 'CLCLN');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_SE_CD', 1, 'RTGD');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_SE_CD', 1, 'RFND');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_SE_CD', 1, 'INQ');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_SE_CD', 1, 'APLY');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_SE_CD', 1, 'SLRY');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_SE_CD', 1, 'VCTN');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_SE_CD', 1, 'EVL');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CST_SE_CD', 1, 'CST');
+INSERT INTO tmp_seed_term_word VALUES ('CST_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('CST_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_SE_CD', 1, 'SLIP');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_SE_CD', 1, 'INVNTRY');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_SE_CD', 1, 'PNT');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_SE_CD', 2, 'SE');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_SE_CD', 3, 'CD');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_CN', 1, 'CUST');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_CN', 1, 'MBR');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('USER_CN', 1, 'USER');
+INSERT INTO tmp_seed_term_word VALUES ('USER_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_CN', 1, 'EMP');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_CN', 1, 'PIC');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_CN', 1, 'BCNC');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_CN', 1, 'SPLR');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_CN', 1, 'PTNR');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_CN', 1, 'APLCNT');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_CN', 1, 'DEPT');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_CN', 1, 'ORG');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_CN', 1, 'PRDT');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_CN', 1, 'ITEM');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_CN', 1, 'STOR');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_CN', 1, 'WRHS');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_CN', 1, 'MENU');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_CN', 1, 'AUTH');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_CN', 1, 'ROLE');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_CN', 1, 'PGM');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_CN', 1, 'FILE');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_CN', 1, 'BBS');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('PST_CN', 1, 'PST');
+INSERT INTO tmp_seed_term_word VALUES ('PST_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_CN', 1, 'NTC');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_CN', 1, 'CPN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_CN', 1, 'EVT');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_CN', 1, 'PRJ');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_CN', 1, 'TASK');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_CN', 1, 'ASST');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_CN', 1, 'EQPMNT');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_CN', 1, 'VHCL');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_CN', 1, 'EDU');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_CN', 1, 'ACNT');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_CN', 1, 'BGT');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_CN', 1, 'BACNT');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_CN', 1, 'CARD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_CN', 1, 'TRMS');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_CN', 1, 'ORDR');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_CN', 1, 'STLM');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_CN', 1, 'DLVR');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_CN', 1, 'CTRT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_CN', 1, 'CLM');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_CN', 1, 'RCPT');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_CN', 1, 'TRSC');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_CN', 1, 'WRHSNG');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_CN', 1, 'RLS');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_CN', 1, 'PRCHS');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_CN', 1, 'SLS');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_CN', 1, 'ESTMT');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_CN', 1, 'CLCLN');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_CN', 1, 'RTGD');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_CN', 1, 'RFND');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_CN', 1, 'INQ');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_CN', 1, 'APLY');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_CN', 1, 'SLRY');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_CN', 1, 'VCTN');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_CN', 1, 'EVL');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('CST_CN', 1, 'CST');
+INSERT INTO tmp_seed_term_word VALUES ('CST_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_CN', 1, 'SLIP');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_CN', 1, 'INVNTRY');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_CN', 1, 'PNT');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_CN', 2, 'CN');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_REG_DT', 1, 'CUST');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_REG_DT', 1, 'MBR');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('USER_REG_DT', 1, 'USER');
+INSERT INTO tmp_seed_term_word VALUES ('USER_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('USER_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_REG_DT', 1, 'EMP');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_REG_DT', 1, 'PIC');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_REG_DT', 1, 'BCNC');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_REG_DT', 1, 'SPLR');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_REG_DT', 1, 'PTNR');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_REG_DT', 1, 'APLCNT');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_REG_DT', 1, 'DEPT');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_REG_DT', 1, 'ORG');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_REG_DT', 1, 'PRDT');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_REG_DT', 1, 'ITEM');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_REG_DT', 1, 'STOR');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_REG_DT', 1, 'WRHS');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_REG_DT', 1, 'MENU');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_REG_DT', 1, 'AUTH');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_REG_DT', 1, 'ROLE');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_REG_DT', 1, 'PGM');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_REG_DT', 1, 'FILE');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_REG_DT', 1, 'BBS');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('PST_REG_DT', 1, 'PST');
+INSERT INTO tmp_seed_term_word VALUES ('PST_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('PST_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_REG_DT', 1, 'NTC');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_REG_DT', 1, 'CPN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_REG_DT', 1, 'EVT');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_REG_DT', 1, 'PRJ');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_REG_DT', 1, 'TASK');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_REG_DT', 1, 'ASST');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_REG_DT', 1, 'EQPMNT');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_REG_DT', 1, 'VHCL');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_REG_DT', 1, 'EDU');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_REG_DT', 1, 'ACNT');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_REG_DT', 1, 'BGT');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_REG_DT', 1, 'BACNT');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_REG_DT', 1, 'CARD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_REG_DT', 1, 'TRMS');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_REG_DT', 1, 'ORDR');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_REG_DT', 1, 'STLM');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_REG_DT', 1, 'DLVR');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_REG_DT', 1, 'CTRT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_REG_DT', 1, 'CLM');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_REG_DT', 1, 'RCPT');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_REG_DT', 1, 'TRSC');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_REG_DT', 1, 'WRHSNG');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_REG_DT', 1, 'RLS');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_REG_DT', 1, 'PRCHS');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_REG_DT', 1, 'SLS');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_REG_DT', 1, 'ESTMT');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_REG_DT', 1, 'CLCLN');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_REG_DT', 1, 'RTGD');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_REG_DT', 1, 'RFND');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_REG_DT', 1, 'INQ');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_REG_DT', 1, 'APLY');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_REG_DT', 1, 'SLRY');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_REG_DT', 1, 'VCTN');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_REG_DT', 1, 'EVL');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('CST_REG_DT', 1, 'CST');
+INSERT INTO tmp_seed_term_word VALUES ('CST_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('CST_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_REG_DT', 1, 'SLIP');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_REG_DT', 1, 'INVNTRY');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_REG_DT', 1, 'PNT');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_REG_DT', 2, 'REG');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_REG_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_MDFCN_DT', 1, 'CUST');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_MDFCN_DT', 1, 'MBR');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('USER_MDFCN_DT', 1, 'USER');
+INSERT INTO tmp_seed_term_word VALUES ('USER_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('USER_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_MDFCN_DT', 1, 'EMP');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_MDFCN_DT', 1, 'PIC');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_MDFCN_DT', 1, 'BCNC');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_MDFCN_DT', 1, 'SPLR');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_MDFCN_DT', 1, 'PTNR');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_MDFCN_DT', 1, 'APLCNT');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_MDFCN_DT', 1, 'DEPT');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_MDFCN_DT', 1, 'ORG');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_MDFCN_DT', 1, 'PRDT');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_MDFCN_DT', 1, 'ITEM');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_MDFCN_DT', 1, 'STOR');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_MDFCN_DT', 1, 'WRHS');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_MDFCN_DT', 1, 'MENU');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_MDFCN_DT', 1, 'AUTH');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_MDFCN_DT', 1, 'ROLE');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_MDFCN_DT', 1, 'PGM');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_MDFCN_DT', 1, 'FILE');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_MDFCN_DT', 1, 'BBS');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('PST_MDFCN_DT', 1, 'PST');
+INSERT INTO tmp_seed_term_word VALUES ('PST_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('PST_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_MDFCN_DT', 1, 'NTC');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_MDFCN_DT', 1, 'CPN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_MDFCN_DT', 1, 'EVT');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_MDFCN_DT', 1, 'PRJ');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_MDFCN_DT', 1, 'TASK');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_MDFCN_DT', 1, 'ASST');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_MDFCN_DT', 1, 'EQPMNT');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_MDFCN_DT', 1, 'VHCL');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_MDFCN_DT', 1, 'EDU');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_MDFCN_DT', 1, 'ACNT');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_MDFCN_DT', 1, 'BGT');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_MDFCN_DT', 1, 'BACNT');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_MDFCN_DT', 1, 'CARD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_MDFCN_DT', 1, 'TRMS');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_MDFCN_DT', 1, 'ORDR');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_MDFCN_DT', 1, 'STLM');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_MDFCN_DT', 1, 'DLVR');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_MDFCN_DT', 1, 'CTRT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_MDFCN_DT', 1, 'CLM');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_MDFCN_DT', 1, 'RCPT');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_MDFCN_DT', 1, 'TRSC');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_MDFCN_DT', 1, 'WRHSNG');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_MDFCN_DT', 1, 'RLS');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_MDFCN_DT', 1, 'PRCHS');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_MDFCN_DT', 1, 'SLS');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_MDFCN_DT', 1, 'ESTMT');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_MDFCN_DT', 1, 'CLCLN');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_MDFCN_DT', 1, 'RTGD');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_MDFCN_DT', 1, 'RFND');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_MDFCN_DT', 1, 'INQ');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_MDFCN_DT', 1, 'APLY');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_MDFCN_DT', 1, 'SLRY');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_MDFCN_DT', 1, 'VCTN');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_MDFCN_DT', 1, 'EVL');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('CST_MDFCN_DT', 1, 'CST');
+INSERT INTO tmp_seed_term_word VALUES ('CST_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('CST_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_MDFCN_DT', 1, 'SLIP');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_MDFCN_DT', 1, 'INVNTRY');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_MDFCN_DT', 1, 'PNT');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_MDFCN_DT', 2, 'MDFCN');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_MDFCN_DT', 3, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_USE_YN', 1, 'CUST');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_USE_YN', 1, 'MBR');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('USER_USE_YN', 1, 'USER');
+INSERT INTO tmp_seed_term_word VALUES ('USER_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('USER_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_USE_YN', 1, 'EMP');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_USE_YN', 1, 'PIC');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_USE_YN', 1, 'BCNC');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_USE_YN', 1, 'SPLR');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_USE_YN', 1, 'PTNR');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_USE_YN', 1, 'APLCNT');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_USE_YN', 1, 'DEPT');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_USE_YN', 1, 'ORG');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_USE_YN', 1, 'PRDT');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_USE_YN', 1, 'ITEM');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_USE_YN', 1, 'STOR');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_USE_YN', 1, 'WRHS');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_USE_YN', 1, 'MENU');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_USE_YN', 1, 'AUTH');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_USE_YN', 1, 'ROLE');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_USE_YN', 1, 'PGM');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_USE_YN', 1, 'FILE');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_USE_YN', 1, 'BBS');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('PST_USE_YN', 1, 'PST');
+INSERT INTO tmp_seed_term_word VALUES ('PST_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('PST_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_USE_YN', 1, 'NTC');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_USE_YN', 1, 'CPN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_USE_YN', 1, 'EVT');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_USE_YN', 1, 'PRJ');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_USE_YN', 1, 'TASK');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_USE_YN', 1, 'ASST');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_USE_YN', 1, 'EQPMNT');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_USE_YN', 1, 'VHCL');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_USE_YN', 1, 'EDU');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_USE_YN', 1, 'ACNT');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_USE_YN', 1, 'BGT');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_USE_YN', 1, 'BACNT');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_USE_YN', 1, 'CARD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_USE_YN', 1, 'TRMS');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_USE_YN', 1, 'ORDR');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_USE_YN', 1, 'STLM');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_USE_YN', 1, 'DLVR');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_USE_YN', 1, 'CTRT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_USE_YN', 1, 'CLM');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_USE_YN', 1, 'RCPT');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_USE_YN', 1, 'TRSC');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_USE_YN', 1, 'WRHSNG');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_USE_YN', 1, 'RLS');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_USE_YN', 1, 'PRCHS');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_USE_YN', 1, 'SLS');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_USE_YN', 1, 'ESTMT');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_USE_YN', 1, 'CLCLN');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_USE_YN', 1, 'RTGD');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_USE_YN', 1, 'RFND');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_USE_YN', 1, 'INQ');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_USE_YN', 1, 'APLY');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_USE_YN', 1, 'SLRY');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_USE_YN', 1, 'VCTN');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_USE_YN', 1, 'EVL');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('CST_USE_YN', 1, 'CST');
+INSERT INTO tmp_seed_term_word VALUES ('CST_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('CST_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_USE_YN', 1, 'SLIP');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_USE_YN', 1, 'INVNTRY');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_USE_YN', 1, 'PNT');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_USE_YN', 2, 'USE');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_USE_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_DEL_YN', 1, 'CUST');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_DEL_YN', 1, 'MBR');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('USER_DEL_YN', 1, 'USER');
+INSERT INTO tmp_seed_term_word VALUES ('USER_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('USER_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_DEL_YN', 1, 'EMP');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_DEL_YN', 1, 'PIC');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_DEL_YN', 1, 'BCNC');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_DEL_YN', 1, 'SPLR');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_DEL_YN', 1, 'PTNR');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_DEL_YN', 1, 'APLCNT');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_DEL_YN', 1, 'DEPT');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_DEL_YN', 1, 'ORG');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_DEL_YN', 1, 'PRDT');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_DEL_YN', 1, 'ITEM');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_DEL_YN', 1, 'STOR');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_DEL_YN', 1, 'WRHS');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_DEL_YN', 1, 'MENU');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_DEL_YN', 1, 'AUTH');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_DEL_YN', 1, 'ROLE');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_DEL_YN', 1, 'PGM');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_DEL_YN', 1, 'FILE');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_DEL_YN', 1, 'BBS');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('PST_DEL_YN', 1, 'PST');
+INSERT INTO tmp_seed_term_word VALUES ('PST_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('PST_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_DEL_YN', 1, 'NTC');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_DEL_YN', 1, 'CPN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_DEL_YN', 1, 'EVT');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_DEL_YN', 1, 'PRJ');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_DEL_YN', 1, 'TASK');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_DEL_YN', 1, 'ASST');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_DEL_YN', 1, 'EQPMNT');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_DEL_YN', 1, 'VHCL');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_DEL_YN', 1, 'EDU');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_DEL_YN', 1, 'ACNT');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_DEL_YN', 1, 'BGT');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_DEL_YN', 1, 'BACNT');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_DEL_YN', 1, 'CARD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_DEL_YN', 1, 'TRMS');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_DEL_YN', 1, 'ORDR');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_DEL_YN', 1, 'STLM');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_DEL_YN', 1, 'DLVR');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_DEL_YN', 1, 'CTRT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_DEL_YN', 1, 'CLM');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_DEL_YN', 1, 'RCPT');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_DEL_YN', 1, 'TRSC');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_DEL_YN', 1, 'WRHSNG');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_DEL_YN', 1, 'RLS');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_DEL_YN', 1, 'PRCHS');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_DEL_YN', 1, 'SLS');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_DEL_YN', 1, 'ESTMT');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_DEL_YN', 1, 'CLCLN');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_DEL_YN', 1, 'RTGD');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_DEL_YN', 1, 'RFND');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_DEL_YN', 1, 'INQ');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_DEL_YN', 1, 'APLY');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_DEL_YN', 1, 'SLRY');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_DEL_YN', 1, 'VCTN');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_DEL_YN', 1, 'EVL');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('CST_DEL_YN', 1, 'CST');
+INSERT INTO tmp_seed_term_word VALUES ('CST_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('CST_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_DEL_YN', 1, 'SLIP');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_DEL_YN', 1, 'INVNTRY');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_DEL_YN', 1, 'PNT');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_DEL_YN', 2, 'DEL');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_DEL_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_SN', 1, 'CUST');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_SN', 1, 'MBR');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('USER_SN', 1, 'USER');
+INSERT INTO tmp_seed_term_word VALUES ('USER_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_SN', 1, 'EMP');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_SN', 1, 'PIC');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_SN', 1, 'BCNC');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_SN', 1, 'SPLR');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_SN', 1, 'PTNR');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_SN', 1, 'APLCNT');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_SN', 1, 'DEPT');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_SN', 1, 'ORG');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_SN', 1, 'PRDT');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_SN', 1, 'ITEM');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_SN', 1, 'STOR');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_SN', 1, 'WRHS');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_SN', 1, 'MENU');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_SN', 1, 'AUTH');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_SN', 1, 'ROLE');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_SN', 1, 'PGM');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_SN', 1, 'FILE');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_SN', 1, 'BBS');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('PST_SN', 1, 'PST');
+INSERT INTO tmp_seed_term_word VALUES ('PST_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_SN', 1, 'NTC');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_SN', 1, 'CPN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_SN', 1, 'EVT');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_SN', 1, 'PRJ');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_SN', 1, 'TASK');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_SN', 1, 'ASST');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_SN', 1, 'EQPMNT');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_SN', 1, 'VHCL');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_SN', 1, 'EDU');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_SN', 1, 'ACNT');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_SN', 1, 'BGT');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_SN', 1, 'BACNT');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_SN', 1, 'CARD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_SN', 1, 'TRMS');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_SN', 1, 'ORDR');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_SN', 1, 'STLM');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_SN', 1, 'DLVR');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_SN', 1, 'CTRT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_SN', 1, 'CLM');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_SN', 1, 'RCPT');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_SN', 1, 'TRSC');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_SN', 1, 'WRHSNG');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_SN', 1, 'RLS');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_SN', 1, 'PRCHS');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_SN', 1, 'SLS');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_SN', 1, 'ESTMT');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_SN', 1, 'CLCLN');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_SN', 1, 'RTGD');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_SN', 1, 'RFND');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_SN', 1, 'INQ');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_SN', 1, 'APLY');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_SN', 1, 'SLRY');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_SN', 1, 'VCTN');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_SN', 1, 'EVL');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('CST_SN', 1, 'CST');
+INSERT INTO tmp_seed_term_word VALUES ('CST_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_SN', 1, 'SLIP');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_SN', 1, 'INVNTRY');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_SN', 1, 'PNT');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_SN', 2, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_ID', 1, 'CUST');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_ID', 2, 'ID');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_ID', 1, 'MBR');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_ID', 2, 'ID');
+INSERT INTO tmp_seed_term_word VALUES ('USER_ID', 1, 'USER');
+INSERT INTO tmp_seed_term_word VALUES ('USER_ID', 2, 'ID');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_ID', 1, 'EMP');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_ID', 2, 'ID');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_ID', 1, 'PIC');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_ID', 2, 'ID');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_ID', 1, 'BCNC');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_ID', 2, 'ID');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_ID', 1, 'SPLR');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_ID', 2, 'ID');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_ID', 1, 'PTNR');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_ID', 2, 'ID');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_ID', 1, 'APLCNT');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_ID', 2, 'ID');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_BGNG_YMD', 1, 'DEPT');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_BGNG_YMD', 1, 'ORG');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_BGNG_YMD', 1, 'PRDT');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_BGNG_YMD', 1, 'ITEM');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_BGNG_YMD', 1, 'STOR');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_BGNG_YMD', 1, 'WRHS');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_BGNG_YMD', 1, 'MENU');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_BGNG_YMD', 1, 'AUTH');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_BGNG_YMD', 1, 'ROLE');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_BGNG_YMD', 1, 'PGM');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_BGNG_YMD', 1, 'FILE');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_BGNG_YMD', 1, 'BBS');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('PST_BGNG_YMD', 1, 'PST');
+INSERT INTO tmp_seed_term_word VALUES ('PST_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('PST_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_BGNG_YMD', 1, 'NTC');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_BGNG_YMD', 1, 'CPN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_BGNG_YMD', 1, 'EVT');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_BGNG_YMD', 1, 'PRJ');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_BGNG_YMD', 1, 'TASK');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_BGNG_YMD', 1, 'ASST');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_BGNG_YMD', 1, 'EQPMNT');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_BGNG_YMD', 1, 'VHCL');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_BGNG_YMD', 1, 'EDU');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_BGNG_YMD', 1, 'ACNT');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_BGNG_YMD', 1, 'BGT');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_BGNG_YMD', 1, 'BACNT');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_BGNG_YMD', 1, 'CARD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_BGNG_YMD', 1, 'TRMS');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_BGNG_YMD', 2, 'BGNG');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_BGNG_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_YMD', 1, 'ORDR');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_YMD', 1, 'STLM');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_YMD', 1, 'DLVR');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_YMD', 1, 'CTRT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_YMD', 1, 'CLM');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_YMD', 1, 'RCPT');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_YMD', 1, 'TRSC');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_YMD', 1, 'WRHSNG');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_YMD', 1, 'RLS');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_YMD', 1, 'PRCHS');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_YMD', 1, 'SLS');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_YMD', 1, 'ESTMT');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_YMD', 1, 'CLCLN');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_YMD', 1, 'RTGD');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_YMD', 1, 'RFND');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_YMD', 1, 'INQ');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_YMD', 1, 'APLY');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_YMD', 1, 'SLRY');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_YMD', 1, 'VCTN');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_YMD', 1, 'EVL');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('CST_YMD', 1, 'CST');
+INSERT INTO tmp_seed_term_word VALUES ('CST_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_YMD', 1, 'SLIP');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_YMD', 1, 'INVNTRY');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_YMD', 1, 'PNT');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_YMD', 2, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_TELNO', 1, 'CUST');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_TELNO', 2, 'TELNO');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_TELNO', 1, 'MBR');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_TELNO', 2, 'TELNO');
+INSERT INTO tmp_seed_term_word VALUES ('USER_TELNO', 1, 'USER');
+INSERT INTO tmp_seed_term_word VALUES ('USER_TELNO', 2, 'TELNO');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_TELNO', 1, 'EMP');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_TELNO', 2, 'TELNO');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_TELNO', 1, 'PIC');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_TELNO', 2, 'TELNO');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_TELNO', 1, 'BCNC');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_TELNO', 2, 'TELNO');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_TELNO', 1, 'SPLR');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_TELNO', 2, 'TELNO');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_TELNO', 1, 'PTNR');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_TELNO', 2, 'TELNO');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_TELNO', 1, 'APLCNT');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_TELNO', 2, 'TELNO');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_END_YMD', 1, 'DEPT');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_END_YMD', 1, 'ORG');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_END_YMD', 1, 'PRDT');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_END_YMD', 1, 'ITEM');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_END_YMD', 1, 'STOR');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_END_YMD', 1, 'WRHS');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_END_YMD', 1, 'MENU');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_END_YMD', 1, 'AUTH');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_END_YMD', 1, 'ROLE');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_END_YMD', 1, 'PGM');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_END_YMD', 1, 'FILE');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_END_YMD', 1, 'BBS');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('PST_END_YMD', 1, 'PST');
+INSERT INTO tmp_seed_term_word VALUES ('PST_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('PST_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_END_YMD', 1, 'NTC');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_END_YMD', 1, 'CPN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_END_YMD', 1, 'EVT');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_END_YMD', 1, 'PRJ');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_END_YMD', 1, 'TASK');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_END_YMD', 1, 'ASST');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_END_YMD', 1, 'EQPMNT');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_END_YMD', 1, 'VHCL');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_END_YMD', 1, 'EDU');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_END_YMD', 1, 'ACNT');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_END_YMD', 1, 'BGT');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_END_YMD', 1, 'BACNT');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_END_YMD', 1, 'CARD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_END_YMD', 1, 'TRMS');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_END_YMD', 2, 'END');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_END_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_DT', 1, 'ORDR');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_DT', 1, 'STLM');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_DT', 1, 'DLVR');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_DT', 1, 'CTRT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_DT', 1, 'CLM');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_DT', 1, 'RCPT');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_DT', 1, 'TRSC');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_DT', 1, 'WRHSNG');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_DT', 1, 'RLS');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_DT', 1, 'PRCHS');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_DT', 1, 'SLS');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_DT', 1, 'ESTMT');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_DT', 1, 'CLCLN');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_DT', 1, 'RTGD');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_DT', 1, 'RFND');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_DT', 1, 'INQ');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_DT', 1, 'APLY');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_DT', 1, 'SLRY');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_DT', 1, 'VCTN');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_DT', 1, 'EVL');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('CST_DT', 1, 'CST');
+INSERT INTO tmp_seed_term_word VALUES ('CST_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_DT', 1, 'SLIP');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_DT', 1, 'INVNTRY');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_DT', 1, 'PNT');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_DT', 2, 'DT');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_MBL_TELNO', 1, 'CUST');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_MBL_TELNO', 2, 'MBL');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_MBL_TELNO', 3, 'TELNO');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_MBL_TELNO', 1, 'MBR');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_MBL_TELNO', 2, 'MBL');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_MBL_TELNO', 3, 'TELNO');
+INSERT INTO tmp_seed_term_word VALUES ('USER_MBL_TELNO', 1, 'USER');
+INSERT INTO tmp_seed_term_word VALUES ('USER_MBL_TELNO', 2, 'MBL');
+INSERT INTO tmp_seed_term_word VALUES ('USER_MBL_TELNO', 3, 'TELNO');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_MBL_TELNO', 1, 'EMP');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_MBL_TELNO', 2, 'MBL');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_MBL_TELNO', 3, 'TELNO');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_MBL_TELNO', 1, 'PIC');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_MBL_TELNO', 2, 'MBL');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_MBL_TELNO', 3, 'TELNO');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_MBL_TELNO', 1, 'BCNC');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_MBL_TELNO', 2, 'MBL');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_MBL_TELNO', 3, 'TELNO');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_MBL_TELNO', 1, 'SPLR');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_MBL_TELNO', 2, 'MBL');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_MBL_TELNO', 3, 'TELNO');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_MBL_TELNO', 1, 'PTNR');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_MBL_TELNO', 2, 'MBL');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_MBL_TELNO', 3, 'TELNO');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_MBL_TELNO', 1, 'APLCNT');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_MBL_TELNO', 2, 'MBL');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_MBL_TELNO', 3, 'TELNO');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_EXPRY_YMD', 1, 'DEPT');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_EXPRY_YMD', 1, 'ORG');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_EXPRY_YMD', 1, 'PRDT');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_EXPRY_YMD', 1, 'ITEM');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_EXPRY_YMD', 1, 'STOR');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_EXPRY_YMD', 1, 'WRHS');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_EXPRY_YMD', 1, 'MENU');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_EXPRY_YMD', 1, 'AUTH');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_EXPRY_YMD', 1, 'ROLE');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_EXPRY_YMD', 1, 'PGM');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_EXPRY_YMD', 1, 'FILE');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_EXPRY_YMD', 1, 'BBS');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('PST_EXPRY_YMD', 1, 'PST');
+INSERT INTO tmp_seed_term_word VALUES ('PST_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('PST_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_EXPRY_YMD', 1, 'NTC');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_EXPRY_YMD', 1, 'CPN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_EXPRY_YMD', 1, 'EVT');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_EXPRY_YMD', 1, 'PRJ');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_EXPRY_YMD', 1, 'TASK');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_EXPRY_YMD', 1, 'ASST');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_EXPRY_YMD', 1, 'EQPMNT');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_EXPRY_YMD', 1, 'VHCL');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_EXPRY_YMD', 1, 'EDU');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_EXPRY_YMD', 1, 'ACNT');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_EXPRY_YMD', 1, 'BGT');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_EXPRY_YMD', 1, 'BACNT');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_EXPRY_YMD', 1, 'CARD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_EXPRY_YMD', 1, 'TRMS');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_EXPRY_YMD', 2, 'EXPRY');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_EXPRY_YMD', 3, 'YMD');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_AMT', 1, 'ORDR');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_AMT', 1, 'STLM');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_AMT', 1, 'DLVR');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_AMT', 1, 'CTRT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_AMT', 1, 'CLM');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_AMT', 1, 'RCPT');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_AMT', 1, 'TRSC');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_AMT', 1, 'WRHSNG');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_AMT', 1, 'RLS');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_AMT', 1, 'PRCHS');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_AMT', 1, 'SLS');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_AMT', 1, 'ESTMT');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_AMT', 1, 'CLCLN');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_AMT', 1, 'RTGD');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_AMT', 1, 'RFND');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_AMT', 1, 'INQ');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_AMT', 1, 'APLY');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_AMT', 1, 'SLRY');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_AMT', 1, 'VCTN');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_AMT', 1, 'EVL');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('CST_AMT', 1, 'CST');
+INSERT INTO tmp_seed_term_word VALUES ('CST_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_AMT', 1, 'SLIP');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_AMT', 1, 'INVNTRY');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_AMT', 1, 'PNT');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_AMT', 2, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_EML', 1, 'CUST');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_EML', 2, 'EML');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_EML', 1, 'MBR');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_EML', 2, 'EML');
+INSERT INTO tmp_seed_term_word VALUES ('USER_EML', 1, 'USER');
+INSERT INTO tmp_seed_term_word VALUES ('USER_EML', 2, 'EML');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_EML', 1, 'EMP');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_EML', 2, 'EML');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_EML', 1, 'PIC');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_EML', 2, 'EML');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_EML', 1, 'BCNC');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_EML', 2, 'EML');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_EML', 1, 'SPLR');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_EML', 2, 'EML');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_EML', 1, 'PTNR');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_EML', 2, 'EML');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_EML', 1, 'APLCNT');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_EML', 2, 'EML');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_SORT_SN', 1, 'DEPT');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_SORT_SN', 1, 'ORG');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_SORT_SN', 1, 'PRDT');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_SORT_SN', 1, 'ITEM');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_SORT_SN', 1, 'STOR');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_SORT_SN', 1, 'WRHS');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_SORT_SN', 1, 'MENU');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_SORT_SN', 1, 'AUTH');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_SORT_SN', 1, 'ROLE');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_SORT_SN', 1, 'PGM');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_SORT_SN', 1, 'FILE');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_SORT_SN', 1, 'BBS');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('PST_SORT_SN', 1, 'PST');
+INSERT INTO tmp_seed_term_word VALUES ('PST_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('PST_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_SORT_SN', 1, 'NTC');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_SORT_SN', 1, 'CPN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_SORT_SN', 1, 'EVT');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_SORT_SN', 1, 'PRJ');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_SORT_SN', 1, 'TASK');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_SORT_SN', 1, 'ASST');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_SORT_SN', 1, 'EQPMNT');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_SORT_SN', 1, 'VHCL');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_SORT_SN', 1, 'EDU');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_SORT_SN', 1, 'ACNT');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_SORT_SN', 1, 'BGT');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_SORT_SN', 1, 'BACNT');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_SORT_SN', 1, 'CARD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_SORT_SN', 1, 'TRMS');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_SORT_SN', 2, 'SORT');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_SORT_SN', 3, 'SN');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_QTY', 1, 'ORDR');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_QTY', 1, 'STLM');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_QTY', 1, 'DLVR');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_QTY', 1, 'CTRT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_QTY', 1, 'CLM');
+INSERT INTO tmp_seed_term_word VALUES ('CLM_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_QTY', 1, 'RCPT');
+INSERT INTO tmp_seed_term_word VALUES ('RCPT_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_QTY', 1, 'TRSC');
+INSERT INTO tmp_seed_term_word VALUES ('TRSC_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_QTY', 1, 'WRHSNG');
+INSERT INTO tmp_seed_term_word VALUES ('WRHSNG_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_QTY', 1, 'RLS');
+INSERT INTO tmp_seed_term_word VALUES ('RLS_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_QTY', 1, 'PRCHS');
+INSERT INTO tmp_seed_term_word VALUES ('PRCHS_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_QTY', 1, 'SLS');
+INSERT INTO tmp_seed_term_word VALUES ('SLS_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_QTY', 1, 'ESTMT');
+INSERT INTO tmp_seed_term_word VALUES ('ESTMT_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_QTY', 1, 'CLCLN');
+INSERT INTO tmp_seed_term_word VALUES ('CLCLN_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_QTY', 1, 'RTGD');
+INSERT INTO tmp_seed_term_word VALUES ('RTGD_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_QTY', 1, 'RFND');
+INSERT INTO tmp_seed_term_word VALUES ('RFND_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_QTY', 1, 'INQ');
+INSERT INTO tmp_seed_term_word VALUES ('INQ_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_QTY', 1, 'APLY');
+INSERT INTO tmp_seed_term_word VALUES ('APLY_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_QTY', 1, 'SLRY');
+INSERT INTO tmp_seed_term_word VALUES ('SLRY_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_QTY', 1, 'VCTN');
+INSERT INTO tmp_seed_term_word VALUES ('VCTN_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_QTY', 1, 'EVL');
+INSERT INTO tmp_seed_term_word VALUES ('EVL_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('CST_QTY', 1, 'CST');
+INSERT INTO tmp_seed_term_word VALUES ('CST_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_QTY', 1, 'SLIP');
+INSERT INTO tmp_seed_term_word VALUES ('SLIP_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_QTY', 1, 'INVNTRY');
+INSERT INTO tmp_seed_term_word VALUES ('INVNTRY_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_QTY', 1, 'PNT');
+INSERT INTO tmp_seed_term_word VALUES ('PNT_QTY', 2, 'QTY');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_ADDR', 1, 'CUST');
+INSERT INTO tmp_seed_term_word VALUES ('CUST_ADDR', 2, 'ADDR');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_ADDR', 1, 'MBR');
+INSERT INTO tmp_seed_term_word VALUES ('MBR_ADDR', 2, 'ADDR');
+INSERT INTO tmp_seed_term_word VALUES ('USER_ADDR', 1, 'USER');
+INSERT INTO tmp_seed_term_word VALUES ('USER_ADDR', 2, 'ADDR');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_ADDR', 1, 'EMP');
+INSERT INTO tmp_seed_term_word VALUES ('EMP_ADDR', 2, 'ADDR');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_ADDR', 1, 'PIC');
+INSERT INTO tmp_seed_term_word VALUES ('PIC_ADDR', 2, 'ADDR');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_ADDR', 1, 'BCNC');
+INSERT INTO tmp_seed_term_word VALUES ('BCNC_ADDR', 2, 'ADDR');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_ADDR', 1, 'SPLR');
+INSERT INTO tmp_seed_term_word VALUES ('SPLR_ADDR', 2, 'ADDR');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_ADDR', 1, 'PTNR');
+INSERT INTO tmp_seed_term_word VALUES ('PTNR_ADDR', 2, 'ADDR');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_ADDR', 1, 'APLCNT');
+INSERT INTO tmp_seed_term_word VALUES ('APLCNT_ADDR', 2, 'ADDR');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_INDCT_YN', 1, 'DEPT');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('DEPT_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_INDCT_YN', 1, 'ORG');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('ORG_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_INDCT_YN', 1, 'PRDT');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('PRDT_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_INDCT_YN', 1, 'ITEM');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('ITEM_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_INDCT_YN', 1, 'STOR');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('STOR_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_INDCT_YN', 1, 'WRHS');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('WRHS_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_INDCT_YN', 1, 'MENU');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('MENU_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_INDCT_YN', 1, 'AUTH');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('AUTH_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_INDCT_YN', 1, 'ROLE');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('ROLE_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_INDCT_YN', 1, 'PGM');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('PGM_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_INDCT_YN', 1, 'FILE');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('FILE_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_INDCT_YN', 1, 'BBS');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('BBS_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('PST_INDCT_YN', 1, 'PST');
+INSERT INTO tmp_seed_term_word VALUES ('PST_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('PST_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_INDCT_YN', 1, 'NTC');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('NTC_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_INDCT_YN', 1, 'CPN');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('CPN_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_INDCT_YN', 1, 'EVT');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('EVT_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_INDCT_YN', 1, 'PRJ');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('PRJ_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_INDCT_YN', 1, 'TASK');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('TASK_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_INDCT_YN', 1, 'ASST');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('ASST_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_INDCT_YN', 1, 'EQPMNT');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('EQPMNT_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_INDCT_YN', 1, 'VHCL');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('VHCL_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_INDCT_YN', 1, 'EDU');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('EDU_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_INDCT_YN', 1, 'ACNT');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('ACNT_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_INDCT_YN', 1, 'BGT');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('BGT_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_INDCT_YN', 1, 'BACNT');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('BACNT_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_INDCT_YN', 1, 'CARD');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('CARD_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_INDCT_YN', 1, 'TRMS');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_INDCT_YN', 2, 'INDCT');
+INSERT INTO tmp_seed_term_word VALUES ('TRMS_INDCT_YN', 3, 'YN');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_TOT_AMT', 1, 'ORDR');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_TOT_AMT', 2, 'TOT');
+INSERT INTO tmp_seed_term_word VALUES ('ORDR_TOT_AMT', 3, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_TOT_AMT', 1, 'STLM');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_TOT_AMT', 2, 'TOT');
+INSERT INTO tmp_seed_term_word VALUES ('STLM_TOT_AMT', 3, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_TOT_AMT', 1, 'DLVR');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_TOT_AMT', 2, 'TOT');
+INSERT INTO tmp_seed_term_word VALUES ('DLVR_TOT_AMT', 3, 'AMT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_TOT_AMT', 1, 'CTRT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_TOT_AMT', 2, 'TOT');
+INSERT INTO tmp_seed_term_word VALUES ('CTRT_TOT_AMT', 3, 'AMT');
 INSERT INTO std_term (name, abbreviation, domain_id, description, created_at, updated_at)
-SELECT t.name, t.abbreviation, d.id, t.description, NOW(6), NOW(6)
+SELECT t.name, t.abbreviation, d.id, t.description, LOCALTIMESTAMP, LOCALTIMESTAMP
   FROM tmp_seed_term t
   JOIN std_domain d ON d.name = t.domain_name;
-
 INSERT INTO std_term_word (term_id, seq, word_id)
 SELECT t.id, x.seq, w.id
   FROM tmp_seed_term_word x
   JOIN std_term t ON t.abbreviation = x.term_abbreviation
   JOIN std_word w ON w.abbreviation = x.word_abbreviation;
-
-DROP TEMPORARY TABLE tmp_seed_term_word;
-DROP TEMPORARY TABLE tmp_seed_term;
-
 COMMIT;
+
+-- 임시 작업 테이블 삭제 (커밋 뒤).
+DROP TABLE tmp_seed_term_word PURGE;
+DROP TABLE tmp_seed_term PURGE;
+
+EXIT

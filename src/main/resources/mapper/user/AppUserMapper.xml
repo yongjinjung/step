@@ -59,10 +59,11 @@
     <!-- 키워드는 아이디(소문자로 저장 → 검색어도 소문자) OR 이름 부분 일치. roleId는 그 역할을 가진 사용자. -->
     <sql id="searchWhere">
         <bind name="keyword" value="@com.step.dictionary.global.mybatis.Likes@contains(c.keyword)"/>
+        <bind name="keywordUpper" value="@com.step.dictionary.global.mybatis.Likes@containsUpper(c.keyword)"/>
         <bind name="keywordLower" value="@com.step.dictionary.global.mybatis.Likes@containsLower(c.keyword)"/>
         <where>
             <if test="keyword != null">
-                AND (u.username LIKE #{keywordLower} ESCAPE '!' OR u.name LIKE #{keyword} ESCAPE '!')
+                AND (u.username LIKE #{keywordLower} ESCAPE '!' OR UPPER(u.name) LIKE #{keywordUpper} ESCAPE '!')
             </if>
             <if test="c.roleId != null">
                 AND EXISTS (SELECT 1 FROM app_user_role ur WHERE ur.user_id = u.id AND ur.role_id = #{c.roleId})
@@ -75,7 +76,7 @@
         SELECT <include refid="columns"/> FROM app_user u
         <include refid="searchWhere"/>
         ORDER BY u.username ASC
-        LIMIT #{p.pageSize} OFFSET #{p.offset}
+        OFFSET #{p.offset} ROWS FETCH NEXT #{p.pageSize} ROWS ONLY
     </select>
 
     <select id="countSearch" resultType="long">

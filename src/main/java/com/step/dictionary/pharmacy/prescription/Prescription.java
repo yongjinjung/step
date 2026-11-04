@@ -30,8 +30,6 @@ public class Prescription extends BaseTimeEntity {
     private String departmentCode;
 
     private String prescriberName;
-
-    // MySQL 방언은 STRING enum을 ENUM 타입으로 보므로 VARCHAR로 지정해 validate를 맞춘다.
     private PrescriptionType prescriptionType;
 
     private PrescriptionStatus status;

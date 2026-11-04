@@ -53,7 +53,7 @@ public class CodeGroup extends BaseTimeEntity {
 
     /**
      * 코드ID는 대문자로 저장한다. 중복 검사 전에도 같은 규칙을 적용해야 한다.
-     * MySQL 기본 콜레이션은 대소문자를 구분하지 않고 H2는 구분하므로, 정규화해야 두 DB의 유일 제약 결과가 같다.
+     * Oracle은 문자열 비교에서 대소문자를 구분하므로, 정규화하지 않으면 cust와 CUST가 다른 값으로 들어간다.
      */
     public static String normalizeCodeId(String codeId) {
         // Locale.ROOT: 터키어 로케일 등에서 'i'가 'İ'로 바뀌는 문제를 막는다.

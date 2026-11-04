@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,7 +23,15 @@ import org.springframework.transaction.annotation.Transactional;
  * 마이그레이션으로 넣은 행은 곧 사라져 의미가 없고, 새로 만든 DB에서만 필요한 값이라서다.
  */
 @Component
+@Order(MenuInitializer.ORDER)
 public class MenuInitializer implements ApplicationRunner {
+
+    /**
+     * 실행 순서. 메뉴 권한을 채우는 {@code RoleInitializer}보다 먼저 실행돼야 한다.
+     * {@code @Order}가 없으면 가장 나중({@code LOWEST_PRECEDENCE})에 실행되어, 새 DB에서 처음 기동할 때
+     * 일반 사용자 역할의 기본 권한이 하나도 만들어지지 않는다.
+     */
+    public static final int ORDER = 0;
 
     private static final Logger log = LoggerFactory.getLogger(MenuInitializer.class);
 

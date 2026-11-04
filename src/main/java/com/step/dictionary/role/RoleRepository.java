@@ -1,5 +1,6 @@
 package com.step.dictionary.role;
 
+import com.step.dictionary.global.mybatis.InClause;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -41,7 +42,7 @@ public class RoleRepository {
 
     /** 여러 ID를 한 번에 찾는다. 없는 ID는 결과에서 빠진다. */
     public List<Role> findAllById(Collection<Long> ids) {
-        return ids.isEmpty() ? List.of() : mapper.findAllById(ids);
+        return InClause.query(ids, mapper::findAllById);
     }
 
     public boolean existsByCode(String code) {

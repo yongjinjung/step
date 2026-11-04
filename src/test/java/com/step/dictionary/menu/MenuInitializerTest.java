@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import com.step.dictionary.role.RoleInitializer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,6 +15,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.annotation.Order;
 
 @ExtendWith(MockitoExtension.class)
 class MenuInitializerTest {
@@ -60,5 +62,14 @@ class MenuInitializerTest {
         initializer.run(null);
 
         verify(menuRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("기동 시 메뉴 생성이 일반 사용자 기본 권한 생성보다 먼저 실행된다 (권한은 메뉴가 있어야 만들 수 있다)")
+    void runsBeforeRoleInitializer() {
+        int menuOrder = MenuInitializer.class.getAnnotation(Order.class).value();
+        int roleOrder = RoleInitializer.class.getAnnotation(Order.class).value();
+
+        assertThat(menuOrder).isLessThan(roleOrder);
     }
 }

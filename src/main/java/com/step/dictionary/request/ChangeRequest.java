@@ -17,8 +17,6 @@ public class ChangeRequest extends BaseTimeEntity {
 
     /** 신청 ID (AUTO_INCREMENT). */
     private Long id;
-
-    // enum 컬럼은 MySQL 방언이 ENUM 타입으로 보지 않도록 VARCHAR로 지정한다 (이하 동일).
     /** 대상 종류. */
     private TargetType targetType;
 

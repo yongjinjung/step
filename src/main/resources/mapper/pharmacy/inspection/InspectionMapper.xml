@@ -69,7 +69,7 @@
         SELECT <include refid="columns"/> <include refid="from"/>
         <include refid="searchWhere"/>
         ORDER BY i.inspected_at DESC, i.id DESC
-        LIMIT #{p.pageSize} OFFSET #{p.offset}
+        OFFSET #{p.offset} ROWS FETCH NEXT #{p.pageSize} ROWS ONLY
     </select>
 
     <select id="count" resultType="long">

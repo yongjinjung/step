@@ -29,7 +29,7 @@
         <bind name="keywordUpper" value="@com.step.dictionary.global.mybatis.Likes@containsUpper(c.keyword)"/>
         <where>
             <if test="keyword != null">
-                AND (g.code_id LIKE #{keywordUpper} ESCAPE '!' OR g.code_name LIKE #{keyword} ESCAPE '!')
+                AND (g.code_id LIKE #{keywordUpper} ESCAPE '!' OR UPPER(g.code_name) LIKE #{keywordUpper} ESCAPE '!')
             </if>
             <if test="c.used != null">AND g.used_yn = #{c.used}</if>
         </where>
@@ -39,7 +39,7 @@
         SELECT <include refid="columns"/> FROM com_code_group g
         <include refid="searchWhere"/>
         ORDER BY g.code_id ASC
-        LIMIT #{p.pageSize} OFFSET #{p.offset}
+        OFFSET #{p.offset} ROWS FETCH NEXT #{p.pageSize} ROWS ONLY
     </select>
 
     <select id="count" resultType="long">

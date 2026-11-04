@@ -2,7 +2,7 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <!--
   컬럼 정의 (meta_column). 테이블(mt_), 용어(t_) + 도메인(t_d_) + 분류어(t_d_cw_), 코드 그룹(cg_)을 조인해 채운다.
-  모두 다대일이라 LIMIT 페이징이 그대로 동작한다. 용어와 코드 그룹은 없을 수 있어 LEFT JOIN이다.
+  모두 다대일이라 페이징(OFFSET … FETCH)이 그대로 동작한다. 용어와 코드 그룹은 없을 수 있어 LEFT JOIN이다.
 
   비표준 검출 규칙(issueCondition)은 MetaColumn.inspect()와 같아야 한다.
   nullable 컬럼(길이·소수점) 비교는 SQL의 <>가 NULL에서 참이 되지 않으므로 NULL 안전하게 비교한다.
@@ -137,7 +137,7 @@
         SELECT <include refid="columns"/> <include refid="from"/>
         <include refid="nonStandardWhere"/>
         ORDER BY mt.physical_name ASC, c.seq ASC, c.id ASC
-        LIMIT #{p.pageSize} OFFSET #{p.offset}
+        OFFSET #{p.offset} ROWS FETCH NEXT #{p.pageSize} ROWS ONLY
     </select>
 
     <!-- 건수는 검출 조건에 필요한 용어·도메인만 조인한다. -->

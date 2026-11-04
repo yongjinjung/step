@@ -1,5 +1,6 @@
 package com.step.dictionary.standard.word;
 
+import com.step.dictionary.global.mybatis.InClause;
 import com.step.dictionary.global.mybatis.Pages;
 import com.step.dictionary.standard.word.dto.WordSearchCondition;
 import java.util.Collection;
@@ -45,7 +46,7 @@ public class WordRepository {
 
     /** 여러 ID를 한 번에 찾는다. 순서는 보장하지 않고, 없는 ID는 결과에서 빠진다. */
     public List<Word> findAllById(Collection<Long> ids) {
-        return ids.isEmpty() ? List.of() : mapper.findAllById(ids);
+        return InClause.query(ids, mapper::findAllById);
     }
 
     /** 등록 시 단어명 중복 확인. */

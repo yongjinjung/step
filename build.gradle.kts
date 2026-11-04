@@ -39,12 +39,13 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("org.springframework.boot:spring-boot-starter-flyway")
-    implementation("org.flywaydb:flyway-mysql")
+    // Flyway 10+는 DB별 모듈이 따로 있다 (Oracle)
+    implementation("org.flywaydb:flyway-database-oracle")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:$springdocVersion")
     // 엑셀(.xlsx) 업로드/다운로드 (8단계)
     implementation("org.apache.poi:poi-ooxml:$poiVersion")
 
-    runtimeOnly("com.mysql:mysql-connector-j")
+    runtimeOnly("com.oracle.database.jdbc:ojdbc11")
     testRuntimeOnly("com.h2database:h2")
 
     testImplementation("org.mybatis.spring.boot:mybatis-spring-boot-starter-test:$mybatisVersion")

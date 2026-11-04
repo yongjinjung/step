@@ -14,8 +14,8 @@ import org.springframework.test.context.ActiveProfiles;
 /**
  * 모든 테이블·컬럼에 설명(Description)이 달렸는지 검사한다.
  *
- * <p>설명은 DB 종류별 마이그레이션(db/vendor/mysql, db/vendor/h2)에 같은 내용으로 둔다. 테이블이나 컬럼을 추가하면서
- * 설명을 빠뜨리면 이 테스트가 실패한다(테스트는 H2 쪽 파일을 검사하므로 MySQL 쪽 파일도 함께 고쳤는지 확인한다).
+ * <p>설명은 마이그레이션의 {@code COMMENT ON TABLE/COLUMN}으로 단다(V14, Oracle과 H2 문법이 같다). 테이블이나 컬럼을
+ * 추가하면서 설명을 빠뜨리면 이 테스트가 실패한다.
  */
 @MybatisTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)

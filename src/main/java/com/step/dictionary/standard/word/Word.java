@@ -18,7 +18,7 @@ import java.util.Locale;
  */
 public class Word extends BaseTimeEntity {
 
-    /** 단어 ID. MySQL AUTO_INCREMENT로 생성되므로 save() 시점에 바로 insert된다. */
+    /** 단어 ID. DB의 자동 증가(identity) 값이며 save()로 insert할 때 채워진다. */
     private Long id;
 
     /** 단어명(한글). 예: 고객. 용어명은 이 값을 이어 붙여 만든다. */

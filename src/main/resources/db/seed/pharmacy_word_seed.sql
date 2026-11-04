@@ -60,3029 +60,3023 @@
 --
 -- Flyway 마이그레이션이 아니다. Flyway는 `db/migration`만 읽으므로 이 파일은 자동 실행되지 않는다.
 --
--- 넣는 방법 (로컬 MySQL, Git Bash):
---   docker exec -i dictionary-mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" --default-character-set=utf8mb4 dictionary' \
+-- 넣는 방법 (로컬 Oracle, Git Bash). NLS_LANG으로 UTF-8을 지정해야 한글이 깨지지 않는다:
+--   docker exec -i -e NLS_LANG=AMERICAN_AMERICA.AL32UTF8 pharmacy-oracle sqlplus -s pharmacy/pharmacy@XEPDB1 \
 --     < src/main/resources/db/seed/pharmacy_word_seed.sql
 --
 -- 주의:
 --   - standard_term_seed.sql(단어 105개)을 넣은 뒤에 한 번만 실행한다. 그 단어들과 이름·약어가 겹치지 않게 만들었다.
---     같은 이름·약어가 이미 있으면 유일 제약에 걸려 트랜잭션 전체가 실패한다(일부만 들어가지 않는다).
+--     같은 이름·약어가 이미 있으면 유일 제약에 걸려 트랜잭션 전체가 실패한다(오류가 나면 sqlplus가 롤백하고 끝낸다)(일부만 들어가지 않는다).
 --   - 영문약어는 영문명에서 자음 위주로 줄여 만들었고, 겹치면 글자를 늘리거나 숫자를 붙였다.
 --   - SQL로 직접 넣으므로 변경 이력(change_history)은 남지 않는다.
 -- =====================================================================
 
-START TRANSACTION;
+-- sqlplus 설정: & 치환 끄기, 문장 안 빈 줄 허용, 오류 시 롤백하고 종료.
+SET DEFINE OFF
+SET SQLBLANKLINES ON
+SET FEEDBACK OFF
+WHENEVER SQLERROR EXIT FAILURE ROLLBACK
 
-INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES
-  ('처방', 'PRSC', 'Prescription', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('처방전', 'PRSCSHT', 'Prescription Sheet', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('원외처방', 'OTPPRS', 'Outpatient Prescription', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('원내처방', 'INHPRS', 'Inhouse Prescription', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('정규처방', 'RGLPRS', 'Regular Prescription', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('임시처방', 'TMPPRS', 'Temporary Prescription', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('응급처방', 'EMRPRS', 'Emergency Prescription', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('퇴원처방', 'DSCPRS', 'Discharge Prescription', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('추가처방', 'ADTPRS', 'Additional Prescription', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('변경처방', 'CHNPRS', 'Changed Prescription', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('중단처방', 'DSCNPRSC', 'Discontinued Prescription', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('반복처방', 'RPTPRS', 'Repeat Prescription', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('예약처방', 'RSRPRS', 'Reserved Prescription', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('구두처방', 'VRBORD', 'Verbal Order', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('약속처방', 'ORDSET', 'Order Set', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('선처방', 'PREORD', 'Pre Order', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('후처방', 'PSTORD', 'Post Order', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('정시처방', 'SCHORD', 'Scheduled Order', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('필요시처방', 'PRNORD', 'PRN Order', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('지속처방', 'CNTORD', 'Continuous Order', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('일회처방', 'SNGORD', 'Single Order', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('처방의', 'PRSCRB', 'Prescriber', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('처방과', 'PRSDPR', 'Prescribing Department', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('처방량', 'PRSQNT', 'Prescribed Quantity', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('처방일수', 'PRSDYS', 'Prescribed Days', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('처방구분', 'PRSDVS', 'Prescription Division', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('처방상태', 'PRSSTS', 'Prescription Status', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('처방변경', 'PRSCHN', 'Prescription Change', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('처방취소', 'PRSCNC', 'Prescription Cancel', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('처방중단', 'PRSSTP', 'Prescription Stop', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('처방확인', 'PRSCNF', 'Prescription Confirm', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('처방검토', 'PRSRVW', 'Prescription Review', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('처방중재', 'PRSINT', 'Prescription Intervention', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('처방감사', 'PRSADT', 'Prescription Audit', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('처방발행', 'PRSIS', 'Prescription Issue', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('처방전달', 'ORDCMN', 'Order Communication', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('처방코드', 'PRSCD', 'Prescription Code', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('처방전번호', 'PRSSHTNMB', 'Prescription Sheet Number', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('교부번호', 'DLVNMB', 'Delivery Number', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('오더', 'ORDENT', 'Order Entry', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('오더세트', 'ORDBND', 'Order Bundle', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('지시', 'INSTRC', 'Instruction', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('지시사항', 'INSITM', 'Instruction Item', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('의사지시', 'PHYORD', 'Physician Order', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('간호지시', 'NRSORD', 'Nursing Order', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('투약지시', 'MDCORD', 'Medication Order', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('수액지시', 'FLDORD', 'Fluid Order', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('주사지시', 'INJORD', 'Injection Order', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('경구지시', 'ORLORD', 'Oral Order', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('대리처방', 'PRXPRS', 'Proxy Prescription', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('재처방', 'REPRS', 'Re Prescription', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('처방이력', 'PRSHST', 'Prescription History', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('처방집', 'FRMLRY', 'Formulary', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('원내약', 'FRMDRG', 'Formulary Drug', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('원외약', 'NONFRMDRG', 'Non Formulary Drug', '분류: 처방', 'N', NOW(6), NOW(6)),
-  ('조제', 'DSPN', 'Dispensing', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조제실', 'DSPRM', 'Dispensing Room', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조제대', 'DSPTBL', 'Dispensing Table', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조제자', 'DSPNSR', 'Dispenser', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조제량', 'DSPQNT', 'Dispensed Quantity', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조제료', 'DSPFEE', 'Dispensing Fee', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조제방법', 'DSPMTH', 'Dispensing Method', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조제지시', 'DSPINS', 'Dispensing Instruction', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조제완료', 'DSPCMP', 'Dispensing Completion', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조제대기', 'DSPWTN', 'Dispensing Waiting', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조제중', 'DSPPRG', 'Dispensing In Progress', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조제취소', 'DSPCNC', 'Dispensing Cancel', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조제보류', 'DSPHLD', 'Dispensing Hold', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조제오류', 'DSPER', 'Dispensing Error', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조제기록', 'DSPRCR', 'Dispensing Record', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조제내역', 'DSPDTL', 'Dispensing Detail', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조제차수', 'DSPRND', 'Dispensing Round', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조제구분', 'DSPDVS', 'Dispensing Division', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조제유형', 'DSPTYP', 'Dispensing Type', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('산제', 'PWDDSP', 'Powder Dispensing', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('분쇄', 'GRNDNG', 'Grinding', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('분할', 'SPLTNG', 'Splitting', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('반절', 'HLFSPL', 'Half Splitting', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('분포', 'PCKUNTDS', 'Packaging Unit Dose', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('일포화', 'UNTDSPCK', 'Unit Dose Packaging', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('포장', 'PCKGNG', 'Packaging', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('소분', 'SBDVSN', 'Subdivision', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('혼합', 'MIXING', 'Mixing', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조합', 'CMPNDN', 'Compounding', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('희석', 'DLTN', 'Dilution', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('용해', 'DSLTN', 'Dissolution', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('재구성', 'RCNSTN', 'Reconstitution', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('충전', 'FLNG', 'Filling', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('멸균', 'STRLZT', 'Sterilization', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('무균조제', 'ASPCMP', 'Aseptic Compounding', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('항암조제', 'CHMCMP', 'Chemotherapy Compounding', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('영양수액조제', 'PRNNTRCMP', 'Parenteral Nutrition Compounding', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('주사조제', 'INJCMP', 'Injection Compounding', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('경구조제', 'ORLDSP', 'Oral Dispensing', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('외용조제', 'EXTDSP', 'External Dispensing', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('자동조제', 'ATMDSP', 'Automatic Dispensing', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('수동조제', 'MNLDSP', 'Manual Dispensing', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('가루약', 'PWDMDC', 'Powdered Medicine', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('물약', 'LQDMDC', 'Liquid Medicine', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('계량', 'MSRMNT', 'Measurement', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('칭량', 'WGHNG', 'Weighing', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('감량', 'DSRDC', 'Dose Reduction', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('증량', 'DSESC', 'Dose Escalation', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('라벨', 'LBL', 'Label', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('약봉투', 'MDCENV', 'Medicine Envelope', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('약포지', 'MDCPCKPR', 'Medicine Packet Paper', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('약포', 'MDCPCK', 'Medicine Packet', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('복약봉투', 'MDCBAG', 'Medication Bag', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('바이알', 'VIAL', 'Vial', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('앰플', 'AMPL', 'Ampoule', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('수액백', 'INFBAG', 'Infusion Bag', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('시린지', 'SYRNG', 'Syringe', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('트레이', 'TRAY', 'Tray', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조제카드', 'DSPCRD', 'Dispensing Card', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조제번호', 'DSPNMB', 'Dispensing Number', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('조제일련', 'DSPSQN', 'Dispensing Sequence', '분류: 조제', 'N', NOW(6), NOW(6)),
-  ('감사', 'AUDIT', 'Audit', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('처방감사자', 'PRSCADTR', 'Prescription Auditor', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('약사검토', 'PHRRVW', 'Pharmacist Review', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('중재', 'INTRVN', 'Intervention', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('중재사유', 'INTRSN', 'Intervention Reason', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('중재결과', 'INTRSL', 'Intervention Result', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('상호작용', 'INTRCT', 'Interaction', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('약물상호작용', 'DRGINT', 'Drug Interaction', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('중복투약', 'DPLMDC', 'Duplicate Medication', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('동일성분', 'SMING', 'Same Ingredient', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('동일효능', 'SMEFC', 'Same Efficacy', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('금기', 'CNTRND', 'Contraindication', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('병용금기', 'CMBCNT', 'Combination Contraindication', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('연령금기', 'AGECNT', 'Age Contraindication', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('임부금기', 'PRGCNT', 'Pregnancy Contraindication', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('노인주의', 'ELDCTN', 'Elderly Caution', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('소아주의', 'PDTCTN', 'Pediatric Caution', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('신기능', 'RNLFNC', 'Renal Function', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('간기능', 'HPTFNC', 'Hepatic Function', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('용량조절', 'DSADJ', 'Dose Adjustment', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('용량초과', 'OVRDS', 'Overdose', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('최대용량', 'MXMDS', 'Maximum Dose', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('최소용량', 'MNMDS', 'Minimum Dose', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('상용량', 'USLDS', 'Usual Dose', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('극량', 'LTHLMTDS', 'Lethal Limit Dose', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('투여일수초과', 'EXCADMDYS', 'Exceeded Administration Days', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('알림창', 'ALRP', 'Alert Popup', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('경고', 'WRNG', 'Warning', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('주의', 'CTN', 'Caution', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('참고', 'RFRNC', 'Reference', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('점검', 'INSCHC', 'Inspection Check', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('DUR', 'DUR', 'Drug Utilization Review', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('의약품안전사용', 'DRGSFTUSE', 'Drug Safety Use', '분류: 감사·중재', 'N', NOW(6), NOW(6)),
-  ('검수', 'INSP', 'Inspection', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('검수자', 'INSPCT', 'Inspector', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('검수일', 'INSDAY', 'Inspection Day', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('검수결과', 'INSRSL', 'Inspection Result', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('검수완료', 'INSCMP', 'Inspection Completion', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('검수대기', 'INSWTN', 'Inspection Waiting', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('검수보류', 'INSHLD', 'Inspection Hold', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('검수불량', 'INSDFC', 'Inspection Defect', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('검수기준', 'INSCRT', 'Inspection Criteria', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('검수항목', 'INSPITEM', 'Inspection Item', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('검수내역', 'INSDTL', 'Inspection Detail', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('검수서', 'INSRPR', 'Inspection Report', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('검수확인', 'INSCNF', 'Inspection Confirmation', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('검수구분', 'INSDVS', 'Inspection Division', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('입고검수', 'RCVINS', 'Receiving Inspection', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('조제검수', 'DSPNINSP', 'Dispensing Inspection', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('최종검수', 'FNLINS', 'Final Inspection', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('이중검수', 'DBLINS', 'Double Inspection', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('육안검수', 'VSLINS', 'Visual Inspection', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('바코드검수', 'BRCINS', 'Barcode Inspection', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('수량검수', 'QNTINS', 'Quantity Inspection', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('외관검수', 'APRINS', 'Appearance Inspection', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('적합', 'CNFRMT', 'Conformity', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('부적합', 'NCNFRM', 'Nonconformity', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('합격', 'PASS', 'Pass', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('불합격', 'FAIL', 'Fail', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('양품', 'GDPRD', 'Good Product', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('불량품', 'DFCPRD', 'Defective Product', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('파손', 'DAMAGE', 'Damage', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('오염', 'CNTMNT', 'Contamination', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('변질', 'DTRTN', 'Deterioration', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('누락', 'OMSN', 'Omission', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('과량', 'EXCQNT', 'Excess Quantity', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('부족', 'SHRTG', 'Shortage', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('오조제', 'WRNDSP', 'Wrong Dispensing', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('오투약', 'MDCER', 'Medication Error', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('재조제', 'REDSP', 'Re Dispensing', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('재검수', 'REINS', 'Re Inspection', '분류: 검수', 'N', NOW(6), NOW(6)),
-  ('불출', 'ISU', 'Issue', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('불출처', 'ISDST', 'Issue Destination', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('불출량', 'ISDQNT', 'Issued Quantity', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('불출일', 'ISDAY', 'Issue Day', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('불출자', 'ISSUER', 'Issuer', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('불출요청', 'ISRQS', 'Issue Request', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('불출승인', 'ISAPR', 'Issue Approval', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('불출완료', 'ISCMP', 'Issue Completion', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('불출대기', 'ISWTN', 'Issue Waiting', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('불출보류', 'ISHLD', 'Issue Hold', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('불출취소', 'ISCNC', 'Issue Cancel', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('불출내역', 'ISDTL', 'Issue Detail', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('불출서', 'ISSLP', 'Issue Slip', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('불출구분', 'ISDVS', 'Issue Division', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('불출유형', 'ISTYP', 'Issue Type', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('불출차수', 'ISRND', 'Issue Round', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('정기불출', 'RGLIS', 'Regular Issue', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('긴급불출', 'URGIS', 'Urgent Issue', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('임시불출', 'TMPIS', 'Temporary Issue', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('병동불출', 'WRDIS', 'Ward Issue', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('외래불출', 'OTPIS', 'Outpatient Issue', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('부서불출', 'DPRIS', 'Department Issue', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('비품불출', 'STCITMIS', 'Stock Item Issue', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('상비약', 'WRDSTCDRG', 'Ward Stock Drug', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('비치약', 'FLRSTC', 'Floor Stock', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('병동재고', 'WRDSTC', 'Ward Stock', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('약품청구', 'DRGRQS', 'Drug Requisition', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('물품청구', 'SPLRQS', 'Supply Requisition', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('인계', 'HNDVR', 'Handover', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('인수', 'TKVR', 'Takeover', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('인수자', 'RCVR', 'Receiver', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('인계자', 'HNDGVR', 'Handover Giver', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('수령', 'RCPTK', 'Receipt Take', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('수령자', 'RCPNT', 'Recipient', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('수령확인', 'RCPCNF', 'Receipt Confirmation', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('배송함', 'DLVBOX', 'Delivery Box', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('운반', 'TRNSPR', 'Transport', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('운반자', 'TRNSPRT', 'Transporter', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('기송관', 'PNMTB', 'Pneumatic Tube', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('에어슈터', 'AIRSHT', 'Air Shooter', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('카트', 'CART', 'Cart', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('투약카트', 'MDCCRT', 'Medication Cart', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('응급카트', 'EMRCRT', 'Emergency Cart', '분류: 불출', 'N', NOW(6), NOW(6)),
-  ('반납', 'RTRN', 'Return', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('반납처', 'RTRDST', 'Return Destination', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('반납량', 'RTRQNT', 'Returned Quantity', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('반납일', 'RTRDAY', 'Return Day', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('반납자', 'RTRNR', 'Returner', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('반납사유', 'RTRRSN', 'Return Reason', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('반납요청', 'RTRRQS', 'Return Request', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('반납승인', 'RTRAPR', 'Return Approval', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('반납완료', 'RTRCMP', 'Return Completion', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('반납대기', 'RTRWTN', 'Return Waiting', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('반납보류', 'RTRHLD', 'Return Hold', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('반납취소', 'RTRCNC', 'Return Cancel', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('반납내역', 'RTRDTL', 'Return Detail', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('반납서', 'RTRSLP', 'Return Slip', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('반납구분', 'RTRDVS', 'Return Division', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('반납유형', 'RTRTYP', 'Return Type', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('반납확인', 'RTRCNF', 'Return Confirmation', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('미사용반납', 'UNSRTR', 'Unused Return', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('잔량', 'RMNQNT', 'Remaining Quantity', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('잔량반납', 'RMNRTR', 'Remainder Return', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('잔량폐기', 'RMNDSP', 'Remainder Disposal', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('재사용', 'REUSE', 'Reuse', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('재입고', 'RSTCKN', 'Restocking', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('폐기', 'DSPSL', 'Disposal', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('폐기량', 'DSPSQNTY', 'Disposed Quantity', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('폐기사유', 'DSPRSN', 'Disposal Reason', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('폐기승인', 'DSPAPR', 'Disposal Approval', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('폐기대장', 'DSPLDG', 'Disposal Ledger', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('반송', 'SNDBCK', 'Send Back', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('회수', 'RECALL', 'Recall', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('회수약', 'RCLDRG', 'Recalled Drug', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('리콜', 'PRDRCL', 'Product Recall', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('반납약', 'RTRDRG', 'Returned Drug', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('퇴원반납', 'DSCRTR', 'Discharge Return', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('중단반납', 'DSCNRTRN', 'Discontinuation Return', '분류: 반납', 'N', NOW(6), NOW(6)),
-  ('투약', 'MDCADM', 'Medication Administration', '분류: 투약', 'N', NOW(6), NOW(6)),
-  ('투약자', 'MDCTADMN', 'Medication Administrator', '분류: 투약', 'N', NOW(6), NOW(6)),
-  ('투약시간', 'MDCTM', 'Medication Time', '분류: 투약', 'N', NOW(6), NOW(6)),
-  ('투약기록', 'MDCRCR', 'Medication Record', '분류: 투약', 'N', NOW(6), NOW(6)),
-  ('투약완료', 'ADMCMP', 'Administration Completion', '분류: 투약', 'N', NOW(6), NOW(6)),
-  ('투약보류', 'ADMHLD', 'Administration Hold', '분류: 투약', 'N', NOW(6), NOW(6)),
-  ('투약거부', 'ADMRFS', 'Administration Refusal', '분류: 투약', 'N', NOW(6), NOW(6)),
-  ('미투약', 'NOTADM', 'Not Administered', '분류: 투약', 'N', NOW(6), NOW(6)),
-  ('투여', 'ADM', 'Administration', '분류: 투약', 'N', NOW(6), NOW(6)),
-  ('투여량', 'ADMDS', 'Administered Dose', '분류: 투약', 'N', NOW(6), NOW(6)),
-  ('투여경로', 'ADMRT', 'Administration Route', '분류: 투약', 'N', NOW(6), NOW(6)),
-  ('투여속도', 'INFRT', 'Infusion Rate', '분류: 투약', 'N', NOW(6), NOW(6)),
-  ('투여간격', 'DSNINT', 'Dosing Interval', '분류: 투약', 'N', NOW(6), NOW(6)),
-  ('투여기간', 'ADMPRD', 'Administration Period', '분류: 투약', 'N', NOW(6), NOW(6)),
-  ('복용', 'TKNMDC', 'Taking Medicine', '분류: 투약', 'N', NOW(6), NOW(6)),
-  ('복약', 'MDCTKN', 'Medication Taking', '분류: 투약', 'N', NOW(6), NOW(6)),
-  ('복약지도', 'MDCCNS', 'Medication Counseling', '분류: 투약', 'N', NOW(6), NOW(6)),
-  ('복약순응도', 'MDCADH', 'Medication Adherence', '분류: 투약', 'N', NOW(6), NOW(6)),
-  ('자가투약', 'SLFMDC', 'Self Medication', '분류: 투약', 'N', NOW(6), NOW(6)),
-  ('지참약', 'BRGMDC', 'Brought Medicine', '분류: 투약', 'N', NOW(6), NOW(6)),
-  ('지참약확인', 'BRGMDCCHC', 'Brought Medicine Check', '분류: 투약', 'N', NOW(6), NOW(6)),
-  ('접수', 'RCPTN', 'Reception', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('등록자', 'RGSTRN', 'Registrant', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('수정자', 'MDFR', 'Modifier', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('삭제자', 'DLTR', 'Deleter', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('확인자', 'CNFRMR', 'Confirmer', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('승인자', 'APRVR', 'Approver', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('요청자', 'RQSTR', 'Requester', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('처리자', 'PRCSR', 'Processor', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('작성자', 'WRITER', 'Writer', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('검토자', 'RVWR', 'Reviewer', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('반려', 'RJCTN', 'Rejection', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('반려사유', 'RJCRSN', 'Rejection Reason', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('보류', 'HOLD', 'Hold', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('보류사유', 'HLDRSN', 'Hold Reason', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('해제', 'UNLOCK', 'Unlock', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('완료', 'CMPLTN', 'Completion', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('진행', 'PRGRS', 'Progress', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('대기', 'WTNG', 'Waiting', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('예약', 'RSRVTN', 'Reservation', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('변경', 'CHANGE', 'Change', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('변경사유', 'CHNRSN', 'Change Reason', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('이력', 'HSTRY', 'History', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('기록', 'RECORD', 'Record', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('발행', 'ISNC', 'Issuance', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('출력', 'PRINT', 'Print', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('재출력', 'RPRNT', 'Reprint', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('조회', 'LOOKUP', 'Lookup', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('저장', 'SAVE', 'Save', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('전송', 'TRNSMS', 'Transmission', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('수신', 'RCV', 'Receive', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('발신', 'SNDNG', 'Sending', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('연동', 'INTGRT', 'Integration', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('마감', 'CLSNG', 'Closing', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('일마감', 'DLYCLS', 'Daily Closing', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('월마감', 'MNTCLS', 'Monthly Closing', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('집계', 'AGRGTN', 'Aggregation', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('통계', 'STSTCS', 'Statistics', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('보고', 'REPORT', 'Report', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('보고서', 'RPRDCM', 'Report Document', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('결재', 'SGNF', 'Signoff', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('전자서명', 'ELCSGN', 'Electronic Signature', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('서명', 'SGNTR', 'Signature', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('서명자', 'SIGNER', 'Signer', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('인증', 'CRTFCT', 'Certification', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('본인확인', 'IDNVRF', 'Identity Verification', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('대체', 'SBSTN', 'Substitution', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('대체약', 'SBSDRG', 'Substitute Drug', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('대체조제', 'SBSDSP', 'Substitute Dispensing', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('동등', 'EQVLNT', 'Equivalent', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('동등성', 'EQVLNC', 'Equivalence', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('교체', 'RPLCMN', 'Replacement', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('이관', 'TRNSFR', 'Transfer', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('이동', 'MVMNT', 'Movement', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('배정', 'ASGNMN', 'Assignment', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('할당', 'ALCTN', 'Allocation', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('우선순위', 'PRTY', 'Priority', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('긴급', 'URGNCY', 'Urgency', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('응급', 'EMRGNC', 'Emergency', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('일반', 'GNRL', 'General', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('정기', 'RGLR', 'Regular', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('수시', 'OCSNL', 'Occasional', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('임시', 'TMPRY', 'Temporary', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('차수', 'ROUND', 'Round', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('회차', 'SESSION', 'Session', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('대상', 'TARGET', 'Target', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('대상자', 'TRGPRS', 'Target Person', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('제외', 'EXCLSN', 'Exclusion', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('포함', 'INCLSN', 'Inclusion', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('적용', 'APPLY', 'Apply', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('미적용', 'NONAPL', 'Non Application', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('허용', 'ALLOW', 'Allow', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('불허', 'DSLWNC', 'Disallowance', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('제한', 'RSTRCT', 'Restriction', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('제한약', 'RSTDRG', 'Restricted Drug', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('사전승인', 'PRAPR', 'Prior Approval', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('사후승인', 'PSTAPR', 'Post Approval', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('예외', 'EXCPTN', 'Exception', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('예외사유', 'EXCRSN', 'Exception Reason', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('특이사항', 'SPCNT', 'Special Note', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('메모', 'MEMO', 'Memo', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('코멘트', 'CMNT', 'Comment', '분류: 업무 일반 동작', 'N', NOW(6), NOW(6)),
-  ('약품정보지', 'DRGINFSHT', 'Drug Information Sheet', '분류: 문서·출력물', 'N', NOW(6), NOW(6)),
-  ('복약안내문', 'MDCGD', 'Medication Guide', '분류: 문서·출력물', 'N', NOW(6), NOW(6)),
-  ('투약표', 'MDCCHR', 'Medication Chart', '분류: 문서·출력물', 'N', NOW(6), NOW(6)),
-  ('투약카드', 'MDCCRD', 'Medication Card', '분류: 문서·출력물', 'N', NOW(6), NOW(6)),
-  ('조제내역서', 'DSPSTM', 'Dispensing Statement', '분류: 문서·출력물', 'N', NOW(6), NOW(6)),
-  ('불출명세서', 'ISSTM', 'Issue Statement', '분류: 문서·출력물', 'N', NOW(6), NOW(6)),
-  ('반납명세서', 'RTRSTM', 'Return Statement', '분류: 문서·출력물', 'N', NOW(6), NOW(6)),
-  ('검수명세서', 'INSSTM', 'Inspection Statement', '분류: 문서·출력물', 'N', NOW(6), NOW(6)),
-  ('입고명세서', 'RCVSTM', 'Receiving Statement', '분류: 문서·출력물', 'N', NOW(6), NOW(6)),
-  ('거래명세서', 'TRNSTM', 'Transaction Statement', '분류: 문서·출력물', 'N', NOW(6), NOW(6)),
-  ('처방집계표', 'PRSSMR', 'Prescription Summary', '분류: 문서·출력물', 'N', NOW(6), NOW(6)),
-  ('약품목록', 'DRGLST', 'Drug List', '분류: 문서·출력물', 'N', NOW(6), NOW(6)),
-  ('재고현황', 'STCSTS', 'Stock Status', '분류: 문서·출력물', 'N', NOW(6), NOW(6)),
-  ('월보', 'MNTRPR', 'Monthly Report', '분류: 문서·출력물', 'N', NOW(6), NOW(6)),
-  ('일보', 'DLYRPR', 'Daily Report', '분류: 문서·출력물', 'N', NOW(6), NOW(6)),
-  ('대장', 'LEDGER', 'Ledger', '분류: 문서·출력물', 'N', NOW(6), NOW(6)),
-  ('관리대장', 'MNGLDG', 'Management Ledger', '분류: 문서·출력물', 'N', NOW(6), NOW(6)),
-  ('마약대장', 'NRCLDG', 'Narcotic Ledger', '분류: 문서·출력물', 'N', NOW(6), NOW(6)),
-  ('점검표', 'CHCKLS', 'Checklist', '분류: 문서·출력물', 'N', NOW(6), NOW(6)),
-  ('서식', 'FRMTMP', 'Form Template', '분류: 문서·출력물', 'N', NOW(6), NOW(6)),
-  ('양식', 'FORMAT', 'Format', '분류: 문서·출력물', 'N', NOW(6), NOW(6)),
-  ('약사', 'PHRMCS', 'Pharmacist', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('약제부', 'PHRDPR', 'Pharmacy Department', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('약제과', 'PHRDVS', 'Pharmacy Division', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('약제팀', 'PHRTM', 'Pharmacy Team', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('약국', 'PHRMCY', 'Pharmacy', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('외래약국', 'OTPPHR', 'Outpatient Pharmacy', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('입원약국', 'INPPHR', 'Inpatient Pharmacy', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('중앙약국', 'CNTPHR', 'Central Pharmacy', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('위성약국', 'STLPHR', 'Satellite Pharmacy', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('응급약국', 'EMRPHR', 'Emergency Pharmacy', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('주사약국', 'INJPHR', 'Injection Pharmacy', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('항암조제실', 'CHMRM', 'Chemotherapy Room', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('무균조제실', 'CLNRM', 'Clean Room', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('약품창고', 'DRGWRH', 'Drug Warehouse', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('약품관리', 'DRGMNG', 'Drug Management', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('임상약사', 'CLNPHR', 'Clinical Pharmacist', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('전담약사', 'DCTPHR', 'Dedicated Pharmacist', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('책임약사', 'RSPPHR', 'Responsible Pharmacist', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('약무보조원', 'PHRAST', 'Pharmacy Assistant', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('약국장', 'PHRDRC', 'Pharmacy Director', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('의사', 'PHYSCN', 'Physician', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('주치의', 'ATNPHY', 'Attending Physician', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('전공의', 'RSDNT', 'Resident', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('전문의', 'SPCLST', 'Specialist', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('인턴', 'INTERN', 'Intern', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('간호사', 'NURSE', 'Nurse', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('수간호사', 'HDNRS', 'Head Nurse', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('책임간호사', 'CHRNRS', 'Charge Nurse', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('간호조무사', 'NRSAST', 'Nursing Assistant', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('간호부', 'NRSDPR', 'Nursing Department', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('병동', 'WARD', 'Ward', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('병실', 'PTNRM', 'Patient Room', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('병상', 'BED', 'Bed', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('병동간호사', 'WRDNRS', 'Ward Nurse', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('보호자', 'GRDN', 'Guardian', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('의료진', 'MDCSTF', 'Medical Staff', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('진료지원', 'MDCSPR', 'Medical Support', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('의료기사', 'MDCTCH', 'Medical Technician', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('영양사', 'DTN', 'Dietitian', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('원무', 'HSPADM', 'Hospital Administration', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('원무과', 'ADMOFC', 'Admission Office', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('구매팀', 'PRCTM', 'Purchasing Team', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('물류팀', 'LGSTM', 'Logistics Team', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('QI팀', 'QITEAM', 'Quality Improvement Team', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('감염관리', 'INFCNT', 'Infection Control', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('환자안전', 'PTNSFT', 'Patient Safety', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('약사위원회', 'PHRCMT', 'Pharmacy Committee', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('약사심의', 'PHRDLB', 'Pharmacy Deliberation', '분류: 역할·직종', 'N', NOW(6), NOW(6)),
-  ('약품', 'DRUG', 'Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('의약품', 'MDCPRD', 'Medicinal Product', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('약물', 'MDCN', 'Medication', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('성분', 'INGR', 'Ingredient', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('주성분', 'MNING', 'Main Ingredient', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('첨가제', 'EXCPNT', 'Excipient', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('함량', 'CNTSTR', 'Content Strength', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('역가', 'PTNCY', 'Potency', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('농도', 'CNCNTR', 'Concentration', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('용량', 'DOSE', 'Dose', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('용법', 'USG', 'Usage', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('용법용량', 'DSGADM', 'Dosage And Administration', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('효능', 'EFCY', 'Efficacy', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('효능효과', 'INDEFC', 'Indication Effect', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('적응증', 'INDCTN', 'Indication', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('부작용', 'SDEFC', 'Side Effect', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('이상반응', 'ADVRCT', 'Adverse Reaction', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('약효', 'DRGEFC', 'Drug Effect', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('약효군', 'THRCLS', 'Therapeutic Class', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('약효분류', 'THRPCLSF', 'Therapeutic Classification', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('약리작용', 'PHRACT', 'Pharmacological Action', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('규격', 'SPCFCT', 'Specification', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('포장단위', 'PCKUNT', 'Package Unit', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('최소단위', 'MNMUNT', 'Minimum Unit', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('입고단위', 'RCVUNT', 'Receiving Unit', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('불출단위', 'ISUNT', 'Issue Unit', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('조제단위', 'DSPUNT', 'Dispensing Unit', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('투여단위', 'ADMUNT', 'Administration Unit', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('환산', 'CNVRSN', 'Conversion', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('환산계수', 'CNVFCT', 'Conversion Factor', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('제약사', 'PHRCMP', 'Pharmaceutical Company', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('제조사', 'MNFCTR', 'Manufacturer', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('수입사', 'IMPRTR', 'Importer', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('판매사', 'DSTSLR', 'Distributor Seller', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('도매상', 'WHLSLR', 'Wholesaler', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('품목허가', 'PRDAPR', 'Product Approval', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('허가번호', 'LCNNMB', 'License Number', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('보험코드', 'INSCD', 'Insurance Code', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('표준코드', 'STNCD', 'Standard Code', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('대표코드', 'RPRCD', 'Representative Code', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('KD코드', 'KDCD', 'Korea Drug Code', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('EDI코드', 'EDICD', 'EDI Code', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('ATC코드', 'ATCCD', 'ATC Code', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('주성분코드', 'MNINGCD', 'Main Ingredient Code', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('약가', 'DRGPRC', 'Drug Price', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('보험약가', 'INSDRGPRC', 'Insurance Drug Price', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('상한금액', 'UPRLMTPRC', 'Upper Limit Price', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('구입가', 'PRCPRC', 'Purchase Price', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('판매가', 'SLNPRC', 'Selling Price', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('단가차액', 'PRCDFR', 'Price Difference', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('비급여', 'NONCVR', 'Non Covered', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('선별급여', 'SLCCVR', 'Selective Coverage', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('전액본인부담', 'FLSLFPAY', 'Full Self Pay', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('본인부담', 'CPYMNT', 'Copayment', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('오리지널', 'ORGDRG', 'Original Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('제네릭', 'GNRDRG', 'Generic Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('복제약', 'CPYDRG', 'Copy Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('전문의약품', 'PRSDRG', 'Prescription Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('일반의약품', 'OVRCNTDRG', 'Over The Counter Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('희귀의약품', 'ORPDRG', 'Orphan Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('퇴장방지의약품', 'ESNSPLDRG', 'Essential Supply Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('국가필수의약품', 'NTNESNDRG', 'National Essential Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('고가약', 'HGHCSTDRG', 'High Cost Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('신약', 'NEWDRG', 'New Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6));
-
-INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES
-  ('임상시험약', 'INVDRG', 'Investigational Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('위탁약', 'CNSDRG', 'Consigned Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('자가제조약', 'INHPRP', 'Inhouse Preparation', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('원료약', 'RAWMTRDRG', 'Raw Material Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('생물의약품', 'BLGC', 'Biologic', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('바이오시밀러', 'BSMLR', 'Biosimilar', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('백신', 'VCN', 'Vaccine', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('혈액제제', 'BLDPRD', 'Blood Product', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('방사성의약품', 'RDPHRM', 'Radiopharmaceutical', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('조영제', 'CNTAGN', 'Contrast Agent', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('수액', 'INFFLD', 'Infusion Fluid', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('수액제', 'INTFLD', 'Intravenous Fluid', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('영양제', 'NTRSPL', 'Nutritional Supplement', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('전해질', 'ELCTRL', 'Electrolyte', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('마약', 'NRCTC', 'Narcotic', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('마약류', 'NRCCLS', 'Narcotic Class', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('향정신성의약품', 'PSYDRG', 'Psychotropic Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('향정', 'PSYCHT', 'Psychotropic', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('대마', 'CNBS', 'Cannabis', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('임시마약', 'TMPNRC', 'Temporary Narcotic', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('고위험약', 'HGHALRMDC', 'High Alert Medication', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('고주의약', 'HGHCTNDRG', 'High Caution Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('유사외관', 'LKALK', 'Look Alike', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('유사발음', 'SNDALK', 'Sound Alike', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('항암제', 'ANTDRG', 'Anticancer Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('세포독성', 'CYTXC', 'Cytotoxic', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('독약', 'PSNDRG', 'Poison Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('극약', 'PWRDRG', 'Powerful Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('냉장약', 'RFRDRG', 'Refrigerated Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('차광약', 'LGHPRTDRG', 'Light Protected Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('분할불가', 'NONSPL', 'Non Splittable', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('분쇄불가', 'NONCRS', 'Non Crushable', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('서방형', 'EXTRLS', 'Extended Release', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('지속형', 'STNRLS', 'Sustained Release', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('장용형', 'ENTCTD', 'Enteric Coated', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('속효성', 'RPDACT', 'Rapid Acting', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('지효성', 'LNGACT', 'Long Acting', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('복합제', 'CMBDRG', 'Combination Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('단일제', 'SNGDRG', 'Single Drug', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('사용중지', 'USESPN', 'Use Suspension', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('품절', 'OUTSTC', 'Out Of Stock', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('공급중단', 'SPLDSC', 'Supply Discontinuation', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('생산중단', 'PRDDSC', 'Production Discontinuation', '분류: 약품 속성', 'N', NOW(6), NOW(6)),
-  ('제형', 'DSGFRM', 'Dosage Form', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('정', 'TAB', 'Tablet', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('정제', 'TBLFRM', 'Tablet Form', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('필름코팅정', 'FLMCTDTBL', 'Film Coated Tablet', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('당의정', 'SGRCTDTBL', 'Sugar Coated Tablet', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('나정', 'UNCTBL', 'Uncoated Tablet', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('서방정', 'EXTRLSTBL', 'Extended Release Tablet', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('장용정', 'ENTCTDTBL', 'Enteric Coated Tablet', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('구강붕해정', 'ORLDSNTBL', 'Orally Disintegrating Tablet', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('설하정', 'SBLTBL', 'Sublingual Tablet', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('저작정', 'CHWTBL', 'Chewable Tablet', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('발포정', 'EFRTBL', 'Effervescent Tablet', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('분산정', 'DSPRTBLT', 'Dispersible Tablet', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('질정', 'VGNTBL', 'Vaginal Tablet', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('캡슐', 'CAP', 'Capsule', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('경질캡슐', 'HRDCPS', 'Hard Capsule', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('연질캡슐', 'SFTCPS', 'Soft Capsule', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('서방캡슐', 'EXTRLSCPS', 'Extended Release Capsule', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('장용캡슐', 'ENTCPS', 'Enteric Capsule', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('산', 'PWDFRM', 'Powder Form', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('과립', 'GRNL', 'Granule', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('세립', 'FNGRN', 'Fine Granule', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('시럽', 'SYRUP', 'Syrup', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('건조시럽', 'DRYSYR', 'Dry Syrup', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('현탁액', 'SPNSN', 'Suspension', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('액제', 'SLTN', 'Solution', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('내용액제', 'ORLSLT', 'Oral Solution', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('엘릭서', 'ELIXIR', 'Elixir', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('에멀젼', 'EMLSN', 'Emulsion', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('주사제', 'INJCTN', 'Injection', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('주사', 'INJSHT', 'Injection Shot', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('동결건조', 'LYPHLZ', 'Lyophilized', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('프리필드시린지', 'PRFSYR', 'Prefilled Syringe', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('펜', 'PENINJ', 'Pen Injector', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('카트리지', 'CRTRDG', 'Cartridge', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('연고', 'ONTMNT', 'Ointment', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('크림', 'CREAM', 'Cream', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('겔', 'GEL', 'Gel', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('로션', 'LOTION', 'Lotion', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('페이스트', 'PASTE', 'Paste', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('첩부제', 'PATCH', 'Patch', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('패취', 'TRNPTC', 'Transdermal Patch', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('파스', 'PLSTR', 'Plaster', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('좌제', 'SPSTRY', 'Suppository', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('관장제', 'ENEMA', 'Enema', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('점안제', 'EYEDRP', 'Eye Drop', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('안연고', 'EYEONT', 'Eye Ointment', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('점이제', 'EARDRP', 'Ear Drop', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('점비제', 'NSLDRP', 'Nasal Drop', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('비강분무', 'NSLSPR', 'Nasal Spray', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('흡입제', 'INHLR', 'Inhaler', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('정량흡입기', 'MTRDSINH', 'Metered Dose Inhaler', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('건조분말흡입기', 'DRYPWDINH', 'Dry Powder Inhaler', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('네뷸라이저', 'NBLZR', 'Nebulizer', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('흡입액', 'INHSLT', 'Inhalation Solution', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('가글', 'GARGLE', 'Gargle', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('구강용해필름', 'ORLFLM', 'Oral Film', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('트로키', 'TROCHE', 'Troche', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('외용액', 'EXTSLT', 'External Solution', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('스프레이', 'SPRAY', 'Spray', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('에어로솔', 'ARSL', 'Aerosol', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('샴푸', 'SHMP', 'Shampoo', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('세정제', 'CLNSR', 'Cleanser', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('소독제', 'DSNFCT', 'Disinfectant', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('키트', 'KIT', 'Kit', '분류: 제형', 'N', NOW(6), NOW(6)),
-  ('경구', 'PO', 'Oral', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('정맥', 'IV', 'Intravenous', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('근육', 'IM', 'Intramuscular', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('피하', 'SC', 'Subcutaneous', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('피내', 'INTRDR', 'Intradermal', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('척수강', 'IT', 'Intrathecal', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('경막외', 'EPDRL', 'Epidural', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('동맥', 'IA', 'Intraarterial', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('관절강', 'INTRTC', 'Intraarticular', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('복강', 'INTRPR', 'Intraperitoneal', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('흉강', 'INTRPL', 'Intrapleural', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('방광', 'INTRVS', 'Intravesical', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('설하', 'SL', 'Sublingual', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('협측', 'BUCCAL', 'Buccal', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('직장', 'PR', 'Rectal', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('질', 'VGNL', 'Vaginal', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('국소', 'TPCL', 'Topical', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('경피', 'TRNSDR', 'Transdermal', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('흡입', 'INHLTN', 'Inhalation', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('비강', 'NASAL', 'Nasal', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('안구', 'OPHTHL', 'Ophthalmic', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('이', 'OTIC', 'Otic', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('경관', 'ENTTB', 'Enteral Tube', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('비위관', 'NSGTB', 'Nasogastric Tube', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('위루관', 'GSTTB', 'Gastrostomy Tube', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('정맥주사', 'INTINJ', 'Intravenous Injection', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('정맥점적', 'INTDRP', 'Intravenous Drip', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('일시주입', 'BOLUS', 'Bolus', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('지속주입', 'CNTINF', 'Continuous Infusion', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('간헐주입', 'INTINF', 'Intermittent Infusion', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('측관주입', 'SDLNINJ', 'Side Line Injection', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('중심정맥', 'CNTVNS', 'Central Venous', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('말초정맥', 'PRPVNS', 'Peripheral Venous', '분류: 투여경로', 'N', NOW(6), NOW(6)),
-  ('투여빈도', 'DSNFRQ', 'Dosing Frequency', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('1일1회', 'QD', 'Once Daily', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('1일2회', 'BID', 'Twice Daily', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('1일3회', 'TID', 'Three Times Daily', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('1일4회', 'QID', 'Four Times Daily', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('격일', 'QOD', 'Every Other Day', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('매주', 'WEEKLY', 'Weekly', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('매시간', 'HOURLY', 'Hourly', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('필요시', 'PRN', 'As Needed', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('즉시', 'STAT', 'Immediately', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('취침전', 'HS', 'At Bedtime', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('식전', 'AC', 'Before Meal', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('식후', 'PC', 'After Meal', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('식간', 'BTWMLS', 'Between Meals', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('공복', 'EMPSTM', 'Empty Stomach', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('아침', 'MRNG', 'Morning', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('점심', 'LUNCH', 'Lunch', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('저녁', 'EVNG', 'Evening', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('기상시', 'UPNWKN', 'Upon Waking', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('시간간격', 'TMINT', 'Time Interval', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('투약횟수', 'ADMFRQ', 'Administration Frequency', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('1회량', 'SNGDS', 'Single Dose', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('1일량', 'DLYDS', 'Daily Dose', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('총량', 'TLAMN', 'Total Amount', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('일수', 'DAYS', 'Days', '분류: 용법·빈도', 'Y', NOW(6), NOW(6)),
-  ('횟수', 'FREQ', 'Frequency Count', '분류: 용법·빈도', 'Y', NOW(6), NOW(6)),
-  ('시각', 'TM', 'Clock Time', '분류: 용법·빈도', 'Y', NOW(6), NOW(6)),
-  ('기간', 'PRD', 'Period', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('분', 'MINUTE', 'Minute', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('시간', 'HOUR', 'Hour', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('주', 'WEEK', 'Week', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('개월', 'MNTCNT', 'Month Count', '분류: 용법·빈도', 'N', NOW(6), NOW(6)),
-  ('단위', 'UNIT', 'Unit', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('밀리그램', 'MG', 'Milligram', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('그램', 'G', 'Gram', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('마이크로그램', 'MCG', 'Microgram', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('킬로그램', 'KG', 'Kilogram', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('밀리리터', 'ML', 'Milliliter', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('리터', 'L', 'Liter', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('국제단위', 'IU', 'International Unit', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('밀리당량', 'MEQ', 'Milliequivalent', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('밀리몰', 'MMOL', 'Millimole', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('퍼센트', 'PCT', 'Percent', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('방울', 'DROP', 'Drop', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('개', 'PIECE', 'Piece', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('병', 'BOTTLE', 'Bottle', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('포', 'PACKET', 'Packet', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('매', 'SHEET', 'Sheet', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('관', 'TUBE', 'Tube', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('통', 'CNTCAN', 'Container Can', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('박스', 'BOX', 'Box', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('팩', 'PACK', 'Pack', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('세트', 'SET', 'Set', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('앰플단위', 'AMPUNT', 'Ampoule Unit', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('바이알단위', 'VLUNT', 'Vial Unit', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('체표면적', 'BSA', 'Body Surface Area', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('체중', 'BWT', 'Body Weight', '분류: 단위', 'Y', NOW(6), NOW(6)),
-  ('신장', 'HT', 'Height', '분류: 단위', 'Y', NOW(6), NOW(6)),
-  ('킬로그램당', 'PERKLG', 'Per Kilogram', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('제곱미터당', 'PERSQRMTR', 'Per Square Meter', '분류: 단위', 'N', NOW(6), NOW(6)),
-  ('보관', 'STRG', 'Storage', '분류: 보관', 'N', NOW(6), NOW(6)),
-  ('보관방법', 'STRMTH', 'Storage Method', '분류: 보관', 'N', NOW(6), NOW(6)),
-  ('보관조건', 'STRCND', 'Storage Condition', '분류: 보관', 'N', NOW(6), NOW(6)),
-  ('보관위치', 'STRLCT', 'Storage Location', '분류: 보관', 'N', NOW(6), NOW(6)),
-  ('보관온도', 'STRTMP', 'Storage Temperature', '분류: 보관', 'N', NOW(6), NOW(6)),
-  ('실온', 'RMTMP', 'Room Temperature', '분류: 보관', 'N', NOW(6), NOW(6)),
-  ('상온', 'NRMTMP', 'Normal Temperature', '분류: 보관', 'N', NOW(6), NOW(6)),
-  ('냉장', 'RFRGRT', 'Refrigeration', '분류: 보관', 'N', NOW(6), NOW(6)),
-  ('냉동', 'FRZNG', 'Freezing', '분류: 보관', 'N', NOW(6), NOW(6)),
-  ('차광', 'LGHSHL', 'Light Shielding', '분류: 보관', 'N', NOW(6), NOW(6)),
-  ('밀봉', 'SLNG', 'Sealing', '분류: 보관', 'N', NOW(6), NOW(6)),
-  ('밀폐', 'ARTGHT', 'Airtight', '분류: 보관', 'N', NOW(6), NOW(6)),
-  ('습기', 'HMDTY', 'Humidity', '분류: 보관', 'N', NOW(6), NOW(6)),
-  ('온도', 'TMPR', 'Temperature', '분류: 보관', 'Y', NOW(6), NOW(6)),
-  ('습도', 'HMDT', 'Humidity Level', '분류: 보관', 'Y', NOW(6), NOW(6)),
-  ('유효기간', 'EXPPRD', 'Expiration Period', '분류: 보관', 'N', NOW(6), NOW(6)),
-  ('사용기한', 'USEBY', 'Use By', '분류: 보관', 'N', NOW(6), NOW(6)),
-  ('개봉', 'OPNG', 'Opening', '분류: 보관', 'N', NOW(6), NOW(6)),
-  ('개봉후', 'AFTOPN', 'After Opening', '분류: 보관', 'N', NOW(6), NOW(6)),
-  ('안정성', 'STBLTY', 'Stability', '분류: 보관', 'N', NOW(6), NOW(6)),
-  ('조제후안정성', 'PSTCMPSTB', 'Post Compounding Stability', '분류: 보관', 'N', NOW(6), NOW(6)),
-  ('해열진통제', 'ANTANL', 'Antipyretic Analgesic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('비스테로이드소염진통제', 'NSAID', 'NSAID', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('마약성진통제', 'OPDANL', 'Opioid Analgesic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('국소마취제', 'LCLANS', 'Local Anesthetic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('전신마취제', 'GNRANS', 'General Anesthetic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('근이완제', 'MSCRLX', 'Muscle Relaxant', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('진정제', 'SDTV', 'Sedative', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('수면제', 'HYPNTC', 'Hypnotic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('항불안제', 'ANXLYT', 'Anxiolytic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('항우울제', 'ANTDPR', 'Antidepressant', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('항정신병약', 'ANTPSY', 'Antipsychotic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('기분안정제', 'MDSTB', 'Mood Stabilizer', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('항전간제', 'ANTPLP', 'Antiepileptic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('항파킨슨제', 'ANTPRK', 'Antiparkinsonian', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('치매치료제', 'ANTDDRUG', 'Antidementia Drug', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('중추신경흥분제', 'CNSSTM', 'CNS Stimulant', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('항히스타민제', 'ANTHST', 'Antihistamine', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('진해거담제', 'ANTEXP', 'Antitussive Expectorant', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('기관지확장제', 'BRNCHD', 'Bronchodilator', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('흡입스테로이드', 'INHCRT', 'Inhaled Corticosteroid', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('류코트리엔길항제', 'LKTANT', 'Leukotriene Antagonist', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('강심제', 'CRDTNC', 'Cardiotonic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('항부정맥제', 'ANTRHY', 'Antiarrhythmic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('항고혈압제', 'ANTHYP', 'Antihypertensive', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('이뇨제', 'DRTC', 'Diuretic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('베타차단제', 'BTBLC', 'Beta Blocker', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('칼슘채널차단제', 'CLCCHNBLC', 'Calcium Channel Blocker', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('안지오텐신전환효소억제제', 'ACEINH', 'ACE Inhibitor', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('안지오텐신수용체차단제', 'ANGRCPBLC', 'Angiotensin Receptor Blocker', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('혈관확장제', 'VSDLTR', 'Vasodilator', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('승압제', 'VSPRSR', 'Vasopressor', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('항협심증제', 'ANTNGN', 'Antianginal', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('고지혈증치료제', 'ANTHYPR', 'Antihyperlipidemic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('스타틴', 'STATIN', 'Statin', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('항응고제', 'ANTCGL', 'Anticoagulant', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('항혈소판제', 'ANTPLT', 'Antiplatelet', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('혈전용해제', 'THRMBL', 'Thrombolytic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('지혈제', 'HMSTC', 'Hemostatic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('조혈제', 'HMTPTC', 'Hematopoietic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('철분제', 'IRNSPL', 'Iron Supplement', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('소화성궤양치료제', 'ANTLCR', 'Antiulcer', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('양성자펌프억제제', 'PRTPMPINH', 'Proton Pump Inhibitor', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('제산제', 'ANTCD', 'Antacid', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('위장운동촉진제', 'PRKNTC', 'Prokinetic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('진토제', 'ANTMTC', 'Antiemetic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('지사제', 'ANTDRH', 'Antidiarrheal', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('완하제', 'LXTV', 'Laxative', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('정장제', 'PRBTC', 'Probiotic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('소화제', 'DGSTV', 'Digestive', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('간장약', 'HPTPRT', 'Hepatoprotective', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('담즙분비촉진제', 'CHLRTC', 'Choleretic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('당뇨병치료제', 'ANTDBT', 'Antidiabetic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('인슐린', 'INSLN', 'Insulin', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('갑상선호르몬', 'THYHRM', 'Thyroid Hormone', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('항갑상선제', 'ANTHYR', 'Antithyroid', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('부신피질호르몬', 'CRTCST', 'Corticosteroid', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('성호르몬', 'SEXHRM', 'Sex Hormone', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('골다공증치료제', 'ANTSTP', 'Antiosteoporotic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('통풍치료제', 'ANTGT', 'Antigout', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('항류마티스제', 'ANTRHM', 'Antirheumatic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('면역억제제', 'IMNSPR', 'Immunosuppressant', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('항생제', 'ANTBTC', 'Antibiotic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('페니실린계', 'PNCCLS', 'Penicillin Class', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('세팔로스포린계', 'CPHCLS', 'Cephalosporin Class', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('카바페넴계', 'CRBCLS', 'Carbapenem Class', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('아미노글리코사이드계', 'AMNCLS', 'Aminoglycoside Class', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('마크로라이드계', 'MCRCLS', 'Macrolide Class', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('퀴놀론계', 'QNLCLS', 'Quinolone Class', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('테트라사이클린계', 'TRCCLS', 'Tetracycline Class', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('글리코펩타이드계', 'GLYCLS', 'Glycopeptide Class', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('설폰아마이드계', 'SLFCLS', 'Sulfonamide Class', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('항결핵제', 'ANTBRC', 'Antituberculosis', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('항진균제', 'ANTFNG', 'Antifungal', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('항바이러스제', 'ANTVRL', 'Antiviral', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('항레트로바이러스제', 'ANTRTR', 'Antiretroviral', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('구충제', 'ANTHLM', 'Anthelmintic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('항말라리아제', 'ANTMLR', 'Antimalarial', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('알킬화제', 'ALKAGN', 'Alkylating Agent', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('대사길항제', 'ANTMTB', 'Antimetabolite', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('항암항생제', 'ANTANT', 'Antitumor Antibiotic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('식물알칼로이드', 'PLNALK', 'Plant Alkaloid', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('표적치료제', 'TRGTHR', 'Targeted Therapy', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('면역항암제', 'IMNONCDRG', 'Immuno Oncology Drug', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('호르몬항암제', 'HRMANT', 'Hormonal Anticancer', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('단클론항체', 'MNCANT', 'Monoclonal Antibody', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('면역글로불린', 'IMNGLB', 'Immunoglobulin', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('비타민', 'VTMN', 'Vitamin', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('무기질', 'MNRL', 'Mineral', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('아미노산', 'AMNACD', 'Amino Acid', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('지방유제', 'LPDEML', 'Lipid Emulsion', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('포도당', 'DXTRS', 'Dextrose', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('생리식염수', 'NRMSLN', 'Normal Saline', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('링거액', 'RNGSLT', 'Ringer Solution', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('알부민', 'ALBMN', 'Albumin', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('해독제', 'ANTDT', 'Antidote', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('길항제', 'ANTGNS', 'Antagonist', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('안과용제', 'OPHAGN', 'Ophthalmic Agent', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('이비과용제', 'ENTAGN', 'ENT Agent', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('피부과용제', 'DRMAGN', 'Dermatologic Agent', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('비뇨기과용제', 'URLAGN', 'Urologic Agent', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('전립선비대증치료제', 'BPHDRG', 'BPH Drug', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('발기부전치료제', 'ERCDYSDRG', 'Erectile Dysfunction Drug', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('자궁수축제', 'UTRTNC', 'Uterotonic', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('피임제', 'CNTRCP', 'Contraceptive', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('금연보조제', 'SMKCSTAID', 'Smoking Cessation Aid', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('비만치료제', 'ANTBST', 'Antiobesity', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('진단용약', 'DGNAGN', 'Diagnostic Agent', '분류: 약효분류', 'N', NOW(6), NOW(6)),
-  ('진료과', 'CLNDPR', 'Clinical Department', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('내과', 'INTMDC', 'Internal Medicine', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('소화기내과', 'GSTRNT', 'Gastroenterology', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('순환기내과', 'CRDLGY', 'Cardiology', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('호흡기내과', 'PLMNLG', 'Pulmonology', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('내분비내과', 'ENDCRN', 'Endocrinology', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('신장내과', 'NPHRLG', 'Nephrology', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('혈액종양내과', 'HMTONC', 'Hematology Oncology', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('감염내과', 'INFDS', 'Infectious Disease', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('류마티스내과', 'RHMTLG', 'Rheumatology', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('알레르기내과', 'ALRDPR', 'Allergy Department', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('외과', 'SRGRY', 'Surgery', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('일반외과', 'GNRSRG', 'General Surgery', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('흉부외과', 'THRSRG', 'Thoracic Surgery', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('신경외과', 'NRSRGR', 'Neurosurgery', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('정형외과', 'ORTHPD', 'Orthopedics', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('성형외과', 'PLSSRG', 'Plastic Surgery', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('이식외과', 'TRNSRG', 'Transplant Surgery', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('대장항문외과', 'CLRSRG', 'Colorectal Surgery', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('유방외과', 'BRSSRG', 'Breast Surgery', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('소아청소년과', 'PDTRCS', 'Pediatrics', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('산부인과', 'OBSGYN', 'Obstetrics Gynecology', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('신경과', 'NRLGY', 'Neurology', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('정신건강의학과', 'PSYCHTR', 'Psychiatry', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('피부과', 'DRMTLG', 'Dermatology', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('비뇨의학과', 'URLGY', 'Urology', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('안과', 'OPHTHLM', 'Ophthalmology', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('이비인후과', 'OTRHNL', 'Otorhinolaryngology', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('재활의학과', 'RHBMDC', 'Rehabilitation Medicine', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('마취통증의학과', 'ANSTHS', 'Anesthesiology', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('영상의학과', 'RDLGY', 'Radiology', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('방사선종양학과', 'RDTONC', 'Radiation Oncology', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('핵의학과', 'NCLMDC', 'Nuclear Medicine', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('진단검사의학과', 'LBRMDC', 'Laboratory Medicine', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('병리과', 'PTHLGY', 'Pathology', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('응급의학과', 'EMRMDC', 'Emergency Medicine', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('가정의학과', 'FMLMDC', 'Family Medicine', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('치과', 'DNTSTR', 'Dentistry', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('구강악안면외과', 'ORLMXLSRG', 'Oral Maxillofacial Surgery', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('한방과', 'KRNMDC', 'Korean Medicine', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('직업환경의학과', 'OCPMDC', 'Occupational Medicine', '분류: 진료과', 'N', NOW(6), NOW(6)),
-  ('진료', 'MDCTRT', 'Medical Treatment', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('외래', 'OTPTNT', 'Outpatient', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('입원', 'ADMSN', 'Admission', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('퇴원', 'DSCHRG', 'Discharge', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('전원', 'TRNHSP', 'Transfer Hospital', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('전과', 'TRNDPR', 'Transfer Department', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('전동', 'TRNWRD', 'Transfer Ward', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('재원', 'HSPTLZ', 'Hospitalization', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('내원', 'VISIT', 'Visit', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('초진', 'FRSVST', 'First Visit', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('재진', 'RVST', 'Revisit', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('응급실', 'EMRRM', 'Emergency Room', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('중환자실', 'ICU', 'Intensive Care Unit', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('신생아중환자실', 'NICU', 'Neonatal ICU', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('소아중환자실', 'PICU', 'Pediatric ICU', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('수술실', 'OPRRM', 'Operating Room', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('회복실', 'RCVRM', 'Recovery Room', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('분만실', 'DLVRM', 'Delivery Room', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('투석실', 'DLYRM', 'Dialysis Room', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('주사실', 'INJRM', 'Injection Room', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('처치실', 'TRTRM', 'Treatment Room', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('검사실', 'LBRTRY', 'Laboratory', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('내시경실', 'ENDRM', 'Endoscopy Room', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('혈관조영실', 'ANGRM', 'Angiography Room', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('낮병동', 'DAYWRD', 'Day Ward', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('항암주사실', 'CHMINFRM', 'Chemotherapy Infusion Room', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('격리병실', 'ISLRM', 'Isolation Room', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('음압병실', 'NGTPRSRM', 'Negative Pressure Room', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('간호스테이션', 'NRSSTN', 'Nursing Station', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('진료실', 'CNSRM', 'Consultation Room', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('수납창구', 'PYMCNT', 'Payment Counter', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('약제창구', 'PHRCNT', 'Pharmacy Counter', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('투약구', 'DSPWND', 'Dispensing Window', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('대기실', 'WTNRM', 'Waiting Room', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('병원', 'HSPTL', 'Hospital', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('의원', 'CLINIC', 'Clinic', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('요양병원', 'NRSHSP', 'Nursing Hospital', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('상급종합병원', 'TRTHSP', 'Tertiary Hospital', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('종합병원', 'GNRHSP', 'General Hospital', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('본원', 'MNHSP', 'Main Hospital', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('분원', 'BRNHSP', 'Branch Hospital', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('병동코드', 'WRDCD', 'Ward Code', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('진료과코드', 'DPRCD', 'Department Code', '분류: 진료·장소', 'N', NOW(6), NOW(6)),
-  ('환자', 'PT', 'Patient', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('환자번호', 'PTNNMB', 'Patient Number', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('등록번호', 'RGSNMB', 'Registration Number', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('내원번호', 'VSTNMB', 'Visit Number', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('입원번호', 'ADMNMB', 'Admission Number', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('수진자', 'INSPTN', 'Insured Patient', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('성별', 'GENDER', 'Gender', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('나이', 'AGE', 'Age', '분류: 환자', 'Y', NOW(6), NOW(6)),
-  ('연령', 'AGEGRP', 'Age Group', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('연령대', 'AGERNG', 'Age Range', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('소아', 'PDTRC', 'Pediatric', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('신생아', 'NWBRN', 'Newborn', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('영아', 'INFANT', 'Infant', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('노인', 'ELDRLY', 'Elderly', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('임부', 'PRGWMN', 'Pregnant Woman', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('수유부', 'LCTWMN', 'Lactating Woman', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('가임여성', 'CHLWMN', 'Childbearing Woman', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('혈액형', 'BLDTYP', 'Blood Type', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('보험유형', 'INSTYP', 'Insurance Type', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('건강보험', 'HLTINS', 'Health Insurance', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('의료급여', 'MDCAID', 'Medical Aid', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('산재보험', 'INDACDINS', 'Industrial Accident Insurance', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('자동차보험', 'ATINS', 'Auto Insurance', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('보훈', 'VTRNS', 'Veterans', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('일반환자', 'GNRPTN', 'General Patient', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('행려환자', 'HMLPTN', 'Homeless Patient', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('외국인', 'FRGNR', 'Foreigner', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('주민등록번호', 'RSDRGSNMB', 'Resident Registration Number', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('여권번호', 'PSPNMB', 'Passport Number', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('연락처', 'CNTCT', 'Contact', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('보호자연락처', 'GRDCNT', 'Guardian Contact', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('알레르기', 'ALRGY', 'Allergy', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('약물알레르기', 'DRGALR', 'Drug Allergy', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('음식알레르기', 'FDALR', 'Food Allergy', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('과민반응', 'HYPRSN', 'Hypersensitivity', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('아나필락시스', 'ANPHYL', 'Anaphylaxis', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('부작용이력', 'ADVEVNHST', 'Adverse Event History', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('흡연', 'SMKNG', 'Smoking', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('음주', 'DRNKNG', 'Drinking', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('키', 'STR', 'Stature', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('몸무게', 'WEIGHT', 'Weight', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('혈압', 'BP', 'Blood Pressure', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('맥박', 'PULSE', 'Pulse', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('호흡수', 'RSPRT', 'Respiratory Rate', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('체온', 'BDYTMP', 'Body Temperature', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('산소포화도', 'SPO2', 'Oxygen Saturation', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('의식상태', 'CNSLVL', 'Consciousness Level', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('활력징후', 'VTLSGN', 'Vital Sign', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('통증점수', 'PNSCR', 'Pain Score', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('낙상위험', 'FLRSK', 'Fall Risk', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('욕창위험', 'PRSULCRSK', 'Pressure Ulcer Risk', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('연하곤란', 'DYSPHG', 'Dysphagia', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('금식', 'NPO', 'Nothing By Mouth', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('식이', 'DIET', 'Diet', '분류: 환자', 'N', NOW(6), NOW(6)),
-  ('진단', 'DGNS', 'Diagnosis', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('진단명', 'DGNNM', 'Diagnosis Name', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('주진단', 'PRMDGN', 'Primary Diagnosis', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('부진단', 'SCNDGN', 'Secondary Diagnosis', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('상병', 'DSINJ', 'Disease Injury', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('상병코드', 'DSCD', 'Disease Code', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('질병', 'DS', 'Disease', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('질환', 'ILNS', 'Illness', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('증상', 'SYMPTM', 'Symptom', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('고혈압', 'HYPRTN', 'Hypertension', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('저혈압', 'HYPTNS', 'Hypotension', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('당뇨병', 'DBTMLT', 'Diabetes Mellitus', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('고지혈증', 'HYPRLP', 'Hyperlipidemia', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('협심증', 'ANGINA', 'Angina', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('심근경색', 'MYCINF', 'Myocardial Infarction', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('심부전', 'HRTFLR', 'Heart Failure', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('심방세동', 'ATRFBR', 'Atrial Fibrillation', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('부정맥', 'ARHYTH', 'Arrhythmia', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('뇌졸중', 'STROKE', 'Stroke', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('뇌경색', 'CRBINF', 'Cerebral Infarction', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('뇌출혈', 'CRBHMR', 'Cerebral Hemorrhage', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('치매', 'DMNT', 'Dementia', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('파킨슨병', 'PRKDS', 'Parkinson Disease', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('뇌전증', 'EPLPSY', 'Epilepsy', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('편두통', 'MGRN', 'Migraine', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('우울증', 'DPRSN', 'Depression', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('조현병', 'SCHZPH', 'Schizophrenia', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('양극성장애', 'BPLDSR', 'Bipolar Disorder', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('불면증', 'INSMN', 'Insomnia', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('불안장애', 'ANXDSR', 'Anxiety Disorder', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('천식', 'ASTHMA', 'Asthma', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('만성폐쇄성폐질환', 'COPD', 'COPD', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('폐렴', 'PNMN', 'Pneumonia', '분류: 진단·질환', 'N', NOW(6), NOW(6));
-
-INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES
-  ('결핵', 'TBRCLS', 'Tuberculosis', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('기관지염', 'BRNCHT', 'Bronchitis', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('감기', 'CMNCLD', 'Common Cold', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('인플루엔자', 'INFLNZ', 'Influenza', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('코로나바이러스감염증', 'COVID', 'COVID19', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('위염', 'GSTRTS', 'Gastritis', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('위궤양', 'GSTULC', 'Gastric Ulcer', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('역류성식도염', 'RFLESP', 'Reflux Esophagitis', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('간염', 'HPTS', 'Hepatitis', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('간경변', 'LVRCRH', 'Liver Cirrhosis', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('췌장염', 'PNCRTS', 'Pancreatitis', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('장염', 'ENTRTS', 'Enteritis', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('변비', 'CNSTPT', 'Constipation', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('설사', 'DRH', 'Diarrhea', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('구토', 'VMTNG', 'Vomiting', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('오심', 'NAUSEA', 'Nausea', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('신부전', 'RNLFLR', 'Renal Failure', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('만성신장병', 'CKD', 'Chronic Kidney Disease', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('급성신손상', 'AKI', 'Acute Kidney Injury', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('요로감염', 'UTI', 'Urinary Tract Infection', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('전립선비대증', 'BPH', 'Benign Prostatic Hyperplasia', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('갑상선기능저하증', 'HYPTHY', 'Hypothyroidism', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('갑상선기능항진증', 'HYPRTH', 'Hyperthyroidism', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('골다공증', 'OSTPRS', 'Osteoporosis', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('관절염', 'ARTHRT', 'Arthritis', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('류마티스관절염', 'RHMART', 'Rheumatoid Arthritis', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('통풍', 'GOUT', 'Gout', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('요통', 'LOWBCKPN', 'Low Back Pain', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('골절', 'FRCTR', 'Fracture', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('암', 'CANCER', 'Cancer', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('폐암', 'LNGCNC', 'Lung Cancer', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('위암', 'GSTCNC', 'Gastric Cancer', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('대장암', 'CLRCNC', 'Colorectal Cancer', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('간암', 'LVRCNC', 'Liver Cancer', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('유방암', 'BRSCNC', 'Breast Cancer', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('전립선암', 'PRSTCNCR', 'Prostate Cancer', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('갑상선암', 'THYCNC', 'Thyroid Cancer', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('췌장암', 'PNCCNC', 'Pancreatic Cancer', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('백혈병', 'LKM', 'Leukemia', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('림프종', 'LYMPHM', 'Lymphoma', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('다발골수종', 'MLTMYL', 'Multiple Myeloma', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('빈혈', 'ANEMIA', 'Anemia', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('혈소판감소증', 'THRMBC', 'Thrombocytopenia', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('호중구감소증', 'NTRPN', 'Neutropenia', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('패혈증', 'SEPSIS', 'Sepsis', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('쇼크', 'SHOCK', 'Shock', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('탈수', 'DHYDRT', 'Dehydration', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('저칼륨혈증', 'HYPKLM', 'Hypokalemia', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('고칼륨혈증', 'HYPRKL', 'Hyperkalemia', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('저나트륨혈증', 'HYPNTR', 'Hyponatremia', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('저혈당', 'HYPGLY', 'Hypoglycemia', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('고혈당', 'HYPRGL', 'Hyperglycemia', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('아토피피부염', 'ATPDRM', 'Atopic Dermatitis', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('두드러기', 'URTCR', 'Urticaria', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('건선', 'PSRS', 'Psoriasis', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('대상포진', 'HRPZST', 'Herpes Zoster', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('녹내장', 'GLCM', 'Glaucoma', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('백내장', 'CTRCT', 'Cataract', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('결막염', 'CNJNCT', 'Conjunctivitis', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('중이염', 'OTSMD', 'Otitis Media', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('비염', 'RHNTS', 'Rhinitis', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('부비동염', 'SNSTS', 'Sinusitis', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('편도염', 'TNSLTS', 'Tonsillitis', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('통증', 'PAIN', 'Pain', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('발열', 'FEVER', 'Fever', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('부종', 'EDEMA', 'Edema', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('출혈', 'BLDNG', 'Bleeding', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('경련', 'SZR', 'Seizure', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('섬망', 'DLRM', 'Delirium', '분류: 진단·질환', 'N', NOW(6), NOW(6)),
-  ('검사', 'TEST', 'Test', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('검사결과', 'TSTRSL', 'Test Result', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('검사항목', 'TSTITM', 'Test Item', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('검사일', 'TSTDAY', 'Test Day', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('검체', 'SPCMN', 'Specimen', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('채혈', 'BLDCLC', 'Blood Collection', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('혈액검사', 'BLDTST', 'Blood Test', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('소변검사', 'URNLYS', 'Urinalysis', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('일반혈액검사', 'CBC', 'Complete Blood Count', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('간기능검사', 'LFT', 'Liver Function Test', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('신기능검사', 'RFT', 'Renal Function Test', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('혈중농도', 'BLDCNC', 'Blood Concentration', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('약물농도', 'DRGLVL', 'Drug Level', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('치료약물모니터링', 'TDM', 'Therapeutic Drug Monitoring', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('최고농도', 'PKCNC', 'Peak Concentration', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('최저농도', 'TRGCNC', 'Trough Concentration', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('반감기', 'HLFLF', 'Half Life', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('청소율', 'CLRNC', 'Clearance', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('크레아티닌', 'CRTN', 'Creatinine', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('크레아티닌청소율', 'CRCL', 'Creatinine Clearance', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('사구체여과율', 'GFR', 'Glomerular Filtration Rate', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('혈중요소질소', 'BUN', 'Blood Urea Nitrogen', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('아스파르테이트아미노전이효소', 'AST', 'AST', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('알라닌아미노전이효소', 'ALT', 'ALT', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('빌리루빈', 'BLRBN', 'Bilirubin', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('알부민수치', 'ALBLVL', 'Albumin Level', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('혈색소', 'HB', 'Hemoglobin', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('적혈구', 'RBC', 'Red Blood Cell', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('백혈구', 'WBC', 'White Blood Cell', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('혈소판', 'PLT', 'Platelet', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('호중구', 'NTRPHL', 'Neutrophil', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('절대호중구수', 'ANC', 'Absolute Neutrophil Count', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('프로트롬빈시간', 'PRTTM', 'Prothrombin Time', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('국제표준화비율', 'INR', 'INR', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('활성화부분트롬보플라스틴시간', 'APTT', 'aPTT', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('혈당', 'BLDGLC', 'Blood Glucose', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('당화혈색소', 'HBA1C', 'HbA1c', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('콜레스테롤', 'CHLSTR', 'Cholesterol', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('중성지방', 'TRGLYC', 'Triglyceride', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('나트륨', 'SODIUM', 'Sodium', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('칼륨', 'PTSM', 'Potassium', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('칼슘', 'CLCM', 'Calcium', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('마그네슘', 'MGNSM', 'Magnesium', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('인', 'PHSPHR', 'Phosphorus', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('염소', 'CHLRD', 'Chloride', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('C반응단백', 'CRP', 'C Reactive Protein', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('프로칼시토닌', 'PRCLCT', 'Procalcitonin', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('배양검사', 'CLTTST', 'Culture Test', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('감수성검사', 'SCPTST', 'Susceptibility Test', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('내성', 'RSTNC', 'Resistance', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('다제내성균', 'MDRO', 'Multidrug Resistant Organism', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('심전도', 'ECG', 'Electrocardiogram', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('흉부촬영', 'CHSXRY', 'Chest Xray', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('컴퓨터단층촬영', 'CT', 'CT Scan', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('자기공명영상', 'MRI', 'MRI', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('초음파', 'ULTRSN', 'Ultrasound', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('내시경', 'ENDSCP', 'Endoscopy', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('조직검사', 'BIOPSY', 'Biopsy', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('유전자검사', 'GNTTST', 'Genetic Test', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('약물유전체', 'PHRMCG', 'Pharmacogenomics', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('임신검사', 'PRGTST', 'Pregnancy Test', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('피부반응검사', 'SKNTST', 'Skin Test', '분류: 검사', 'N', NOW(6), NOW(6)),
-  ('신체부위', 'BDYPRT', 'Body Part', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('머리', 'HEAD', 'Head', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('눈', 'EYE', 'Eye', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('귀', 'EAR', 'Ear', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('코', 'NOSE', 'Nose', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('입', 'MOUTH', 'Mouth', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('목', 'NECK', 'Neck', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('가슴', 'CHEST', 'Chest', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('복부', 'ABDMN', 'Abdomen', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('등', 'BACK', 'Back', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('허리', 'WAIST', 'Waist', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('팔', 'ARM', 'Arm', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('손', 'HAND', 'Hand', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('다리', 'LEG', 'Leg', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('발', 'FOOT', 'Foot', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('피부', 'SKIN', 'Skin', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('심장', 'HEART', 'Heart', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('폐', 'LUNG', 'Lung', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('간', 'LIVER', 'Liver', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('신장기관', 'KIDNEY', 'Kidney', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('위', 'STMCH', 'Stomach', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('장', 'INTSTN', 'Intestine', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('췌장', 'PNCRS', 'Pancreas', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('담낭', 'GLBLDR', 'Gallbladder', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('뇌', 'BRAIN', 'Brain', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('척추', 'SPINE', 'Spine', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('관절', 'JOINT', 'Joint', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('뼈', 'BONE', 'Bone', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('근육조직', 'MUSCLE', 'Muscle', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('혈관', 'BLDVSL', 'Blood Vessel', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('좌측', 'LFTSD', 'Left Side', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('우측', 'RGHSD', 'Right Side', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('양측', 'BTHSDS', 'Both Sides', '분류: 신체 부위', 'N', NOW(6), NOW(6)),
-  ('치료', 'THRPY', 'Therapy', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('수술', 'OPRTN', 'Operation', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('시술', 'PRCDR', 'Procedure', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('처치', 'TRTCR', 'Treatment Care', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('수혈', 'TRNSFS', 'Transfusion', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('투석', 'DLYS', 'Dialysis', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('혈액투석', 'HMDLYS', 'Hemodialysis', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('복막투석', 'PRTDLY', 'Peritoneal Dialysis', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('항암치료', 'CHMTHR', 'Chemotherapy', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('방사선치료', 'RDTHRP', 'Radiotherapy', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('항암요법', 'CHMRGM', 'Chemotherapy Regimen', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('레지먼', 'RGMN', 'Regimen', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('주기', 'CYCLE', 'Cycle', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('사이클', 'TRTCYC', 'Treatment Cycle', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('코스', 'COURSE', 'Course', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('전처치', 'PRMDCT', 'Premedication', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('진정', 'SDTN', 'Sedation', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('마취', 'ANESTHESIA', 'Anesthesia', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('통증조절', 'PNCNT', 'Pain Control', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('자가통증조절', 'PCA', 'Patient Controlled Analgesia', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('영양지원', 'NTRSPR', 'Nutrition Support', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('정맥영양', 'PN', 'Parenteral Nutrition', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('경장영양', 'EN', 'Enteral Nutrition', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('산소요법', 'OXYTHR', 'Oxygen Therapy', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('인공호흡기', 'VNTLTR', 'Ventilator', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('기관삽관', 'INTBTN', 'Intubation', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('심폐소생술', 'CPR', 'Cardiopulmonary Resuscitation', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('예방접종', 'VCNTN', 'Vaccination', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('예방적투여', 'PRPHYL', 'Prophylaxis', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('경험적치료', 'EMPTHR', 'Empirical Therapy', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('표적치료', 'TRGTTHRP', 'Target Therapy', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('완화치료', 'PLTCR', 'Palliative Care', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('호스피스', 'HSPC', 'Hospice', '분류: 치료·처치', 'N', NOW(6), NOW(6)),
-  ('발주', 'PRCHORD', 'Purchase Order', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('발주서', 'PRCORDSHT', 'Purchase Order Sheet', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('발주량', 'ORDQNT', 'Order Quantity', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('발주점', 'RDRPNT', 'Reorder Point', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('적정재고', 'OPTSTC', 'Optimal Stock', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('안전재고', 'SFTSTC', 'Safety Stock', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('최대재고', 'MXMSTC', 'Maximum Stock', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('최소재고', 'MNMSTC', 'Minimum Stock', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('납품', 'DLVSPL', 'Delivery Supply', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('납품업체', 'VENDOR', 'Vendor', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('납품서', 'DLVNT', 'Delivery Note', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('입고량', 'RCVQNT', 'Received Quantity', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('입고처', 'RCVSRC', 'Receiving Source', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('입고예정', 'EXPRCP', 'Expected Receipt', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('입고확정', 'RCPTCNFR', 'Receipt Confirmed', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('입고취소', 'RCPCNC', 'Receipt Cancel', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('가입고', 'PRVRCP', 'Provisional Receipt', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('직납', 'DRCDLV', 'Direct Delivery', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('위탁', 'CNSGNM', 'Consignment', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('사용분결제', 'USGBSDPYM', 'Usage Based Payment', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('단가계약', 'UNTPRCCNT', 'Unit Price Contract', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('입찰', 'BDNG', 'Bidding', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('낙찰', 'AWARD', 'Award', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('계약기간', 'CNTPRD', 'Contract Period', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('구매요청', 'PRCRQS', 'Purchase Request', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('구매승인', 'PRCAPR', 'Purchase Approval', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('견적서', 'QTN', 'Quotation', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('세금계산서', 'TAXINV', 'Tax Invoice', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('영수증', 'RCPSLP', 'Receipt Slip', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('대금', 'PYMPRC', 'Payment Price', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('지급', 'PYMDSB', 'Payment Disbursement', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('미지급', 'UNPAID', 'Unpaid', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('매입', 'PRCHSN', 'Purchasing', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('매출', 'RVN', 'Revenue', '분류: 구매·입고', 'N', NOW(6), NOW(6)),
-  ('재고량', 'STCQNT', 'Stock Quantity', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('현재고', 'CRNSTC', 'Current Stock', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('가용재고', 'AVLSTC', 'Available Stock', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('장부재고', 'BKSTC', 'Book Stock', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('실재고', 'ACTSTC', 'Actual Stock', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('재고실사', 'STCTKN', 'Stock Taking', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('실사', 'PHYCNT', 'Physical Count', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('재고조정', 'STCADJ', 'Stock Adjustment', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('재고이동', 'STCTRN', 'Stock Transfer', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('재고차이', 'STCDSC', 'Stock Discrepancy', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('재고회전', 'STCKTRNV', 'Stock Turnover', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('재고자산', 'INVAST', 'Inventory Asset', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('이월', 'CRYOVR', 'Carry Over', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('기초재고', 'OPNSTC', 'Opening Stock', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('기말재고', 'CLSSTC', 'Closing Stock', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('수불', 'RCPIS', 'Receipt And Issue', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('수불부', 'RCPISLDG', 'Receipt Issue Ledger', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('선입선출', 'FIFO', 'First In First Out', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('선만료선출', 'FEFO', 'First Expired First Out', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('제조번호', 'LOTNO', 'Lot Number', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('로트', 'LOT', 'Lot', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('일련번호', 'SRLCD', 'Serial Code', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('바코드', 'BRCD', 'Barcode', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('2차원바코드', 'DTMTRX', 'Data Matrix', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('RFID', 'RFID', 'Radio Frequency Identification', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('표준바코드', 'STNBRC', 'Standard Barcode', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('제조일', 'MNFDAY', 'Manufacturing Day', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('만료일', 'EXPDAY', 'Expiry Day', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('유효기간임박', 'NREXP', 'Near Expiry', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('만료약', 'EXPDRG', 'Expired Drug', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('불용약', 'UNSDRG', 'Unusable Drug', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('장기미사용', 'LNGTRMUNS', 'Long Term Unused', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('악성재고', 'DSTC', 'Dead Stock', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('보관함', 'STRBIN', 'Storage Bin', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('약장', 'MDCCBN', 'Medicine Cabinet', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('선반', 'SHELF', 'Shelf', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('랙', 'RACK', 'Rack', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('칸', 'CMPRTM', 'Compartment', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('위치', 'LCTN', 'Location', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('로케이션', 'STRLCTCD', 'Storage Location Code', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('구역', 'ZONE', 'Zone', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('냉장고', 'RFRGRTR', 'Refrigerator', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('냉동고', 'FRZR', 'Freezer', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('마약금고', 'NRCSF', 'Narcotic Safe', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('이중잠금', 'DBLLCK', 'Double Lock', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('잠금장치', 'LCKDVC', 'Locking Device', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('온도기록', 'TMPLOG', 'Temperature Log', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('온도이탈', 'TMPEXC', 'Temperature Excursion', '분류: 재고', 'N', NOW(6), NOW(6)),
-  ('장비', 'EQPDVC', 'Equipment Device', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('자동정제분포기', 'ATC', 'Automatic Tablet Packaging Machine', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('자동조제기', 'ATMDSPMCH', 'Automatic Dispensing Machine', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('자동약품분류기', 'ATMDRGSRT', 'Automatic Drug Sorter', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('산제분포기', 'PWDPCKMCH', 'Powder Packaging Machine', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('액제분주기', 'LQDDSP', 'Liquid Dispenser', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('약품자동분배기', 'ADC', 'Automated Dispensing Cabinet', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('바이알분주기', 'VLDSP', 'Vial Dispenser', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('무균작업대', 'CLNBNC', 'Clean Bench', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('생물안전작업대', 'BSC', 'Biological Safety Cabinet', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('안전캐비넷', 'SFTCBN', 'Safety Cabinet', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('조제로봇', 'CMPRBT', 'Compounding Robot', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('주사조제로봇', 'IVRBT', 'IV Robot', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('라벨프린터', 'LBLPRN', 'Label Printer', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('바코드스캐너', 'BRCSCN', 'Barcode Scanner', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('PDA', 'PDA', 'Personal Digital Assistant', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('저울', 'SCLBLN', 'Scale Balance', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('전자저울', 'ELCSCL', 'Electronic Scale', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('분쇄기', 'GRNDR', 'Grinder', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('교반기', 'STIRRER', 'Stirrer', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('수액펌프', 'INFPMP', 'Infusion Pump', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('시린지펌프', 'SYRPMP', 'Syringe Pump', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('스마트펌프', 'SMRPMP', 'Smart Pump', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('캐니스터', 'CNSTR', 'Canister', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('카세트', 'CASSETTE', 'Cassette', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('약품트레이', 'DRGTRY', 'Drug Tray', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('약품바구니', 'DRGBSK', 'Drug Basket', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('배송카트', 'DLVCRT', 'Delivery Cart', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('기기', 'DVCMCH', 'Device Machine', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('기기상태', 'DVCSTS', 'Device Status', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('가동', 'OPRRNG', 'Operation Running', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('고장', 'BRKDWN', 'Breakdown', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('정비', 'MNTNC', 'Maintenance', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('교정', 'CLBRTN', 'Calibration', '분류: 장비', 'N', NOW(6), NOW(6)),
-  ('수가', 'MDCFEE', 'Medical Fee', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('수가코드', 'FEECD', 'Fee Code', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('행위료', 'PRCFEE', 'Procedure Fee', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('약품비', 'DRGCST', 'Drug Cost', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('재료비', 'MTRCST', 'Material Cost', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('진료비', 'MDCEXP', 'Medical Expense', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('본인부담금', 'CPYAMN', 'Copay Amount', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('공단부담금', 'INSPYM', 'Insurance Payment', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('심사', 'RVWEXM', 'Review Examination', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('삭감', 'RDCCUT', 'Reduction Cut', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('이의신청', 'APPEAL', 'Appeal', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('청구서', 'CLMFRM', 'Claim Form', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('명세서', 'STMNT', 'Statement', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('산정', 'CLCEST', 'Calculation Estimate', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('산정특례', 'SPCCLC', 'Special Calculation', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('가산', 'ADTCHR', 'Additional Charge', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('야간가산', 'NGHSRC', 'Night Surcharge', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('공휴가산', 'HLDSRC', 'Holiday Surcharge', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('소아가산', 'PDTSRC', 'Pediatric Surcharge', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('조제가산', 'DSPSRC', 'Dispensing Surcharge', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('무균조제료', 'ASPCMPFEE', 'Aseptic Compounding Fee', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('마약관리료', 'NRCMNGFEE', 'Narcotic Management Fee', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('복약지도료', 'CNSFEE', 'Counseling Fee', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('의약품관리료', 'DRGMNGFEE', 'Drug Management Fee', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('식대', 'MLCST', 'Meal Cost', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('급여기준', 'CVRCRT', 'Coverage Criteria', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('허가초과', 'OFFLBL', 'Off Label', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('사전신청', 'PREAPL', 'Pre Application', '분류: 보험·청구', 'N', NOW(6), NOW(6)),
-  ('마약류관리', 'NRCCNT', 'Narcotic Control', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('마약류통합관리시스템', 'NIMS', 'Narcotics Information Management System', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('마약류취급자', 'NRCHND', 'Narcotic Handler', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('마약류관리자', 'NRCMNG', 'Narcotic Manager', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('마약처방', 'NRCPRS', 'Narcotic Prescription', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('마약불출', 'NRCIS', 'Narcotic Issue', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('마약반납', 'NRCRTR', 'Narcotic Return', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('마약폐기', 'NRCDSP', 'Narcotic Disposal', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('마약사고', 'NRCACD', 'Narcotic Accident', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('도난', 'THEFT', 'Theft', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('분실', 'LOSS', 'Loss', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('사고', 'INCDNT', 'Incident', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('사고보고', 'INCRPR', 'Incident Report', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('근접오류', 'NRMS', 'Near Miss', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('위해사건', 'ADVEVN', 'Adverse Event', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('적신호사건', 'SNTEVN', 'Sentinel Event', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('약물이상반응보고', 'ADRRPR', 'ADR Report', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('의약품부작용', 'DRGADVEFC', 'Drug Adverse Effect', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('인과관계', 'CSLTY', 'Causality', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('중증도', 'SVRTY', 'Severity', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('의약품안전', 'DRGSFT', 'Drug Safety', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('안전성정보', 'SFTINF', 'Safety Information', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('허가사항', 'APRINF', 'Approval Information', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('첨부문서', 'PCKINS', 'Package Insert', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('품질', 'QLTY', 'Quality', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('품질관리', 'QC', 'Quality Control', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('품질보증', 'QA', 'Quality Assurance', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('적정성평가', 'ADQEVL', 'Adequacy Evaluation', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('인증평가', 'ACRDTN', 'Accreditation', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('의료기관인증', 'HSPACR', 'Hospital Accreditation', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('감염', 'INFCTN', 'Infection', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('감염병', 'INFDSILN', 'Infectious Disease Illness', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('격리', 'ISLTN', 'Isolation', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('소독', 'DSNFCTN', 'Disinfection', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('위생', 'HYGN', 'Hygiene', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('보호구', 'PRTEQP', 'Protective Equipment', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('개인정보', 'PRSINF', 'Personal Information', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('비밀번호', 'PSWRD', 'Password', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('로그', 'LOG', 'Log', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('접근', 'ACCESS', 'Access', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('감사로그', 'ADTLOG', 'Audit Log', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('보안', 'SCRTY', 'Security', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('암호화', 'ENCRYP', 'Encryption', '분류: 법규·관리', 'N', NOW(6), NOW(6)),
-  ('시스템', 'SYS', 'System', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('처방전달시스템', 'OCS', 'Order Communication System', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('전자의무기록', 'EMR', 'Electronic Medical Record', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('병원정보시스템', 'HIS', 'Hospital Information System', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('약제시스템', 'PHRSYS', 'Pharmacy System', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('인터페이스', 'INTRFC', 'Interface', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('연계', 'LNKG', 'Linkage', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('송신', 'TRNSMT', 'Transmit', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('배치', 'BATCH', 'Batch', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('작업', 'JOB', 'Job', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('스케줄', 'SCHDL', 'Schedule', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('큐', 'QUEUE', 'Queue', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('메시지', 'MSG', 'Message', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('알림', 'NTFCTN', 'Notification', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('푸시', 'PUSH', 'Push', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('화면', 'SCREEN', 'Screen', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('버튼', 'BUTTON', 'Button', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('팝업', 'POPUP', 'Popup', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('출력물', 'PRNT', 'Printout', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('프린터', 'PRNTR', 'Printer', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('단말기', 'TRMNL', 'Terminal', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('장비번호', 'EQPNMB', 'Equipment Number', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('접속', 'CNCTN', 'Connection', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('세션', 'SNLGN', 'Session Login', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('토큰', 'TOKEN', 'Token', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('버전', 'VRSN', 'Version', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('설정', 'STNG', 'Setting', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('환경설정', 'CNFGRT', 'Configuration', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('파라미터', 'PRMTR', 'Parameter', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('기준정보', 'MSTDT', 'Master Data', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('마스터', 'MASTER', 'Master', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('트랜잭션', 'TRNRCR', 'Transaction Record', '분류: 시스템·인터페이스', 'N', NOW(6), NOW(6)),
-  ('값', 'VALUE', 'Value', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('기준', 'CRTRN', 'Criterion', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('기준값', 'RFRVL', 'Reference Value', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('정상범위', 'NRMRNG', 'Normal Range', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('상한', 'UPRLMT', 'Upper Limit', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('하한', 'LWRLMT', 'Lower Limit', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('최대', 'MXM', 'Maximum', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('최소', 'MNM', 'Minimum', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('평균', 'AVRG', 'Average', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('합계', 'SUM', 'Sum', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('누계', 'CMLTL', 'Cumulative Total', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('차이', 'DFRNC', 'Difference', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('비율', 'RATIO', 'Ratio', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('점수', 'SCR', 'Score', '분류: 일반 데이터', 'Y', NOW(6), NOW(6)),
-  ('등급', 'GRADE', 'Grade', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('단계', 'STAGE', 'Stage', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('레벨', 'LEVEL', 'Level', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('순위', 'RANK', 'Rank', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('그룹', 'GROUP', 'Group', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('분류', 'CLSFCT', 'Classification', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('대분류', 'MJRCTG', 'Major Category', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('중분류', 'MDLCTG', 'Middle Category', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('소분류', 'MNRCTG', 'Minor Category', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('항목', 'ITMENT', 'Item Entry', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('속성', 'ATRBT', 'Attribute', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('특성', 'CHRCTR', 'Characteristic', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('조건', 'CNDTN', 'Condition', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('결과', 'RESULT', 'Result', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('사유', 'REASON', 'Reason', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('원인', 'CAUSE', 'Cause', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('목적', 'PRPS', 'Purpose', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('방법', 'METHOD', 'Method', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('절차', 'PRCSTP', 'Procedure Step', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('규칙', 'RULE', 'Rule', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('정책', 'POLICY', 'Policy', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('기준일', 'BSDAY', 'Base Day', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('적용일', 'EFCDAY', 'Effective Day', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('시행', 'ENFRCM', 'Enforcement', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('개정', 'RVSN', 'Revision', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('폐지', 'ABLTN', 'Abolition', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('신규', 'NEW', 'New', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('기존', 'EXSTNG', 'Existing', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('이전', 'PRVS', 'Previous', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('다음', 'NEXT', 'Next', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('현재', 'CRNT', 'Current', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('최근', 'RECENT', 'Recent', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('최초', 'FIRST', 'First', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('최종', 'FINAL', 'Final', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('마지막', 'LAST', 'Last', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('전체', 'ALL', 'All', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('부분', 'PART', 'Part', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('개별', 'INDVDL', 'Individual', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('공통', 'COMMON', 'Common', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('기본', 'DFLT', 'Default', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('선택', 'SLCTN', 'Selection', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('필수', 'MNDTRY', 'Mandatory', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('옵션', 'OPTION', 'Option', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('예', 'YES', 'Yes', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('아니오', 'NOANS', 'No Answer', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('있음', 'EXIST', 'Exist', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('없음', 'NONE', 'None', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('미정', 'UNDCD', 'Undecided', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('기타', 'ETC', 'Etc', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('국내', 'DMSTC', 'Domestic', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('국외', 'OVRS', 'Overseas', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('연도', 'YR', 'Year', '분류: 일반 데이터', 'Y', NOW(6), NOW(6)),
-  ('월', 'MM', 'Month', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('일', 'DD', 'Day', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('요일', 'DAYWK', 'Day Of Week', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('분기', 'QRTR', 'Quarter', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('반기', 'HLFYR', 'Half Year', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('주간', 'WKLPRD', 'Weekly Period', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('야간', 'NIGHT', 'Night', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('주말', 'WKND', 'Weekend', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('공휴일', 'HLDY', 'Holiday', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('근무', 'WRKDTY', 'Work Duty', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('근무조', 'SHIFT', 'Shift', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('당직', 'DUTY', 'On Duty', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('교대', 'SHFCHN', 'Shift Change', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('오전', 'AM', 'AM', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('오후', 'PM', 'PM', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('시점', 'PNTTM', 'Point In Time', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('일시점', 'TMPNT', 'Time Point', '분류: 일반 데이터', 'N', NOW(6), NOW(6)),
-  ('아세트아미노펜', 'ACTMNP', 'Acetaminophen', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6));
-
-INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES
-  ('이부프로펜', 'IBPRFN', 'Ibuprofen', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('덱시부프로펜', 'DXBPRF', 'Dexibuprofen', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('나프록센', 'NPRXN', 'Naproxen', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('케토프로펜', 'KTPRFN', 'Ketoprofen', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('덱스케토프로펜', 'DXKTPR', 'Dexketoprofen', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('플루르비프로펜', 'FLRBPR', 'Flurbiprofen', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('록소프로펜', 'LXPRFN', 'Loxoprofen', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('펠루비프로펜', 'PLBPRF', 'Pelubiprofen', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('잘토프로펜', 'ZLTPRF', 'Zaltoprofen', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('디클로페낙', 'DCLFNC', 'Diclofenac', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('아세클로페낙', 'ACLFNC', 'Aceclofenac', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('인도메타신', 'INDMTH', 'Indomethacin', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('에토돌락', 'ETDLC', 'Etodolac', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('설린닥', 'SLNDC', 'Sulindac', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('케토롤락', 'KTRLC', 'Ketorolac', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('멜록시캄', 'MLXCM', 'Meloxicam', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('피록시캄', 'PRXCM', 'Piroxicam', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('로녹시캄', 'LRNXCM', 'Lornoxicam', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('셀레콕시브', 'CLCXB', 'Celecoxib', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('폴마콕시브', 'PLMCXB', 'Polmacoxib', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('에토리콕시브', 'ETRCXB', 'Etoricoxib', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('나부메톤', 'NBMTN', 'Nabumetone', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('메페남산', 'MFNACD', 'Mefenamic Acid', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('아스피린', 'ASPRN', 'Aspirin', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('살리실산', 'SLCACD', 'Salicylic Acid', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('디플루니살', 'DFLNSL', 'Diflunisal', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('트라마돌', 'TRMDL', 'Tramadol', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('타펜타돌', 'TPNTDL', 'Tapentadol', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('모르핀', 'MRPHN', 'Morphine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('옥시코돈', 'OXYCDN', 'Oxycodone', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('하이드로모르폰', 'HYDRMR', 'Hydromorphone', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('펜타닐', 'FNTNYL', 'Fentanyl', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('레미펜타닐', 'RMFNTN', 'Remifentanil', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('수펜타닐', 'SFNTNL', 'Sufentanil', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('알펜타닐', 'ALFNTN', 'Alfentanil', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('메타돈', 'MTHDN', 'Methadone', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('페티딘', 'PTHDN', 'Pethidine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('코데인', 'CDN', 'Codeine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('디히드로코데인', 'DHYDRC', 'Dihydrocodeine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('부프레노르핀', 'BPRNRP', 'Buprenorphine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('날부핀', 'NLBPHN', 'Nalbuphine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('부토르파놀', 'BTRPHN', 'Butorphanol', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('날록손', 'NLXN', 'Naloxone', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('날트렉손', 'NLTRXN', 'Naltrexone', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('리도카인', 'LDCN', 'Lidocaine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('부피바카인', 'BPVCN', 'Bupivacaine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('레보부피바카인', 'LVBPVC', 'Levobupivacaine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('로피바카인', 'RPVCN', 'Ropivacaine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('메피바카인', 'MPVCN', 'Mepivacaine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('프릴로카인', 'PRLCN', 'Prilocaine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('테트라카인', 'TRCN', 'Tetracaine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('벤조카인', 'BNZCN', 'Benzocaine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('프로포폴', 'PRPFL', 'Propofol', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('케타민', 'KTMN', 'Ketamine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('에토미데이트', 'ETMDT', 'Etomidate', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('티오펜탈', 'THPNTL', 'Thiopental', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('세보플루란', 'SVFLRN', 'Sevoflurane', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('데스플루란', 'DSFLRN', 'Desflurane', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('이소플루란', 'ISFLRN', 'Isoflurane', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('아산화질소', 'NTROXD', 'Nitrous Oxide', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('덱스메데토미딘', 'DXMDTM', 'Dexmedetomidine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('로큐로늄', 'RCRNM', 'Rocuronium', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('베큐로늄', 'VCRNM', 'Vecuronium', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('시사트라큐리움', 'CSTRCR', 'Cisatracurium', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('숙시닐콜린', 'SCNYLC', 'Succinylcholine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('수가마덱스', 'SGMDX', 'Sugammadex', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('네오스티그민', 'NSTGMN', 'Neostigmine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('피리도스티그민', 'PYRDST', 'Pyridostigmine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('글리코피롤레이트', 'GLYCPY', 'Glycopyrrolate', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('아트로핀', 'ATRPN', 'Atropine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('에페드린', 'EPHDRN', 'Ephedrine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('페닐에프린', 'PHNYLP', 'Phenylephrine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('에페리손', 'EPRSN', 'Eperisone', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('티자니딘', 'TZNDN', 'Tizanidine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('바클로펜', 'BCLFN', 'Baclofen', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('클로르족사존', 'CHLRZX', 'Chlorzoxazone', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('메토카르바몰', 'MTHCRB', 'Methocarbamol', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('오르페나드린', 'ORPHND', 'Orphenadrine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('사이클로벤자프린', 'CYCLBN', 'Cyclobenzaprine', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('단트롤렌', 'DNTRLN', 'Dantrolene', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('톨페리손', 'TLPRSN', 'Tolperisone', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('아플로쿠알론', 'AFLQLN', 'Afloqualone', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('프레가발린', 'PRGBLN', 'Pregabalin', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('가바펜틴', 'GBPNTN', 'Gabapentin', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('미로가발린', 'MRGBLN', 'Mirogabalin', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('캡사이신', 'CPSCN', 'Capsaicin', '분류: 성분명: 진통·소염·마취', 'N', NOW(6), NOW(6)),
-  ('디아제팜', 'DZPM', 'Diazepam', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('로라제팜', 'LRZPM', 'Lorazepam', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('알프라졸람', 'ALPRZL', 'Alprazolam', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('클로나제팜', 'CLNZPM', 'Clonazepam', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('미다졸람', 'MDZLM', 'Midazolam', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('에티졸람', 'ETZLM', 'Etizolam', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('브로마제팜', 'BRMZPM', 'Bromazepam', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('클로르디아제폭시드', 'CHLRDZ', 'Chlordiazepoxide', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('트리아졸람', 'TRZLM', 'Triazolam', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('플루라제팜', 'FLRZPM', 'Flurazepam', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('졸피뎀', 'ZLPDM', 'Zolpidem', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('에스조피클론', 'ESZPCL', 'Eszopiclone', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('조피클론', 'ZPCLN', 'Zopiclone', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('멜라토닌', 'MLTN', 'Melatonin', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('레멜테온', 'RMLTN', 'Ramelteon', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('수보렉산트', 'SVRXNT', 'Suvorexant', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('부스피론', 'BSPRN', 'Buspirone', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('하이드록시진', 'HYDRXY', 'Hydroxyzine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('플루옥세틴', 'FLXTN', 'Fluoxetine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('파록세틴', 'PRXTN', 'Paroxetine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('서트랄린', 'SRTRLN', 'Sertraline', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('에스시탈로프람', 'ESCTLP', 'Escitalopram', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('시탈로프람', 'CTLPRM', 'Citalopram', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('플루복사민', 'FLVXMN', 'Fluvoxamine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('벤라팍신', 'VNLFXN', 'Venlafaxine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('데스벤라팍신', 'DSVNLF', 'Desvenlafaxine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('둘록세틴', 'DLXTN', 'Duloxetine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('밀나시프란', 'MLNCPR', 'Milnacipran', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('미르타자핀', 'MRTZPN', 'Mirtazapine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('트라조돈', 'TRZDN', 'Trazodone', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('부프로피온', 'BPRPN', 'Bupropion', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('보티옥세틴', 'VRTXTN', 'Vortioxetine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('아고멜라틴', 'AGMLTN', 'Agomelatine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('아미트립틸린', 'AMTRPT', 'Amitriptyline', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('노르트립틸린', 'NRTRPT', 'Nortriptyline', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('이미프라민', 'IMPRMN', 'Imipramine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('클로미프라민', 'CLMPRM', 'Clomipramine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('독세핀', 'DXPN', 'Doxepin', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('티아넵틴', 'TNPTN', 'Tianeptine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('리스페리돈', 'RSPRDN', 'Risperidone', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('팔리페리돈', 'PLPRDN', 'Paliperidone', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('올란자핀', 'OLNZPN', 'Olanzapine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('쿠에티아핀', 'QTPN', 'Quetiapine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('아리피프라졸', 'ARPRZL', 'Aripiprazole', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('브렉스피프라졸', 'BRXPRZ', 'Brexpiprazole', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('지프라시돈', 'ZPRSDN', 'Ziprasidone', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('클로자핀', 'CLZPN', 'Clozapine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('아미설프리드', 'AMSLPR', 'Amisulpride', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('블로난세린', 'BLNSRN', 'Blonanserin', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('루라시돈', 'LRSDN', 'Lurasidone', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('할로페리돌', 'HLPRDL', 'Haloperidol', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('클로르프로마진', 'CHLRPR', 'Chlorpromazine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('페르페나진', 'PRPHNZ', 'Perphenazine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('설피리드', 'SLPRD', 'Sulpiride', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('리튬', 'LTHM', 'Lithium', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('발프로산', 'VLPACD', 'Valproic Acid', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('디발프로엑스', 'DVLPRX', 'Divalproex', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('카르바마제핀', 'CRBMZP', 'Carbamazepine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('옥스카르바제핀', 'OXCRBZ', 'Oxcarbazepine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('라모트리진', 'LMTRGN', 'Lamotrigine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('레비티라세탐', 'LVTRCT', 'Levetiracetam', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('토피라메이트', 'TPRMT', 'Topiramate', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('조니사미드', 'ZNSMD', 'Zonisamide', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('라코사미드', 'LCSMD', 'Lacosamide', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('페니토인', 'PHNYTN', 'Phenytoin', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('포스페니토인', 'FSPHNY', 'Fosphenytoin', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('페노바르비탈', 'PHNBRB', 'Phenobarbital', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('프리미돈', 'PRMDN', 'Primidone', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('에토숙시미드', 'ETHSXM', 'Ethosuximide', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('클로바잠', 'CLBZM', 'Clobazam', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('페람파넬', 'PRMPNL', 'Perampanel', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('브리바라세탐', 'BRVRCT', 'Brivaracetam', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('세노바메이트', 'CNBMT', 'Cenobamate', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('비가바트린', 'VGBTRN', 'Vigabatrin', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('루피나미드', 'RFNMD', 'Rufinamide', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('레보도파', 'LVDP', 'Levodopa', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('카르비도파', 'CRBDP', 'Carbidopa', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('벤세라지드', 'BNSRZD', 'Benserazide', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('엔타카폰', 'ENTCPN', 'Entacapone', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('오피카폰', 'OPCPN', 'Opicapone', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('프라미펙솔', 'PRMPXL', 'Pramipexole', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('로피니롤', 'RPNRL', 'Ropinirole', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('로티고틴', 'RTGTN', 'Rotigotine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('라사길린', 'RSGLN', 'Rasagiline', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('셀레길린', 'SLGLN', 'Selegiline', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('사피나미드', 'SFNMD', 'Safinamide', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('아만타딘', 'AMNTDN', 'Amantadine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('트리헥시페니딜', 'TRHXYP', 'Trihexyphenidyl', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('벤즈트로핀', 'BNZTRP', 'Benztropine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('도네페질', 'DNPZL', 'Donepezil', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('리바스티그민', 'RVSTGM', 'Rivastigmine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('갈란타민', 'GLNTMN', 'Galantamine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('메만틴', 'MNTN', 'Memantine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('콜린알포세레이트', 'CHLALF', 'Choline Alfoscerate', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('아세틸엘카르니틴', 'ACTLCRN', 'Acetyl L Carnitine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('니세르골린', 'NCRGLN', 'Nicergoline', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('은행엽엑스', 'GNKBLBEXT', 'Ginkgo Biloba Extract', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('메틸페니데이트', 'MTHYLP', 'Methylphenidate', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('아토목세틴', 'ATMXTN', 'Atomoxetine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('모다피닐', 'MDFNL', 'Modafinil', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('수마트립탄', 'SMTRPT', 'Sumatriptan', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('졸미트립탄', 'ZLMTRP', 'Zolmitriptan', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('나라트립탄', 'NRTRPTN', 'Naratriptan', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('엘레트립탄', 'ELTRPT', 'Eletriptan', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('프로프라놀롤', 'PRPRNL', 'Propranolol', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('플루나리진', 'FLNRZN', 'Flunarizine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('베타히스틴', 'BTHSTN', 'Betahistine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('디멘히드리네이트', 'DMNHYD', 'Dimenhydrinate', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('메클리진', 'MCLZN', 'Meclizine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('바레니클린', 'VRNCLN', 'Varenicline', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('니코틴', 'NCTN', 'Nicotine', '분류: 성분명: 신경·정신', 'N', NOW(6), NOW(6)),
-  ('암로디핀', 'AMLDPN', 'Amlodipine', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('니페디핀', 'NFDPN', 'Nifedipine', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('펠로디핀', 'FLDPN', 'Felodipine', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('레르카니디핀', 'LRCNDP', 'Lercanidipine', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('실니디핀', 'CLNDPN', 'Cilnidipine', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('니카르디핀', 'NCRDPN', 'Nicardipine', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('니모디핀', 'NMDPN', 'Nimodipine', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('베니디핀', 'BNDPN', 'Benidipine', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('딜티아젬', 'DLTZM', 'Diltiazem', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('베라파밀', 'VRPML', 'Verapamil', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('로사르탄', 'LSRTN', 'Losartan', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('발사르탄', 'VLSRTN', 'Valsartan', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('칸데사르탄', 'CNDSRT', 'Candesartan', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('이르베사르탄', 'IRBSRT', 'Irbesartan', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('텔미사르탄', 'TLMSRT', 'Telmisartan', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('올메사르탄', 'OLMSRT', 'Olmesartan', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('아질사르탄', 'AZLSRT', 'Azilsartan', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('피마사르탄', 'FMSRTN', 'Fimasartan', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('에프로사르탄', 'EPRSRT', 'Eprosartan', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('캡토프릴', 'CPTPRL', 'Captopril', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('에날라프릴', 'ENLPRL', 'Enalapril', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('리시노프릴', 'LSNPRL', 'Lisinopril', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('라미프릴', 'RMPRL', 'Ramipril', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('페린도프릴', 'PRNDPR', 'Perindopril', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('이미다프릴', 'IMDPRL', 'Imidapril', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('포시노프릴', 'FSNPRL', 'Fosinopril', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('아테놀롤', 'ATNL', 'Atenolol', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('메토프롤롤', 'MTPRL', 'Metoprolol', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('비소프롤롤', 'BSPRL', 'Bisoprolol', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('카르베딜롤', 'CRVDL', 'Carvedilol', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('네비볼롤', 'NBVL', 'Nebivolol', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('라베탈롤', 'LBTL', 'Labetalol', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('에스몰롤', 'ESML', 'Esmolol', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('베탁솔롤', 'BTXL', 'Betaxolol', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('셀리프롤롤', 'CLPRL', 'Celiprolol', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('독사조신', 'DXZSN', 'Doxazosin', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('테라조신', 'TRZSN', 'Terazosin', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('프라조신', 'PRZSN', 'Prazosin', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('클로니딘', 'CLNDN', 'Clonidine', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('메틸도파', 'MTHYLD', 'Methyldopa', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('히드랄라진', 'HYDRLZ', 'Hydralazine', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('미녹시딜', 'MNXDL', 'Minoxidil', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('하이드로클로로티아지드', 'HYDRCH', 'Hydrochlorothiazide', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('클로르탈리돈', 'CHLRTH', 'Chlorthalidone', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('인다파미드', 'INDPMD', 'Indapamide', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('푸로세미드', 'FRSMD', 'Furosemide', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('토르세미드', 'TRSMD', 'Torsemide', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('부메타니드', 'BMTND', 'Bumetanide', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('스피로노락톤', 'SPRNLC', 'Spironolactone', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('에플레레논', 'EPLRN', 'Eplerenone', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('아밀로라이드', 'AMLRD', 'Amiloride', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('트리암테렌', 'TRMTRN', 'Triamterene', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('아세타졸아미드', 'ACTZLM', 'Acetazolamide', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('만니톨', 'MNTL', 'Mannitol', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('톨밥탄', 'TLVPTN', 'Tolvaptan', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('디곡신', 'DGXN', 'Digoxin', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('아미오다론', 'AMDRN', 'Amiodarone', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('드로네다론', 'DRNDRN', 'Dronedarone', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('플레카이니드', 'FLCND', 'Flecainide', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('프로파페논', 'PRPFN', 'Propafenone', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('소탈롤', 'STL', 'Sotalol', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('아데노신', 'ADNSN', 'Adenosine', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('이바브라딘', 'IVBRDN', 'Ivabradine', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('사쿠비트릴', 'SCBTRL', 'Sacubitril', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('베르시구아트', 'VRCGT', 'Vericiguat', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('니트로글리세린', 'NTRGLY', 'Nitroglycerin', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('이소소르비드', 'ISRBD', 'Isosorbide', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('니코란딜', 'NCRNDL', 'Nicorandil', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('트리메타지딘', 'TRMTZD', 'Trimetazidine', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('몰시도민', 'MLSDMN', 'Molsidomine', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('라놀라진', 'RNLZN', 'Ranolazine', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('도파민', 'DPMN', 'Dopamine', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('도부타민', 'DBTMN', 'Dobutamine', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('노르에피네프린', 'NRPNPH', 'Norepinephrine', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('에피네프린', 'EPNPHR', 'Epinephrine', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('바소프레신', 'VSPRSN', 'Vasopressin', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('밀리논', 'MLRN', 'Milrinone', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('레보시멘단', 'LVSMND', 'Levosimendan', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('이소프레날린', 'ISPRNL', 'Isoprenaline', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('미도드린', 'MDRN', 'Midodrine', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('아토르바스타틴', 'ATRVST', 'Atorvastatin', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('로수바스타틴', 'RSVSTN', 'Rosuvastatin', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('심바스타틴', 'SMVSTN', 'Simvastatin', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('프라바스타틴', 'PRVSTN', 'Pravastatin', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('피타바스타틴', 'PTVSTN', 'Pitavastatin', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('플루바스타틴', 'FLVSTN', 'Fluvastatin', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('로바스타틴', 'LVSTN', 'Lovastatin', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('에제티미브', 'EZTMB', 'Ezetimibe', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('페노피브레이트', 'FNFBRT', 'Fenofibrate', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('제미피브로질', 'GMFBRZ', 'Gemfibrozil', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('오메가3지방산', 'OMG3FTYACD', 'Omega 3 Fatty Acid', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('에볼로쿠맙', 'EVLCMB', 'Evolocumab', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('알리로쿠맙', 'ALRCMB', 'Alirocumab', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('니아신', 'NIACIN', 'Niacin', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('와파린', 'WRFRN', 'Warfarin', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('헤파린', 'HPRN', 'Heparin', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('에녹사파린', 'ENXPRN', 'Enoxaparin', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('달테파린', 'DLTPRN', 'Dalteparin', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('나드로파린', 'NDRPRN', 'Nadroparin', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('폰다파리눅스', 'FNDPRN', 'Fondaparinux', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('아픽사반', 'APXBN', 'Apixaban', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('리바록사반', 'RVRXBN', 'Rivaroxaban', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('에독사반', 'EDXBN', 'Edoxaban', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('다비가트란', 'DBGTRN', 'Dabigatran', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('아가트로반', 'ARGTRB', 'Argatroban', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('비발리루딘', 'BVLRDN', 'Bivalirudin', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('클로피도그렐', 'CLPDGR', 'Clopidogrel', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('프라수그렐', 'PRSGRL', 'Prasugrel', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('티카그렐러', 'TCGRLR', 'Ticagrelor', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('실로스타졸', 'CLSTZL', 'Cilostazol', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('디피리다몰', 'DPYRDM', 'Dipyridamole', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('사포그릴레이트', 'SRPGRL', 'Sarpogrelate', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('베라프로스트', 'BRPRST', 'Beraprost', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('리마프로스트', 'LMPRST', 'Limaprost', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('아브식시맙', 'ABCXMB', 'Abciximab', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('티로피반', 'TRFBN', 'Tirofiban', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('알테플라제', 'ALTPLS', 'Alteplase', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('테넥테플라제', 'TNCTPL', 'Tenecteplase', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('유로키나제', 'URKNS', 'Urokinase', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('트라넥삼산', 'TRNACD', 'Tranexamic Acid', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('아미노카프로산', 'AMNCACID', 'Aminocaproic Acid', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('비타민K', 'VITK', 'Phytonadione', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('프로타민', 'PRTMN', 'Protamine', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('이다루시주맙', 'IDRCZM', 'Idarucizumab', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('보센탄', 'BSNTN', 'Bosentan', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('암브리센탄', 'AMBRSN', 'Ambrisentan', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('마시텐탄', 'MCTNTN', 'Macitentan', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('실데나필', 'SLDNFL', 'Sildenafil', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('타다라필', 'TDLFL', 'Tadalafil', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('리오시구앗', 'RCGT', 'Riociguat', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('일로프로스트', 'ILPRST', 'Iloprost', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('트레프로스티닐', 'TRPRST', 'Treprostinil', '분류: 성분명: 순환기', 'N', NOW(6), NOW(6)),
-  ('살부타몰', 'SLBTML', 'Salbutamol', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('테르부탈린', 'TRBTLN', 'Terbutaline', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('프로카테롤', 'PRCTRL', 'Procaterol', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('툴로부테롤', 'TLBTRL', 'Tulobuterol', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('살메테롤', 'SLMTRL', 'Salmeterol', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('포르모테롤', 'FRMTRL', 'Formoterol', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('인다카테롤', 'INDCTR', 'Indacaterol', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('빌란테롤', 'VLNTRL', 'Vilanterol', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('올로다테롤', 'OLDTRL', 'Olodaterol', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('티오트로피움', 'TRPM', 'Tiotropium', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('이프라트로피움', 'IPRTRP', 'Ipratropium', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('글리코피로니움', 'GLYCPYR', 'Glycopyrronium', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('유메클리디니움', 'UMCLDN', 'Umeclidinium', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('아클리디니움', 'ACLDNM', 'Aclidinium', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('부데소니드', 'BDSND', 'Budesonide', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('플루티카손', 'FLTCSN', 'Fluticasone', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('베클로메타손', 'BCLMTH', 'Beclomethasone', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('시클레소니드', 'CLSND', 'Ciclesonide', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('모메타손', 'MTSN', 'Mometasone', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('몬테루카스트', 'MNTLKS', 'Montelukast', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('프란루카스트', 'PRNLKS', 'Pranlukast', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('자피르루카스트', 'ZFRLKS', 'Zafirlukast', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('테오필린', 'THPHYL', 'Theophylline', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('아미노필린', 'AMNPHY', 'Aminophylline', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('독소필린', 'DXFYLN', 'Doxofylline', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('로플루밀라스트', 'RFLMLS', 'Roflumilast', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('오말리주맙', 'OMLZMB', 'Omalizumab', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('메폴리주맙', 'MPLZMB', 'Mepolizumab', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('벤랄리주맙', 'BNRLZM', 'Benralizumab', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('두필루맙', 'DPLMB', 'Dupilumab', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('세티리진', 'CTRZN', 'Cetirizine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('레보세티리진', 'LVCTRZ', 'Levocetirizine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('로라타딘', 'LRTDN', 'Loratadine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('데슬로라타딘', 'DSLRTD', 'Desloratadine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('펙소페나딘', 'FXFNDN', 'Fexofenadine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('에바스틴', 'EBSTN', 'Ebastine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('베포타스틴', 'BPTSTN', 'Bepotastine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('올로파타딘', 'OLPTDN', 'Olopatadine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('에피나스틴', 'EPNSTN', 'Epinastine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('케토티펜', 'KTFN', 'Ketotifen', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('아젤라스틴', 'AZLSTN', 'Azelastine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('클로르페니라민', 'CHLRPH', 'Chlorpheniramine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('디펜히드라민', 'DPHNHY', 'Diphenhydramine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('시프로헵타딘', 'CYPRHP', 'Cyproheptadine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('메퀴타진', 'MQTZN', 'Mequitazine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('덱스클로르페니라민', 'DXCHLR', 'Dexchlorpheniramine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('프로메타진', 'PRMTHZ', 'Promethazine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('덱스트로메토르판', 'DXTRMT', 'Dextromethorphan', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('벤프로페린', 'BNPRPR', 'Benproperine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('레보드로프로피진', 'LVDRPR', 'Levodropropizine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('아세틸시스테인', 'ACTYLC', 'Acetylcysteine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('카르보시스테인', 'CRBCST', 'Carbocisteine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('에르도스테인', 'ERDSTN', 'Erdosteine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('암브록솔', 'AMBRXL', 'Ambroxol', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('브롬헥신', 'BRMHXN', 'Bromhexine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('구아이페네신', 'GFNSN', 'Guaifenesin', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('슈도에페드린', 'PSDPHD', 'Pseudoephedrine', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('옥시메타졸린', 'OXYMTZ', 'Oxymetazoline', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('자일로메타졸린', 'XYLMTZ', 'Xylometazoline', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('아이비엽엑스', 'IVYLFEXT', 'Ivy Leaf Extract', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('피레니엔엑스', 'PLREXT', 'Pelargonium Extract', '분류: 성분명: 호흡기·알레르기', 'N', NOW(6), NOW(6)),
-  ('오메프라졸', 'OMPRZL', 'Omeprazole', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('에스오메프라졸', 'ESMPRZ', 'Esomeprazole', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('란소프라졸', 'LNSPRZ', 'Lansoprazole', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('덱스란소프라졸', 'DXLNSP', 'Dexlansoprazole', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('판토프라졸', 'PNTPRZ', 'Pantoprazole', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('라베프라졸', 'RBPRZL', 'Rabeprazole', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('일라프라졸', 'ILPRZL', 'Ilaprazole', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('테고프라잔', 'TGPRZN', 'Tegoprazan', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('펙수프라잔', 'FXPRZN', 'Fexuprazan', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('보노프라잔', 'VNPRZN', 'Vonoprazan', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('파모티딘', 'FMTDN', 'Famotidine', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('라니티딘', 'RNTDN', 'Ranitidine', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('니자티딘', 'NZTDN', 'Nizatidine', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('시메티딘', 'CMTDN', 'Cimetidine', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('라푸티딘', 'LFTDN', 'Lafutidine', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('레바미피드', 'RBMPD', 'Rebamipide', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('에카베트', 'ECABET', 'Ecabet', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('수크랄페이트', 'SCRLFT', 'Sucralfate', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('알긴산나트륨', 'SDMALG', 'Sodium Alginate', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('테프레논', 'TPRN', 'Teprenone', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('미소프로스톨', 'MSPRST', 'Misoprostol', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('비스무트', 'BSMTH', 'Bismuth', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('알마게이트', 'ALMGT', 'Almagate', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('수산화알루미늄', 'ALMHYD', 'Aluminum Hydroxide', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('수산화마그네슘', 'MGNHYD', 'Magnesium Hydroxide', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('탄산칼슘', 'CLCCRB', 'Calcium Carbonate', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('시메티콘', 'SMTHCN', 'Simethicone', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('메토클로프라미드', 'MTCLPR', 'Metoclopramide', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('돔페리돈', 'DMPRDN', 'Domperidone', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('레보설피리드', 'LVSLPR', 'Levosulpiride', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('이토프리드', 'ITPRD', 'Itopride', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('모사프리드', 'MSPRD', 'Mosapride', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('트리메부틴', 'TRMBTN', 'Trimebutine', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('프루칼로프리드', 'PRCLPR', 'Prucalopride', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('온단세트론', 'ONDNST', 'Ondansetron', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('그라니세트론', 'GRNSTR', 'Granisetron', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('팔로노세트론', 'PLNSTR', 'Palonosetron', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('라모세트론', 'RMSTRN', 'Ramosetron', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('아프레피탄트', 'APRPTN', 'Aprepitant', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('포사프레피탄트', 'FSPRPT', 'Fosaprepitant', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('네투피탄트', 'NTPTNT', 'Netupitant', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('로페라미드', 'LPRMD', 'Loperamide', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('디오스멕타이트', 'DCTSMC', 'Dioctahedral Smectite', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('라세카도트릴', 'RCDTRL', 'Racecadotril', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('락툴로오스', 'LCTLS', 'Lactulose', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('락티톨', 'LCTL', 'Lactitol', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('폴리에틸렌글리콜', 'PLYGLY', 'Polyethylene Glycol', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('산화마그네슘', 'MGNOXD', 'Magnesium Oxide', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('비사코딜', 'BSCDYL', 'Bisacodyl', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('센나', 'SENNA', 'Senna', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('차전자피', 'PSYHSK', 'Psyllium Husk', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('도큐세이트', 'DCST', 'Docusate', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('피코설페이트', 'PCSLFT', 'Picosulfate', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('글리세린', 'GLYCRN', 'Glycerin', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('날데메딘', 'NLDMDN', 'Naldemedine', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('메살라진', 'MSLZN', 'Mesalazine', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('설파살라진', 'SLFSLZ', 'Sulfasalazine', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('발살라지드', 'BLSLZD', 'Balsalazide', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('부틸스코폴라민', 'BTYLSC', 'Butylscopolamine', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('오틸로늄', 'OTLNM', 'Otilonium', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('피나베리움', 'PNVRM', 'Pinaverium', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('알베린', 'ALVRN', 'Alverine', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('메베베린', 'MBVRN', 'Mebeverine', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('판크레아틴', 'PNCRTN', 'Pancreatin', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('판크렐리파아제', 'PNCRLP', 'Pancrelipase', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('우르소데옥시콜산', 'URSACD', 'Ursodeoxycholic Acid', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('실리마린', 'SLYMRN', 'Silymarin', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('비페닐디메틸디카르복실레이트', 'BPHDMTDCR', 'Biphenyl Dimethyl Dicarboxylate', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('글루타티온', 'GLTHN', 'Glutathione', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('엘오르니틴엘아스파르트산', 'LORNLASP', 'L Ornithine L Aspartate', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('리팍시민', 'RFXMN', 'Rifaximin', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('엔테카비르', 'ENTCVR', 'Entecavir', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('테노포비르', 'TNFVR', 'Tenofovir', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('베시포비르', 'BSFVR', 'Besifovir', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('라미부딘', 'LMVDN', 'Lamivudine', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('아데포비르', 'ADFVR', 'Adefovir', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('텔비부딘', 'TLBVDN', 'Telbivudine', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('소포스부비르', 'SFSBVR', 'Sofosbuvir', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('레디파스비르', 'LDPSVR', 'Ledipasvir', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('글레카프레비르', 'GLCPRV', 'Glecaprevir', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('피브렌타스비르', 'PBRNTS', 'Pibrentasvir', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('다클라타스비르', 'DCLTSV', 'Daclatasvir', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('가베제이트', 'GBXT', 'Gabexate', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('나파모스타트', 'NFMST', 'Nafamostat', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('울리나스타틴', 'ULNSTN', 'Ulinastatin', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('옥트레오타이드', 'OCTRTD', 'Octreotide', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('테를리프레신', 'TRLPRS', 'Terlipressin', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('락토바실루스', 'LCTBCL', 'Lactobacillus', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('비피도박테리움', 'BFDBCT', 'Bifidobacterium', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('사카로미세스', 'SCHRMY', 'Saccharomyces', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('바실루스', 'BCLS', 'Bacillus', '분류: 성분명: 소화기', 'N', NOW(6), NOW(6)),
-  ('메트포르민', 'MTFRMN', 'Metformin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('글리메피리드', 'GLMPRD', 'Glimepiride', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('글리클라지드', 'GLCLZD', 'Gliclazide', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('글리피지드', 'GLPZD', 'Glipizide', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('글리벤클라미드', 'GLBNCL', 'Glibenclamide', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('레파글리니드', 'RPGLND', 'Repaglinide', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('나테글리니드', 'NTGLND', 'Nateglinide', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('미티글리니드', 'MTGLND', 'Mitiglinide', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('피오글리타존', 'PGLTZN', 'Pioglitazone', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('로베글리타존', 'LBGLTZ', 'Lobeglitazone', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('시타글립틴', 'STGLPT', 'Sitagliptin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('빌다글립틴', 'VLDGLP', 'Vildagliptin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('삭사글립틴', 'SXGLPT', 'Saxagliptin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('리나글립틴', 'LNGLPT', 'Linagliptin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('알로글립틴', 'ALGLPT', 'Alogliptin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('테네리글립틴', 'TNLGLP', 'Teneligliptin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('제미글립틴', 'GMGLPT', 'Gemigliptin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('에보글립틴', 'EVGLPT', 'Evogliptin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('아나글립틴', 'ANGLPT', 'Anagliptin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6));
-
-INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES
-  ('다파글리플로진', 'DPGLFL', 'Dapagliflozin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('엠파글리플로진', 'EMPGLF', 'Empagliflozin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('카나글리플로진', 'CNGLFL', 'Canagliflozin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('에르투글리플로진', 'ERTGLF', 'Ertugliflozin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('이프라글리플로진', 'IPRGLF', 'Ipragliflozin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('엔블리플로진', 'ENVGLF', 'Enavogliflozin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('아카보스', 'ACRBS', 'Acarbose', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('보글리보스', 'VGLBS', 'Voglibose', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('미글리톨', 'MGLTL', 'Miglitol', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('리라글루티드', 'LRGLTD', 'Liraglutide', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('둘라글루티드', 'DLGLTD', 'Dulaglutide', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('세마글루티드', 'SMGLTD', 'Semaglutide', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('엑세나티드', 'EXNTD', 'Exenatide', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('릭시세나티드', 'LXSNTD', 'Lixisenatide', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('터제파티드', 'TRZPTD', 'Tirzepatide', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('인슐린글라진', 'INSGLR', 'Insulin Glargine', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('인슐린디터머', 'INSDTM', 'Insulin Detemir', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('인슐린데글루덱', 'INSDGL', 'Insulin Degludec', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('인슐린아스파트', 'INSASP', 'Insulin Aspart', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('인슐린리스프로', 'INSLSP', 'Insulin Lispro', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('인슐린글루리신', 'INSGLS', 'Insulin Glulisine', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('휴먼인슐린', 'HMNINS', 'Human Insulin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('NPH인슐린', 'NPHINS', 'NPH Insulin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('글루카곤', 'GLCGN', 'Glucagon', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('레보티록신', 'LVTHYR', 'Levothyroxine', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('리오티로닌', 'LTHYRN', 'Liothyronine', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('메티마졸', 'MTHMZL', 'Methimazole', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('프로필티오우라실', 'PRPYLT', 'Propylthiouracil', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('카르비마졸', 'CRBMZL', 'Carbimazole', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('프레드니솔론', 'PRDNSL', 'Prednisolone', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('프레드니손', 'PRDNSN', 'Prednisone', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('메틸프레드니솔론', 'MTHYLPR', 'Methylprednisolone', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('덱사메타손', 'DXMTHS', 'Dexamethasone', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('베타메타손', 'BTMTHS', 'Betamethasone', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('하이드로코르티손', 'HYDRCR', 'Hydrocortisone', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('트리암시놀론', 'TRMCNL', 'Triamcinolone', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('데플라자코트', 'DFLZCR', 'Deflazacort', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('플루드로코르티손', 'FLDRCR', 'Fludrocortisone', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('클로베타솔', 'CLBTSL', 'Clobetasol', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('데속시메타손', 'DSXMTS', 'Desoximetasone', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('프레드니카베이트', 'PRDNCR', 'Prednicarbate', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('에스트라디올', 'ESTRDL', 'Estradiol', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('결합에스트로겐', 'CNJEST', 'Conjugated Estrogens', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('프로게스테론', 'PRGSTR', 'Progesterone', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('메드록시프로게스테론', 'MDRXYP', 'Medroxyprogesterone', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('디에노게스트', 'DNGST', 'Dienogest', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('노르에티스테론', 'NRTHST', 'Norethisterone', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('드로스피레논', 'DRSPRN', 'Drospirenone', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('레보노르게스트렐', 'LVNRGS', 'Levonorgestrel', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('에티닐에스트라디올', 'ETHEST', 'Ethinyl Estradiol', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('티볼론', 'TBLN', 'Tibolone', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('테스토스테론', 'TSTSTR', 'Testosterone', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('피나스테리드', 'FNSTRD', 'Finasteride', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('두타스테리드', 'DTSTRD', 'Dutasteride', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('탐스로신', 'TMSLSN', 'Tamsulosin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('실로도신', 'SLDSN', 'Silodosin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('알푸조신', 'ALFZSN', 'Alfuzosin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('나프토피딜', 'NFTPDL', 'Naftopidil', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('솔리페나신', 'SLFNCN', 'Solifenacin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('톨테로딘', 'TLTRDN', 'Tolterodine', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('페소테로딘', 'FSTRDN', 'Fesoterodine', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('옥시부티닌', 'OXYBTY', 'Oxybutynin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('프로피베린', 'PRPVRN', 'Propiverine', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('트로스피움', 'TRSPM', 'Trospium', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('미라베그론', 'MRBGRN', 'Mirabegron', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('비베그론', 'VBGRN', 'Vibegron', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('데스모프레신', 'DSMPRS', 'Desmopressin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('베타네콜', 'BTHNCH', 'Bethanechol', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('유데나필', 'UDNFL', 'Udenafil', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('미로데나필', 'MRDNFL', 'Mirodenafil', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('바데나필', 'VRDNFL', 'Vardenafil', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('아바나필', 'AVNFL', 'Avanafil', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('옥시토신', 'OXYTCN', 'Oxytocin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('카르베토신', 'CRBTCN', 'Carbetocin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('메틸에르고메트린', 'MTHYLR', 'Methylergometrine', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('디노프로스톤', 'DNPRST', 'Dinoprostone', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('리토드린', 'RTDRN', 'Ritodrine', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('아토시반', 'ATSBN', 'Atosiban', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('클로미펜', 'CLMPHN', 'Clomiphene', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('레트로졸', 'LTRZL', 'Letrozole', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('아나스트로졸', 'ANSTRZ', 'Anastrozole', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('엑세메스탄', 'EXMSTN', 'Exemestane', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('타목시펜', 'TMXFN', 'Tamoxifen', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('토레미펜', 'TRMFN', 'Toremifene', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('풀베스트란트', 'FLVSTR', 'Fulvestrant', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('비칼루타미드', 'BCLTMD', 'Bicalutamide', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('엔잘루타마이드', 'ENZLTM', 'Enzalutamide', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('아팔루타마이드', 'APLTMD', 'Apalutamide', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('다로루타마이드', 'DRLTMD', 'Darolutamide', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('아비라테론', 'ABRTRN', 'Abiraterone', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('류프로렐린', 'LPRLN', 'Leuprorelin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('고세렐린', 'GSRLN', 'Goserelin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('트립토렐린', 'TRPTRL', 'Triptorelin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('데가렐릭스', 'DGRLX', 'Degarelix', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('소마트로핀', 'SMTRPN', 'Somatropin', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('알렌드로네이트', 'ALNDRN', 'Alendronate', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('리세드로네이트', 'RSDRNT', 'Risedronate', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('이반드로네이트', 'IBNDRN', 'Ibandronate', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('졸레드론산', 'ZLDACD', 'Zoledronic Acid', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('파미드로네이트', 'PMDRNT', 'Pamidronate', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('라록시펜', 'RLXFN', 'Raloxifene', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('바제독시펜', 'BZDXFN', 'Bazedoxifene', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('데노수맙', 'DNSMB', 'Denosumab', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('테리파라타이드', 'TRPRTD', 'Teriparatide', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('로모소주맙', 'RMSZMB', 'Romosozumab', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('칼시트리올', 'CLCTRL', 'Calcitriol', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('알파칼시돌', 'ALFCLC', 'Alfacalcidol', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('콜레칼시페롤', 'CHLCLC', 'Cholecalciferol', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('에르고칼시페롤', 'ERGCLC', 'Ergocalciferol', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('파리칼시톨', 'PRCLCTL', 'Paricalcitol', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('시나칼셋', 'CNCLCT', 'Cinacalcet', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('에텔칼세타이드', 'ETLCLC', 'Etelcalcetide', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('세벨라머', 'SVLMR', 'Sevelamer', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('탄산란탄', 'LNTCRB', 'Lanthanum Carbonate', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('초산칼슘', 'CLCACT', 'Calcium Acetate', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('수크로페릭옥시수산화물', 'SCROXY', 'Sucroferric Oxyhydroxide', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('알로푸리놀', 'ALPRNL', 'Allopurinol', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('페북소스타트', 'FBXST', 'Febuxostat', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('벤즈브로마론', 'BNZBRM', 'Benzbromarone', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('콜히친', 'CLCHCN', 'Colchicine', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('프로베네시드', 'PRBNCD', 'Probenecid', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('라스부리카제', 'RSBRCS', 'Rasburicase', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('오르리스타트', 'ORLST', 'Orlistat', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('펜터민', 'PHNTRM', 'Phentermine', '분류: 성분명: 내분비·대사', 'N', NOW(6), NOW(6)),
-  ('페니실린G', 'PENG', 'Penicillin G', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('벤자틴페니실린', 'BNZPNC', 'Benzathine Penicillin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('아목시실린', 'AMXCLN', 'Amoxicillin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('암피실린', 'AMPCLN', 'Ampicillin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('클라불란산', 'CLVACD', 'Clavulanic Acid', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('설박탐', 'SLBCTM', 'Sulbactam', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('타조박탐', 'TZBCTM', 'Tazobactam', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('피페라실린', 'PRCLN', 'Piperacillin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('나프실린', 'NFCLN', 'Nafcillin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('옥사실린', 'OXCLN', 'Oxacillin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('세파졸린', 'CFZLN', 'Cefazolin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('세팔렉신', 'CPHLXN', 'Cephalexin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('세파드록실', 'CFDRXL', 'Cefadroxil', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('세파클러', 'CFCLR', 'Cefaclor', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('세푸록심', 'CFRXM', 'Cefuroxime', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('세폭시틴', 'CFXTN', 'Cefoxitin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('세포테탄', 'CFTN', 'Cefotetan', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('세프메타졸', 'CFMTZL', 'Cefmetazole', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('세프트리악손', 'CFTRXN', 'Ceftriaxone', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('세포탁심', 'CFTXM', 'Cefotaxime', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('세프타지딤', 'CFTZDM', 'Ceftazidime', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('세포페라존', 'CFPRZN', 'Cefoperazone', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('세픽심', 'CFXM', 'Cefixime', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('세프디니르', 'CFDNR', 'Cefdinir', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('세프포독심', 'CFPDXM', 'Cefpodoxime', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('세프디토렌', 'CFDTRN', 'Cefditoren', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('세프카펜', 'CFCPN', 'Cefcapene', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('세페핌', 'CFPM', 'Cefepime', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('세프피롬', 'CFPRM', 'Cefpirome', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('세프타롤린', 'CFTRLN', 'Ceftaroline', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('세프톨로잔', 'CFTLZN', 'Ceftolozane', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('아비박탐', 'AVBCTM', 'Avibactam', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('이미페넴', 'IMPNM', 'Imipenem', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('실라스타틴', 'CLSTN', 'Cilastatin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('메로페넴', 'MRPNM', 'Meropenem', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('에르타페넴', 'ERTPNM', 'Ertapenem', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('도리페넴', 'DRPNM', 'Doripenem', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('아즈트레오남', 'AZTRNM', 'Aztreonam', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('겐타마이신', 'GNTMCN', 'Gentamicin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('아미카신', 'AMKCN', 'Amikacin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('토브라마이신', 'TBRMYC', 'Tobramycin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('스트렙토마이신', 'STRPTM', 'Streptomycin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('이세파마이신', 'ISPMCN', 'Isepamicin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('네틸마이신', 'NTLMCN', 'Netilmicin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('에리스로마이신', 'ERYTHR', 'Erythromycin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('클래리스로마이신', 'CLRTHR', 'Clarithromycin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('아지스로마이신', 'AZTHRM', 'Azithromycin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('록시스로마이신', 'RXTHRM', 'Roxithromycin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('시프로플록사신', 'CPRFLX', 'Ciprofloxacin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('레보플록사신', 'LVFLXC', 'Levofloxacin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('목시플록사신', 'MXFLXC', 'Moxifloxacin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('오플록사신', 'OFLXCN', 'Ofloxacin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('노르플록사신', 'NRFLXC', 'Norfloxacin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('제미플록사신', 'GMFLXC', 'Gemifloxacin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('델라플록사신', 'DLFLXC', 'Delafloxacin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('독시사이클린', 'DXYCYC', 'Doxycycline', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('미노사이클린', 'MNCYCL', 'Minocycline', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('테트라사이클린', 'TRCYCL', 'Tetracycline', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('티게사이클린', 'TGCYCL', 'Tigecycline', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('반코마이신', 'VNCMYC', 'Vancomycin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('테이코플라닌', 'TCPLN', 'Teicoplanin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('달바반신', 'DLBVNC', 'Dalbavancin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('리네졸리드', 'LNZLD', 'Linezolid', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('테디졸리드', 'TDZLD', 'Tedizolid', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('답토마이신', 'DPTMYC', 'Daptomycin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('클린다마이신', 'CLNDMY', 'Clindamycin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('메트로니다졸', 'MTRNDZ', 'Metronidazole', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('티니다졸', 'TNDZL', 'Tinidazole', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('트리메토프림', 'TRMTHP', 'Trimethoprim', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('설파메톡사졸', 'SLFMTH', 'Sulfamethoxazole', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('콜리스틴', 'COLISTIN', 'Colistin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('폴리믹신B', 'PLMXNB', 'Polymyxin B', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('포스포마이신', 'FSFMYC', 'Fosfomycin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('니트로푸란토인', 'NTRFRN', 'Nitrofurantoin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('무피로신', 'MPRCN', 'Mupirocin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('푸시드산', 'FSDACD', 'Fusidic Acid', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('바시트라신', 'BCTRCN', 'Bacitracin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('네오마이신', 'NMYCN', 'Neomycin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('리팜핀', 'RFMPN', 'Rifampin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('이소니아지드', 'ISNZD', 'Isoniazid', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('피라진아미드', 'PYRZNM', 'Pyrazinamide', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('에탐부톨', 'ETHMBT', 'Ethambutol', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('리파부틴', 'RFBTN', 'Rifabutin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('베다퀼린', 'BDQLN', 'Bedaquiline', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('델라마니드', 'DLMND', 'Delamanid', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('사이클로세린', 'CYCLSR', 'Cycloserine', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('플루코나졸', 'FLCNZL', 'Fluconazole', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('이트라코나졸', 'ITRCNZ', 'Itraconazole', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('보리코나졸', 'VRCNZL', 'Voriconazole', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('포사코나졸', 'PSCNZL', 'Posaconazole', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('이사부코나졸', 'ISVCNZ', 'Isavuconazole', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('암포테리신B', 'AMPHB', 'Amphotericin B', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('카스포펀진', 'CSPFNG', 'Caspofungin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('미카펀진', 'MCFNGN', 'Micafungin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('아니둘라펀진', 'ANDLFN', 'Anidulafungin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('테르비나핀', 'TRBNFN', 'Terbinafine', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('클로트리마졸', 'CLTRMZ', 'Clotrimazole', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('케토코나졸', 'KTCNZL', 'Ketoconazole', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('니스타틴', 'NYSTN', 'Nystatin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('아시클로버', 'ACYCLV', 'Acyclovir', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('발라시클로버', 'VLCYCL', 'Valacyclovir', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('팜시클로버', 'FMCLVR', 'Famciclovir', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('간시클로버', 'GNCLVR', 'Ganciclovir', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('발간시클로버', 'VLGNCL', 'Valganciclovir', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('포스카넷', 'FSCRNT', 'Foscarnet', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('오셀타미비르', 'OSLTMV', 'Oseltamivir', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('자나미비르', 'ZNMVR', 'Zanamivir', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('페라미비르', 'PRMVR', 'Peramivir', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('발록사비르', 'BLXVR', 'Baloxavir', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('렘데시비르', 'RMDSVR', 'Remdesivir', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('니르마트렐비르', 'NRMTRL', 'Nirmatrelvir', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('리토나비르', 'RTNVR', 'Ritonavir', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('몰누피라비르', 'MLNPRV', 'Molnupiravir', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('돌루테그라비르', 'DLTGRV', 'Dolutegravir', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('빅테그라비르', 'BCTGRV', 'Bictegravir', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('랄테그라비르', 'RLTGRV', 'Raltegravir', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('엠트리시타빈', 'EMTRCT', 'Emtricitabine', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('아바카비르', 'ABCVR', 'Abacavir', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('지도부딘', 'ZDVDN', 'Zidovudine', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('다루나비르', 'DRNVR', 'Darunavir', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('에파비렌즈', 'EFVRNZ', 'Efavirenz', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('릴피비린', 'RLPVRN', 'Rilpivirine', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('알벤다졸', 'ALBNDZ', 'Albendazole', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('메벤다졸', 'MBNDZL', 'Mebendazole', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('프라지콴텔', 'PRZQNT', 'Praziquantel', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('이버멕틴', 'IVRMCT', 'Ivermectin', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('피란텔', 'PYRNTL', 'Pyrantel', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('하이드록시클로로퀸', 'HYDRXYC', 'Hydroxychloroquine', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('클로로퀸', 'CHLRQN', 'Chloroquine', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('메플로퀸', 'MFLQN', 'Mefloquine', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('아토바쿠온', 'ATVQN', 'Atovaquone', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('프리마퀸', 'PRMQN', 'Primaquine', '분류: 성분명: 항감염', 'N', NOW(6), NOW(6)),
-  ('시클로포스파미드', 'CYCLPH', 'Cyclophosphamide', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('이포스파미드', 'IFSFMD', 'Ifosfamide', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('메스나', 'MESNA', 'Mesna', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('멜팔란', 'MLPHLN', 'Melphalan', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('부설판', 'BSLFN', 'Busulfan', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('벤다무스틴', 'BNDMST', 'Bendamustine', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('클로람부실', 'CHLRMB', 'Chlorambucil', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('카르무스틴', 'CRMSTN', 'Carmustine', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('테모졸로미드', 'TMZLMD', 'Temozolomide', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('다카바진', 'DCRBZN', 'Dacarbazine', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('시스플라틴', 'CSPLTN', 'Cisplatin', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('카보플라틴', 'CRBPLT', 'Carboplatin', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('옥살리플라틴', 'OXLPLT', 'Oxaliplatin', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('메토트렉세이트', 'MTHTRX', 'Methotrexate', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('페메트렉시드', 'PMTRXD', 'Pemetrexed', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('플루오로우라실', 'FLRCL', 'Fluorouracil', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('카페시타빈', 'CPCTBN', 'Capecitabine', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('테가푸르', 'TGFR', 'Tegafur', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('젬시타빈', 'GMCTBN', 'Gemcitabine', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('시타라빈', 'CYTRBN', 'Cytarabine', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('플루다라빈', 'FLDRBN', 'Fludarabine', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('클라드리빈', 'CLDRBN', 'Cladribine', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('아자시티딘', 'AZCTDN', 'Azacitidine', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('데시타빈', 'DCTBN', 'Decitabine', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('하이드록시유레아', 'HYDRXYR', 'Hydroxyurea', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('머캅토퓨린', 'MRCPTP', 'Mercaptopurine', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('티오구아닌', 'THGN', 'Thioguanine', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('류코보린', 'LCVRN', 'Leucovorin', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('독소루비신', 'DXRBCN', 'Doxorubicin', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('에피루비신', 'EPRBCN', 'Epirubicin', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('이다루비신', 'IDRBCN', 'Idarubicin', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('다우노루비신', 'DNRBCN', 'Daunorubicin', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('미톡산트론', 'MTXNTR', 'Mitoxantrone', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('블레오마이신', 'BLMYCN', 'Bleomycin', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('미토마이신', 'MTMYCN', 'Mitomycin', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('닥티노마이신', 'DCTNMY', 'Dactinomycin', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('파클리탁셀', 'PCLTXL', 'Paclitaxel', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('도세탁셀', 'DCTXL', 'Docetaxel', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('카바지탁셀', 'CBZTXL', 'Cabazitaxel', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('빈크리스틴', 'VNCRST', 'Vincristine', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('빈블라스틴', 'VNBLST', 'Vinblastine', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('비노렐빈', 'VNRLBN', 'Vinorelbine', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('에리불린', 'ERBLN', 'Eribulin', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('에토포시드', 'ETPSD', 'Etoposide', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('이리노테칸', 'IRNTCN', 'Irinotecan', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('토포테칸', 'TPTCN', 'Topotecan', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('이마티닙', 'IMTNB', 'Imatinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('다사티닙', 'DSTNB', 'Dasatinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('닐로티닙', 'NLTNB', 'Nilotinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('라도티닙', 'RDTNB', 'Radotinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('보수티닙', 'BSTNB', 'Bosutinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('포나티닙', 'PNTNB', 'Ponatinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('게피티닙', 'GFTNB', 'Gefitinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('엘로티닙', 'ERLTNB', 'Erlotinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('아파티닙', 'AFTNB', 'Afatinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('오시머티닙', 'OSMRTN', 'Osimertinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('레이저티닙', 'LZRTNB', 'Lazertinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('크리조티닙', 'CRZTNB', 'Crizotinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('알렉티닙', 'ALCTNB', 'Alectinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('세리티닙', 'CRTNB', 'Ceritinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('브리가티닙', 'BRGTNB', 'Brigatinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('로라티닙', 'LRLTNB', 'Lorlatinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('소라페닙', 'SRFNB', 'Sorafenib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('렌바티닙', 'LNVTNB', 'Lenvatinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('수니티닙', 'SNTNB', 'Sunitinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('파조파닙', 'PZPNB', 'Pazopanib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('레고라페닙', 'RGRFNB', 'Regorafenib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('카보잔티닙', 'CBZNTN', 'Cabozantinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('악시티닙', 'AXTNB', 'Axitinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('에버롤리무스', 'EVRLMS', 'Everolimus', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('팔보시클립', 'PLBCLB', 'Palbociclib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('리보시클립', 'RBCLB', 'Ribociclib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('아베마시클립', 'ABMCLB', 'Abemaciclib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('올라파립', 'OLPRB', 'Olaparib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('니라파립', 'NRPRB', 'Niraparib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('라파티닙', 'LPTNB', 'Lapatinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('이브루티닙', 'IBRTNB', 'Ibrutinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('아칼라브루티닙', 'ACLBRT', 'Acalabrutinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('룩소리티닙', 'RXLTNB', 'Ruxolitinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('베네토클락스', 'VNTCLX', 'Venetoclax', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('보르테조밉', 'BRTZMB', 'Bortezomib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('카르필조밉', 'CRFLZM', 'Carfilzomib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('레날리도마이드', 'LNLDMD', 'Lenalidomide', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('포말리도마이드', 'PMLDMD', 'Pomalidomide', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('탈리도마이드', 'THLDMD', 'Thalidomide', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('트레티노인', 'TRTN', 'Tretinoin', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('삼산화비소', 'ARSTRX', 'Arsenic Trioxide', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('리툭시맙', 'RTXMB', 'Rituximab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('트라스투주맙', 'TRSTZM', 'Trastuzumab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('퍼투주맙', 'PRTZMB', 'Pertuzumab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('베바시주맙', 'BVCZMB', 'Bevacizumab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('세툭시맙', 'CTXMB', 'Cetuximab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('파니투무맙', 'PNTMB', 'Panitumumab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('라무시루맙', 'RMCRMB', 'Ramucirumab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('펨브롤리주맙', 'PMBRLZ', 'Pembrolizumab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('니볼루맙', 'NVLMB', 'Nivolumab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('아테졸리주맙', 'ATZLZM', 'Atezolizumab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('더발루맙', 'DRVLMB', 'Durvalumab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('아벨루맙', 'AVLMB', 'Avelumab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('이필리무맙', 'IPLMB', 'Ipilimumab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('다라투무맙', 'DRTMB', 'Daratumumab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('블리나투모맙', 'BLNTMB', 'Blinatumomab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('브렌툭시맙', 'BRNTXM', 'Brentuximab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('필그라스팀', 'FLGRST', 'Filgrastim', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('페그필그라스팀', 'PGFLGR', 'Pegfilgrastim', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('레노그라스팀', 'LNGRST', 'Lenograstim', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('에리스로포이에틴', 'ERYTHRP', 'Erythropoietin', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('다베포에틴', 'DRBPTN', 'Darbepoetin', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('엘트롬보팍', 'ELTRMB', 'Eltrombopag', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('로미플로스팀', 'RMPLST', 'Romiplostim', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('덱스라족산', 'DXRZXN', 'Dexrazoxane', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('아미포스틴', 'AMFSTN', 'Amifostine', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('시클로스포린', 'CYCLSP', 'Cyclosporine', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('타크로리무스', 'TCRLMS', 'Tacrolimus', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('시롤리무스', 'SRLMS', 'Sirolimus', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('미코페놀레이트', 'MYCPHN', 'Mycophenolate', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('아자티오프린', 'AZTHPR', 'Azathioprine', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('바실릭시맙', 'BSLXMB', 'Basiliximab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('항흉선세포글로불린', 'ATG', 'Antithymocyte Globulin', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('레플루노마이드', 'LFLNMD', 'Leflunomide', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('토파시티닙', 'TFCTNB', 'Tofacitinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('바리시티닙', 'BRCTNB', 'Baricitinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('우파다시티닙', 'UPDCTN', 'Upadacitinib', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('아달리무맙', 'ADLMB', 'Adalimumab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('인플릭시맙', 'INFLXM', 'Infliximab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('에타너셉트', 'ETNRCP', 'Etanercept', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('골리무맙', 'GLMB', 'Golimumab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('토실리주맙', 'TCLZMB', 'Tocilizumab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('아바타셉트', 'ABTCPT', 'Abatacept', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('우스테키누맙', 'USTKNM', 'Ustekinumab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('세쿠키누맙', 'SCKNMB', 'Secukinumab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('베돌리주맙', 'VDLZMB', 'Vedolizumab', '분류: 성분명: 항암·면역', 'N', NOW(6), NOW(6)),
-  ('염화나트륨', 'SDMCHL', 'Sodium Chloride', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('염화칼륨', 'PTSCHL', 'Potassium Chloride', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('글루콘산칼슘', 'CLCGLC', 'Calcium Gluconate', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('염화칼슘', 'CLCCHL', 'Calcium Chloride', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('황산마그네슘', 'MGNSLF', 'Magnesium Sulfate', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('탄산수소나트륨', 'SDMBCR', 'Sodium Bicarbonate', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('인산칼륨', 'PTSPHS', 'Potassium Phosphate', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('인산나트륨', 'SDMPHS', 'Sodium Phosphate', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('초산나트륨', 'SDMACT', 'Sodium Acetate', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('젖산링거', 'LCTRNG', 'Lactated Ringer', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('하트만액', 'HRTSLT', 'Hartmann Solution', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('덱스트란', 'DXTRN', 'Dextran', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('하이드록시에틸전분', 'HYDSTR', 'Hydroxyethyl Starch', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('젤라틴', 'GLTN', 'Gelatin', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('정제수', 'PRFWTR', 'Purified Water', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('주사용수', 'WTRINJ', 'Water For Injection', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('철', 'IRNELM', 'Iron Element', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('수크로스철', 'IRNSCR', 'Iron Sucrose', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('카르복시말토스철', 'FRCCRB', 'Ferric Carboxymaltose', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('황산제일철', 'FRSSLF', 'Ferrous Sulfate', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('폴산', 'FLCACD', 'Folic Acid', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('시아노코발라민', 'CYNCBL', 'Cyanocobalamin', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('히드록소코발라민', 'HYDRXC', 'Hydroxocobalamin', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('티아민', 'THMN', 'Thiamine', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('리보플라빈', 'RBFLVN', 'Riboflavin', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('피리독신', 'PYRDXN', 'Pyridoxine', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('아스코르브산', 'ASCACD', 'Ascorbic Acid', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('토코페롤', 'TCPHRL', 'Tocopherol', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('레티놀', 'RTNL', 'Retinol', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('판토텐산', 'PNTACD', 'Pantothenic Acid', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('비오틴', 'BIOTIN', 'Biotin', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('아연', 'ZINC', 'Zinc', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('셀레늄', 'SLNM', 'Selenium', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('구리', 'COPPER', 'Copper', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('망간', 'MNGNS', 'Manganese', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('크롬', 'CHRM', 'Chromium', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('요오드', 'IODINE', 'Iodine', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('카르니틴', 'CRNTN', 'Carnitine', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('글루타민', 'GLTMN', 'Glutamine', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('분지쇄아미노산', 'BCAA', 'Branched Chain Amino Acid', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('대두유', 'SYBOIL', 'Soybean Oil', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('어유', 'FSHOIL', 'Fish Oil', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('올리브유', 'OLVOIL', 'Olive Oil', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('중쇄중성지방', 'MCT', 'Medium Chain Triglyceride', '분류: 성분명: 수액·전해질·영양·비타민', 'N', NOW(6), NOW(6)),
-  ('아다팔렌', 'ADPLN', 'Adapalene', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('과산화벤조일', 'BNZPRX', 'Benzoyl Peroxide', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('이소트레티노인', 'ISTRTN', 'Isotretinoin', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('아시트레틴', 'ACTRTN', 'Acitretin', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('칼시포트리올', 'CLCPTR', 'Calcipotriol', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('피메크로리무스', 'PMCRLM', 'Pimecrolimus', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('크로타미톤', 'CRTMTN', 'Crotamiton', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('퍼메트린', 'PRMTHR', 'Permethrin', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('요소', 'UREA', 'Urea', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('산화아연', 'ZNCOXD', 'Zinc Oxide', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('은설파디아진', 'SLVSLF', 'Silver Sulfadiazine', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('포비돈요오드', 'PVDIDN', 'Povidone Iodine', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('클로르헥시딘', 'CHLRHX', 'Chlorhexidine', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('에탄올', 'ETHNL', 'Ethanol', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('이소프로필알코올', 'ISPALC', 'Isopropyl Alcohol', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('과산화수소', 'HYDPRX', 'Hydrogen Peroxide', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('라타노프로스트', 'LTNPRS', 'Latanoprost', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('트라보프로스트', 'TRVPRS', 'Travoprost', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('비마토프로스트', 'BMTPRS', 'Bimatoprost', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('타플루프로스트', 'TFLPRS', 'Tafluprost', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('티몰롤', 'TML', 'Timolol', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('도르졸라미드', 'DRZLMD', 'Dorzolamide', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('브린졸라미드', 'BRNZLM', 'Brinzolamide', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('브리모니딘', 'BRMNDN', 'Brimonidine', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('필로카르핀', 'PLCRPN', 'Pilocarpine', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('트로피카미드', 'TRPCMD', 'Tropicamide', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('사이클로펜톨레이트', 'CYCLPN', 'Cyclopentolate', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('히알루론산', 'HYLACD', 'Hyaluronic Acid', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('디쿠아포솔', 'DQFSL', 'Diquafosol', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('카르복시메틸셀룰로오스', 'CRBXYM', 'Carboxymethylcellulose', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('라니비주맙', 'RNBZMB', 'Ranibizumab', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('애플리버셉트', 'AFLBRC', 'Aflibercept', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('보툴리눔독소', 'BTLTXN', 'Botulinum Toxin', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('요오헥솔', 'IHXL', 'Iohexol', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('요오프로마이드', 'IPRMD', 'Iopromide', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('요오딕사놀', 'IDXNL', 'Iodixanol', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('가도부트롤', 'GDBTRL', 'Gadobutrol', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('가도테르산', 'GDTACD', 'Gadoteric Acid', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('바륨', 'BRMSLF', 'Barium Sulfate', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('플루데옥시글루코스', 'FDG', 'Fludeoxyglucose', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('테크네튬', 'TCHNTM', 'Technetium', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('인도시아닌그린', 'INDGRN', 'Indocyanine Green', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('투베르쿨린', 'TBRCLN', 'Tuberculin', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('인플루엔자백신', 'INFVCN', 'Influenza Vaccine', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('폐렴구균백신', 'PNMVCN', 'Pneumococcal Vaccine', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('B형간염백신', 'HBVVAC', 'Hepatitis B Vaccine', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('대상포진백신', 'ZSTVCN', 'Zoster Vaccine', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('파상풍톡소이드', 'TNSTXD', 'Tetanus Toxoid', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('사람면역글로불린', 'HMNIMN', 'Human Immunoglobulin', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('B형간염면역글로불린', 'HBIG', 'Hepatitis B Immunoglobulin', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('파상풍면역글로불린', 'TNSIMN', 'Tetanus Immunoglobulin', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('항독소', 'ANTXN', 'Antitoxin', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('항사독소', 'ANTVNM', 'Antivenom', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('플루마제닐', 'FLMZNL', 'Flumazenil', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('피소스티그민', 'PHYSTG', 'Physostigmine', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('디곡신항체', 'DGXIMNFAB', 'Digoxin Immune Fab', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('활성탄', 'ACTCHR', 'Activated Charcoal', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('메틸렌블루', 'MTHBL', 'Methylene Blue', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('푸마피졸', 'FMPZL', 'Fomepizole', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('데페록사민', 'DFRXMN', 'Deferoxamine', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('데페라시록스', 'DFRSRX', 'Deferasirox', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('페니실라민', 'PNCLMN', 'Penicillamine', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('디메르카프롤', 'DMRCPR', 'Dimercaprol', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('에데트산칼슘', 'CLCEDT', 'Calcium Edetate', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('프랄리독심', 'PRLDXM', 'Pralidoxime', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('레보카르니틴', 'LVCRNT', 'Levocarnitine', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('알파원항트립신', 'ALP1ANT', 'Alpha 1 Antitrypsin', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('혈액응고인자', 'CGLFCT', 'Coagulation Factor', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6));
-
-INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES
-  ('피브리노겐', 'FBRNGN', 'Fibrinogen', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('안티트롬빈', 'ANTHRM', 'Antithrombin', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('프로트롬빈복합체', 'PRTCMP', 'Prothrombin Complex', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('알프로스타딜', 'ALPRST', 'Alprostadil', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('카페인', 'CFN', 'Caffeine', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('계면활성제', 'SRFCTN', 'Surfactant', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('산소', 'OXYGEN', 'Oxygen', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('의료용가스', 'MDCGAS', 'Medical Gas', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('이산화탄소', 'CRBDXD', 'Carbon Dioxide', '분류: 성분명: 피부·안과·기타', 'N', NOW(6), NOW(6)),
-  ('약물상담', 'DRGCNS', 'Drug Consultation', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('복약상담', 'MDCTCNSL', 'Medication Consultation', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('퇴원복약지도', 'DSCCNS', 'Discharge Counseling', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('입원복약지도', 'ADMCNS', 'Admission Counseling', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('약물정보', 'DRGINF', 'Drug Information', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('약물정보실', 'DRGINFCNT', 'Drug Information Center', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('의약품정보문의', 'DRGINFINQ', 'Drug Information Inquiry', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('약력', 'MDCHST', 'Medication History', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('약력관리', 'MDCHSTMNG', 'Medication History Management', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('약물조정', 'MDCRCN', 'Medication Reconciliation', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('약물이력', 'DRGHST', 'Drug History', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('지참약감별', 'BRGDRGIDN', 'Brought Drug Identification', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('약품감별', 'DRGIDN', 'Drug Identification', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('식별표시', 'IDNMRK', 'Identification Mark', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('각인', 'IMPRNT', 'Imprint', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('성상', 'APRNC', 'Appearance', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('색상', 'COLOR', 'Color', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('모양', 'SHAPE', 'Shape', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('분할선', 'SCRLN', 'Score Line', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('크기', 'SIZE', 'Size', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('약동학', 'PK', 'Pharmacokinetics', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('약력학', 'PD', 'Pharmacodynamics', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('분포용적', 'VLMDST', 'Volume Of Distribution', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('생체이용률', 'BVLBLT', 'Bioavailability', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('부하용량', 'LDNDS', 'Loading Dose', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('유지용량', 'MNTDS', 'Maintenance Dose', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('초회용량', 'INTDS', 'Initial Dose', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('목표농도', 'TRGTCNCN', 'Target Concentration', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('채혈시점', 'SMPTM', 'Sampling Time', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('용량계산', 'DSCLC', 'Dose Calculation', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('용량권고', 'DSRCM', 'Dose Recommendation', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('항생제관리', 'ANTSTW', 'Antimicrobial Stewardship', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('제한항생제', 'RSTANT', 'Restricted Antibiotic', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('항생제사용승인', 'ANTAPR', 'Antibiotic Approval', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('예방적항생제', 'PRPANT', 'Prophylactic Antibiotic', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('항응고관리', 'ANTMNG', 'Anticoagulation Management', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('영양집중지원', 'NTRSPRTM', 'Nutrition Support Team', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('영양평가', 'NTRASM', 'Nutrition Assessment', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('열량', 'CLR', 'Calorie', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('단백질', 'PRTN', 'Protein', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('지질', 'LIPID', 'Lipid', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('탄수화물', 'CRBHYD', 'Carbohydrate', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('수분', 'FLUID', 'Fluid', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('삼투압', 'OSMLTY', 'Osmolality', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('정맥영양처방', 'PRNNTRORD', 'Parenteral Nutrition Order', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('삼합수액', 'THRCHMBAG', 'Three Chamber Bag', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('이합수액', 'TWOCHMBAG', 'Two Chamber Bag', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('항암처방', 'CHMORD', 'Chemotherapy Order', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('항암레지먼', 'CHMRGMPRT', 'Chemotherapy Regimen Protocol', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('항암주기', 'CHMCYC', 'Chemotherapy Cycle', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('항암일차', 'CHMDAYNMB', 'Chemotherapy Day Number', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('누적용량', 'CMLDS', 'Cumulative Dose', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('평생최대용량', 'LFTMXMDS', 'Lifetime Maximum Dose', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('용량제한독성', 'DSLMTTXC', 'Dose Limiting Toxicity', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('혈관외유출', 'EXTRVS', 'Extravasation', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('노출', 'EXPSR', 'Exposure', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('유출', 'SPILL', 'Spill', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('유출키트', 'SPLKIT', 'Spill Kit', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('폐쇄형약물이송장치', 'CSTD', 'Closed System Transfer Device', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('위해의약품', 'HZRDRG', 'Hazardous Drug', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('세포독성폐기물', 'CYTWST', 'Cytotoxic Waste', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('의료폐기물', 'MDCWST', 'Medical Waste', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('감염성폐기물', 'INFWST', 'Infectious Waste', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('약품폐기물', 'PHRWST', 'Pharmaceutical Waste', '분류: 임상약제 서비스', 'N', NOW(6), NOW(6)),
-  ('주사처방', 'INJPRS', 'Injection Prescription', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('수액처방', 'FLDPRS', 'Fluid Prescription', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('혼주', 'ADMXTR', 'Admixture', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('배합', 'CMBBLN', 'Combination Blend', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('배합변화', 'INCMPT', 'Incompatibility', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('배합금기', 'INCCNT', 'Incompatibility Contraindication', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('배합가능', 'CMPTBL', 'Compatible', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('용해액', 'DLNT', 'Diluent', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('희석액', 'DLTFLD', 'Dilution Fluid', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('최종농도', 'FNLCNC', 'Final Concentration', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('최종용량', 'FNLVLM', 'Final Volume', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('주입시간', 'INFDRT', 'Infusion Duration', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('주입속도', 'INFSPD', 'Infusion Speed', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('점적', 'DRIP', 'Drip', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('점적수', 'DRPCNT', 'Drip Count', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('라인', 'LINE', 'Line', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('수액세트', 'INFSET', 'Infusion Set', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('필터', 'FILTER', 'Filter', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('인라인필터', 'INLFLT', 'Inline Filter', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('차광세트', 'LGHPRTSET', 'Light Protection Set', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('주사바늘', 'NEEDLE', 'Needle', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('카테터', 'CTHTR', 'Catheter', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('포트', 'PORT', 'Port', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('중심정맥관', 'CNTVNSCTH', 'Central Venous Catheter', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('말초삽입중심정맥관', 'PICC', 'PICC', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('배치조제', 'BTCCMP', 'Batch Compounding', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('미리조제', 'PRECMP', 'Pre Compounding', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('조제시각', 'CMPTM', 'Compounding Time', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('사용시한', 'BUD', 'Beyond Use Date', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('보관시한', 'STRLMT', 'Storage Limit', '분류: 주사·수액 조제', 'N', NOW(6), NOW(6)),
-  ('마약처방전', 'NRCPRSSHT', 'Narcotic Prescription Sheet', '분류: 마약류 업무', 'N', NOW(6), NOW(6)),
-  ('마약류보고', 'NRCRPR', 'Narcotic Report', '분류: 마약류 업무', 'N', NOW(6), NOW(6)),
-  ('마약류재고', 'NRCSTC', 'Narcotic Stock', '분류: 마약류 업무', 'N', NOW(6), NOW(6)),
-  ('마약류인수인계', 'NRCTHNDV', 'Narcotic Handover', '분류: 마약류 업무', 'N', NOW(6), NOW(6)),
-  ('잔여마약', 'RSDNRC', 'Residual Narcotic', '분류: 마약류 업무', 'N', NOW(6), NOW(6)),
-  ('마약잔량', 'NRCRMN', 'Narcotic Remainder', '분류: 마약류 업무', 'N', NOW(6), NOW(6)),
-  ('마약잔량폐기', 'NRCRMNDSP', 'Narcotic Remainder Disposal', '분류: 마약류 업무', 'N', NOW(6), NOW(6)),
-  ('폐기입회', 'DSPSWTNS', 'Disposal Witness', '분류: 마약류 업무', 'N', NOW(6), NOW(6)),
-  ('입회자', 'WTNS', 'Witness', '분류: 마약류 업무', 'N', NOW(6), NOW(6)),
-  ('마약류저장시설', 'NRCSTR', 'Narcotic Storage', '분류: 마약류 업무', 'N', NOW(6), NOW(6)),
-  ('향정처방', 'PSYPRS', 'Psychotropic Prescription', '분류: 마약류 업무', 'N', NOW(6), NOW(6)),
-  ('취급승인', 'HNDAPR', 'Handling Approval', '분류: 마약류 업무', 'N', NOW(6), NOW(6)),
-  ('취급보고', 'HNDRPR', 'Handling Report', '분류: 마약류 업무', 'N', NOW(6), NOW(6)),
-  ('저장시설점검', 'STRINS', 'Storage Inspection', '분류: 마약류 업무', 'N', NOW(6), NOW(6)),
-  ('환자확인', 'PTNIDN', 'Patient Identification', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('이중확인', 'DBLCHC', 'Double Check', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('투약오류', 'ADMER', 'Administration Error', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('처방오류', 'PRSER', 'Prescribing Error', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('전사오류', 'TRNER', 'Transcription Error', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('조제오류보고', 'DSPERRPR', 'Dispensing Error Report', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('오류유형', 'ERTYP', 'Error Type', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('오류단계', 'ERSTG', 'Error Stage', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('오류원인', 'ERCS', 'Error Cause', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('재발방지', 'RCRPRV', 'Recurrence Prevention', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('개선활동', 'IMPACT', 'Improvement Activity', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('위험도', 'RSKLVL', 'Risk Level', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('고위험환자', 'HGHRSKPTN', 'High Risk Patient', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('고위험약관리', 'HGHALRDRGMNG', 'High Alert Drug Management', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('농축전해질', 'CNCELC', 'Concentrated Electrolyte', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('유사약품', 'SMLDRG', 'Similar Drug', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('혼동주의', 'CNFCTN', 'Confusion Caution', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('경고라벨', 'WRNLBL', 'Warning Label', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('보조라벨', 'AXLLBL', 'Auxiliary Label', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('주의라벨', 'CTNLBL', 'Caution Label', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('투약바코드', 'MDCBRC', 'Medication Barcode', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('환자팔찌', 'PTNWRS', 'Patient Wristband', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('바코드투약', 'BCMA', 'Barcode Medication Administration', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('투약확인', 'ADMCNF', 'Administration Confirmation', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('투약5원칙', 'FIVERGT', 'Five Rights', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('정확한환자', 'RGHPTN', 'Right Patient', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('정확한약', 'RGHDRG', 'Right Drug', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('정확한용량', 'RGHDS', 'Right Dose', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('정확한경로', 'RGHRT', 'Right Route', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('정확한시간', 'RGHTM', 'Right Time', '분류: 투약 안전', 'N', NOW(6), NOW(6)),
-  ('병동약품', 'WRDDRG', 'Ward Drug', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('병동비치', 'WRDFLRSTC', 'Ward Floor Stock', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('비치약품', 'STCDRG', 'Stock Drug', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('비치수량', 'STCLVL', 'Stock Level', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('보충', 'RPLNSH', 'Replenishment', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('보충량', 'RPLQNT', 'Replenishment Quantity', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('보충요청', 'RPLRQS', 'Replenishment Request', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('자동보충', 'ATRPL', 'Auto Replenishment', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('점검일', 'CHCDAY', 'Check Day', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('점검자', 'CHCKR', 'Checker', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('병동점검', 'WRDINS', 'Ward Inspection', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('응급약', 'EMRDRG', 'Emergency Drug', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('응급약품목록', 'EMRDRGLST', 'Emergency Drug List', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('응급카트점검', 'EMRCRTCHC', 'Emergency Cart Check', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('봉인', 'SEAL', 'Seal', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('봉인번호', 'SLNMB', 'Seal Number', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('개봉일', 'OPNDAY', 'Opening Day', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('개봉후사용기한', 'USESHLLF', 'In Use Shelf Life', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('다회용', 'MLTUSE', 'Multiple Use', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('일회용', 'SNGUSE', 'Single Use', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('개인약', 'INDDRG', 'Individual Drug', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('환자별', 'PERPTN', 'Per Patient', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('일일투약', 'DLYDSDSP', 'Daily Dose Dispensing', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('단위용량', 'UNTDS', 'Unit Dose', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('단위용량조제', 'UNTDSDSP', 'Unit Dose Dispensing', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('병동조제', 'WRDDSP', 'Ward Dispensing', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('정규조제', 'RGLDSP', 'Regular Dispensing', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('추가조제', 'ADTDSP', 'Additional Dispensing', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('퇴원조제', 'DSCDSP', 'Discharge Dispensing', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('응급조제', 'EMRDSP', 'Emergency Dispensing', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('선조제', 'PREDSP', 'Pre Dispensing', '분류: 병동 약품 관리', 'N', NOW(6), NOW(6)),
-  ('반납처리', 'RTRPRC', 'Return Processing', '분류: 반납·폐기 세부', 'N', NOW(6), NOW(6)),
-  ('반납검수', 'RTRINS', 'Return Inspection', '분류: 반납·폐기 세부', 'N', NOW(6), NOW(6)),
-  ('반납불가', 'RTRNOTALW', 'Return Not Allowed', '분류: 반납·폐기 세부', 'N', NOW(6), NOW(6)),
-  ('반납가능', 'RTRALW', 'Return Allowed', '분류: 반납·폐기 세부', 'N', NOW(6), NOW(6)),
-  ('부분반납', 'PRTRTR', 'Partial Return', '분류: 반납·폐기 세부', 'N', NOW(6), NOW(6)),
-  ('전량반납', 'FLRTR', 'Full Return', '분류: 반납·폐기 세부', 'N', NOW(6), NOW(6)),
-  ('자동반납', 'ATMRTR', 'Automatic Return', '분류: 반납·폐기 세부', 'N', NOW(6), NOW(6)),
-  ('반납위치', 'RTRLCT', 'Return Location', '분류: 반납·폐기 세부', 'N', NOW(6), NOW(6)),
-  ('재고반영', 'STCRFL', 'Stock Reflection', '분류: 반납·폐기 세부', 'N', NOW(6), NOW(6)),
-  ('재불출', 'REIS', 'Re Issue', '분류: 반납·폐기 세부', 'N', NOW(6), NOW(6)),
-  ('반납율', 'RTRRT', 'Return Rate', '분류: 반납·폐기 세부', 'N', NOW(6), NOW(6)),
-  ('폐기처리', 'DSPPRC', 'Disposal Processing', '분류: 반납·폐기 세부', 'N', NOW(6), NOW(6)),
-  ('폐기방법', 'DSPSMTHD', 'Disposal Method', '분류: 반납·폐기 세부', 'N', NOW(6), NOW(6)),
-  ('폐기업체', 'DSPSCMPN', 'Disposal Company', '분류: 반납·폐기 세부', 'N', NOW(6), NOW(6)),
-  ('소각', 'INCNRT', 'Incineration', '분류: 반납·폐기 세부', 'N', NOW(6), NOW(6)),
-  ('수거', 'CLCTN', 'Collection', '분류: 반납·폐기 세부', 'N', NOW(6), NOW(6)),
-  ('수거함', 'CLCBOX', 'Collection Box', '분류: 반납·폐기 세부', 'N', NOW(6), NOW(6)),
-  ('불출계획', 'ISPLN', 'Issue Plan', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('불출일정', 'ISSCH', 'Issue Schedule', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('불출시간', 'ISTM', 'Issue Time', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('불출지', 'ISPLC', 'Issue Place', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('불출확정', 'ISCNF', 'Issue Confirmation', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('분할불출', 'PRTIS', 'Partial Issue', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('일괄불출', 'BLKIS', 'Bulk Issue', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('개별불출', 'INDIS', 'Individual Issue', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('추가불출', 'ADTIS', 'Additional Issue', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('대체불출', 'SBSIS', 'Substitute Issue', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('미불출', 'NOTISD', 'Not Issued', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('선불출', 'PREIS', 'Pre Issue', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('후불출', 'PSTIS', 'Post Issue', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('불출순서', 'ISORDSQN', 'Issue Order Sequence', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('피킹', 'PCKNG', 'Picking', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('피킹리스트', 'PCKLST', 'Picking List', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('패킹', 'PACKING', 'Packing', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('출하', 'SHPMNT', 'Shipment', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('배송지', 'DLVADR', 'Delivery Address', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('배송시간', 'DLVTM', 'Delivery Time', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('배송자', 'DLVPRS', 'Delivery Person', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('도착', 'ARVL', 'Arrival', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('도착확인', 'ARVCNF', 'Arrival Confirmation', '분류: 불출 세부', 'N', NOW(6), NOW(6)),
-  ('검수수량', 'INSQNT', 'Inspected Quantity', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('검수단위', 'INSUNT', 'Inspection Unit', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('검수일시점', 'INSTMPNT', 'Inspection Time Point', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('검수장소', 'INSPLC', 'Inspection Place', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('검수사진', 'INSPHT', 'Inspection Photo', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('검수의견', 'INSOPN', 'Inspection Opinion', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('검수방법', 'INSMTH', 'Inspection Method', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('샘플링', 'SMPLNG', 'Sampling', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('표본', 'SAMPLE', 'Sample', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('전수검사', 'FLINS', 'Full Inspection', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('발췌검사', 'SMPINS', 'Sampling Inspection', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('시험성적서', 'COA', 'Certificate Of Analysis', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('품질검사', 'QLTINS', 'Quality Inspection', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('납품검수', 'DLVINS', 'Delivery Inspection', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('온도확인', 'TMPCHC', 'Temperature Check', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('포장상태', 'PCKCND', 'Packaging Condition', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('라벨확인', 'LBLCHC', 'Label Check', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('유효기간확인', 'EXPCHC', 'Expiry Check', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('제조번호확인', 'LOTCHC', 'Lot Check', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('일치', 'MATCH', 'Match', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('불일치', 'MSMTCH', 'Mismatch', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('차이수량', 'DFRQNT', 'Difference Quantity', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('과입고', 'OVRRCP', 'Over Receipt', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('미입고', 'NOTRCV', 'Not Received', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('부분입고', 'PRTRCP', 'Partial Receipt', '분류: 검수 세부', 'N', NOW(6), NOW(6)),
-  ('처방일련', 'PRSSQN', 'Prescription Sequence', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('처방항목', 'PRSITM', 'Prescription Item', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('처방약품', 'PRSCDRUG', 'Prescribed Drug', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('처방용량', 'PRSDS', 'Prescribed Dose', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('처방단위', 'PRSUNT', 'Prescription Unit', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('처방용법', 'PRSUSG', 'Prescription Usage', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('처방메모', 'PRSM', 'Prescription Memo', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('처방사유', 'PRSRSN', 'Prescription Reason', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('처방근거', 'PRSBS', 'Prescription Basis', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('처방권한', 'PRSATH', 'Prescription Authority', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('처방제한', 'PRSRST', 'Prescription Restriction', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('처방수', 'PRSCNT', 'Prescription Count', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('처방건', 'PRSCS', 'Prescription Case', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('처방량합계', 'TLPRSQNT', 'Total Prescribed Quantity', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('처방패턴', 'PRSPTR', 'Prescription Pattern', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('처방분석', 'PRSANL', 'Prescription Analysis', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('처방적정성', 'PRSAPR', 'Prescription Appropriateness', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('다제약물', 'PLYPHR', 'Polypharmacy', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('부적절약물', 'PIM', 'Potentially Inappropriate Medication', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('용법변경', 'USGCHN', 'Usage Change', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('용량변경', 'DSCHN', 'Dose Change', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('약품변경', 'DRGCHN', 'Drug Change', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('투여중지', 'ADMSTP', 'Administration Stop', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('재개', 'RESUME', 'Resume', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('연장', 'EXTNSN', 'Extension', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('단축', 'SHRTNG', 'Shortening', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('처방만료', 'PRSEXP', 'Prescription Expiry', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('자동중지', 'ATMSTP', 'Automatic Stop', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('중지일', 'STPDAY', 'Stop Day', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('시작시점', 'STRTMPNT', 'Start Time Point', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('종료시점', 'ENDTMPNT', 'End Time Point', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('첫투여', 'FRSDS', 'First Dose', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('마지막투여', 'LSTDS', 'Last Dose', '분류: 처방 세부', 'N', NOW(6), NOW(6)),
-  ('조제시작', 'DSPSTR', 'Dispensing Start', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('조제종료', 'DSPEND', 'Dispensing End', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('조제소요시간', 'DSPDRT', 'Dispensing Duration', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('조제건수', 'DSPCNT', 'Dispensing Count', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('조제수량', 'DSPNQNTY', 'Dispensing Quantity', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('조제위치', 'DSPLCT', 'Dispensing Location', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('조제장비', 'DSPEQP', 'Dispensing Equipment', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('조제순서', 'DSPORD', 'Dispensing Order', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('조제그룹', 'DSPGRP', 'Dispensing Group', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('조제묶음', 'DSPBND', 'Dispensing Bundle', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('조제메모', 'DSPM', 'Dispensing Memo', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('조제주의', 'DSPCTN', 'Dispensing Caution', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('조제라벨', 'DSPLBL', 'Dispensing Label', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('분포지', 'PCKPR', 'Packaging Paper', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('분포수', 'NMBPCK', 'Number Of Packets', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('분포방식', 'PCKMTH', 'Packaging Method', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('시간별분포', 'TMBSDPCK', 'Time Based Packaging', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('요일별분포', 'DAYBSDPCK', 'Day Based Packaging', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('반정', 'HLFTBL', 'Half Tablet', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('사분정', 'QTRTAB', 'Quarter Tablet', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('분할정', 'SPLTBL', 'Split Tablet', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('가루조제', 'PWDCMP', 'Powder Compounding', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('현탁조제', 'SPNCMP', 'Suspension Compounding', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('연고조제', 'ONTCMP', 'Ointment Compounding', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('캡슐충전', 'CPSFLN', 'Capsule Filling', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('수작업', 'MNLWRK', 'Manual Work', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('기계조제', 'MCHDSP', 'Machine Dispensing', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('대기번호', 'WTNNMB', 'Waiting Number', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('번호표', 'NMBTCK', 'Number Ticket', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('호출', 'CALL', 'Call', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('전광판', 'DSPBRD', 'Display Board', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('교부', 'DLVHND', 'Delivery Handout', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('교부대', 'HNDCNT', 'Handout Counter', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('교부완료', 'HNDCMP', 'Handout Completion', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('미교부', 'NOTHNDOUT', 'Not Handed Out', '분류: 조제 세부', 'N', NOW(6), NOW(6)),
-  ('아세틸살리실산리신', 'LYSACT', 'Lysine Acetylsalicylate', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('프로파세타몰', 'PRPCTM', 'Propacetamol', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('니메술리드', 'NMSLD', 'Nimesulide', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('아세메타신', 'ACMTCN', 'Acemetacin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('탈니플루메이트', 'TLNFLM', 'Talniflumate', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('글루코사민', 'GLCSMN', 'Glucosamine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('콘드로이틴', 'CHNDRT', 'Chondroitin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('디아세레인', 'DCRN', 'Diacerein', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('아보카도소야', 'AVCSYBUNS', 'Avocado Soybean Unsaponifiables', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('폴리데옥시리보뉴클레오티드', 'PDRN', 'Polydeoxyribonucleotide', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('히알루론산나트륨', 'SDMHYL', 'Sodium Hyaluronate', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('리세드론산', 'RSDACD', 'Risedronic Acid', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('클로피도그렐아스피린', 'CLPASP', 'Clopidogrel Aspirin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('아질사르탄메독소밀', 'AZLMDX', 'Azilsartan Medoxomil', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('올메사르탄메독소밀', 'OLMMDX', 'Olmesartan Medoxomil', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('칸데사르탄실렉세틸', 'CNDCLX', 'Candesartan Cilexetil', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('니솔디핀', 'NSLDPN', 'Nisoldipine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('라시디핀', 'LCDPN', 'Lacidipine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('에스몰롤염산염', 'ESMHYD', 'Esmolol Hydrochloride', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('티클로피딘', 'TCLPDN', 'Ticlopidine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('트리플루살', 'TRFLSL', 'Triflusal', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('펜톡시필린', 'PNTXFY', 'Pentoxifylline', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('은행잎추출물', 'GNKLFEXT', 'Ginkgo Leaf Extract', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('빈포세틴', 'VNPCTN', 'Vinpocetine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('시티콜린', 'CTCLN', 'Citicoline', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('피라세탐', 'PIRACETAM', 'Piracetam', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('옥시라세탐', 'OXRCTM', 'Oxiracetam', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('에다라본', 'EDRVN', 'Edaravone', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('리루졸', 'RLZL', 'Riluzole', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('테트라베나진', 'TRBNZN', 'Tetrabenazine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('보툴리눔A형', 'BTLTYP', 'Botulinum Type A', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('인터페론베타', 'INTBT', 'Interferon Beta', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('나탈리주맙', 'NTLZMB', 'Natalizumab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('오크렐리주맙', 'OCRLZM', 'Ocrelizumab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('핑골리모드', 'FNGLMD', 'Fingolimod', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('디메틸푸마르산', 'DMTFMR', 'Dimethyl Fumarate', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('테리플루노미드', 'TRFLNM', 'Teriflunomide', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('에르게나맙', 'ERNMB', 'Erenumab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('프레마네주맙', 'FRMNZM', 'Fremanezumab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('갈카네주맙', 'GLCNZM', 'Galcanezumab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('리메게판트', 'RMGPNT', 'Rimegepant', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('아세나핀', 'ASNPN', 'Asenapine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('카리프라진', 'CRPRZN', 'Cariprazine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('일로페리돈', 'ILPRDN', 'Iloperidone', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('플루펜틱솔', 'FLPNTX', 'Flupentixol', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('플루니트라제팜', 'FLNTRZ', 'Flunitrazepam', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('로르메타제팜', 'LRMTZP', 'Lormetazepam', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('쿠아제팜', 'QZPM', 'Quazepam', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('옥사제팜', 'OXZPM', 'Oxazepam', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('클로라제페이트', 'CLRZPT', 'Clorazepate', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('메프로바메이트', 'MPRBMT', 'Meprobamate', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('날메펜', 'NLMFN', 'Nalmefene', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('아캄프로세이트', 'ACMPRS', 'Acamprosate', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('디설피람', 'DSLFRM', 'Disulfiram', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('에스케타민', 'ESKTMN', 'Esketamine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('레보밀나시프란', 'LVMLNC', 'Levomilnacipran', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('모클로베미드', 'MCLBMD', 'Moclobemide', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('아목사핀', 'AMXPN', 'Amoxapine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('마프로틸린', 'MPRTLN', 'Maprotiline', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('글리세롤', 'GLYCRL', 'Glycerol', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('덱스판테놀', 'DXPNTH', 'Dexpanthenol', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('알로에', 'ALOE', 'Aloe', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('마그네슘트리실리케이트', 'MGNTRS', 'Magnesium Trisilicate', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('코데인인산염', 'CDNPHS', 'Codeine Phosphate', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('노스카핀', 'NSCPN', 'Noscapine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('클로페라스틴', 'CLPRST', 'Cloperastine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('지페프롤', 'ZPRL', 'Zipeprol', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('뷰타미레이트', 'BTMRT', 'Butamirate', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('펜스피리드', 'FNSPRD', 'Fenspiride', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('아젤라스틴비강', 'AZLNSL', 'Azelastine Nasal', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('플루티카손푸로에이트', 'FLTFRT', 'Fluticasone Furoate', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('모메타손푸로에이트', 'MTSFRT', 'Mometasone Furoate', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('트리암시놀론비강', 'TRMNSL', 'Triamcinolone Nasal', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('크로몰린', 'CRMLYN', 'Cromolyn', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('네도크로밀', 'NDCRML', 'Nedocromil', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('레보카바스틴', 'LVCBST', 'Levocabastine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('알카프타딘', 'ALCFTD', 'Alcaftadine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('프레드니솔론아세테이트', 'PRDACT', 'Prednisolone Acetate', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('플루오로메톨론', 'FLRMTH', 'Fluorometholone', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('로테프레드놀', 'LTPRDN', 'Loteprednol', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('레보플록사신점안', 'LVFOPH', 'Levofloxacin Ophthalmic', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('목시플록사신점안', 'MXFOPH', 'Moxifloxacin Ophthalmic', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('가티플록사신', 'GTFLXC', 'Gatifloxacin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('토브라마이신점안', 'TBROPH', 'Tobramycin Ophthalmic', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('네파페낙', 'NPFNC', 'Nepafenac', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('브롬페낙', 'BRMFNC', 'Bromfenac', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('케토롤락점안', 'KTROPH', 'Ketorolac Ophthalmic', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('시클로스포린점안', 'CYCOPH', 'Cyclosporine Ophthalmic', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('리피테그라스트', 'LFTGRS', 'Lifitegrast', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('아트로핀점안', 'ATROPH', 'Atropine Ophthalmic', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('프로파라카인', 'PRPRCN', 'Proparacaine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('플루오레세인', 'FLRSCN', 'Fluorescein', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('인공눈물', 'ARTTRS', 'Artificial Tears', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('세프토비프롤', 'CFTBPR', 'Ceftobiprole', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('세파만돌', 'CFMNDL', 'Cefamandole', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('세프티부텐', 'CFTBTN', 'Ceftibuten', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('세프로질', 'CFPRZL', 'Cefprozil', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('로라카르베프', 'LRCRBF', 'Loracarbef', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('파로페넴', 'FRPNM', 'Faropenem', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('테비페넴', 'TBPNM', 'Tebipenem', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('술타미실린', 'SLTMCL', 'Sultamicillin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('바캄피실린', 'BCMPCL', 'Bacampicillin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('플루클록사실린', 'FLCLXC', 'Flucloxacillin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('디클록사실린', 'DCLXCL', 'Dicloxacillin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('티카실린', 'TCRCLN', 'Ticarcillin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('아목시실린클라불란산', 'AMXCLV', 'Amoxicillin Clavulanate', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('암피실린설박탐', 'AMPSLB', 'Ampicillin Sulbactam', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('피페라실린타조박탐', 'PRCTZB', 'Piperacillin Tazobactam', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('세포페라존설박탐', 'CFPSLB', 'Cefoperazone Sulbactam', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('플라조마이신', 'PLZMCN', 'Plazomicin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('스펙티노마이신', 'SPCTNM', 'Spectinomycin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('조사마이신', 'JSMYCN', 'Josamycin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('미데카마이신', 'MDCMYC', 'Midecamycin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('스피라마이신', 'SPRMYC', 'Spiramycin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('텔리스로마이신', 'TLTHRM', 'Telithromycin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('피닥소마이신', 'FDXMCN', 'Fidaxomicin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('로메플록사신', 'LMFLXC', 'Lomefloxacin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('프루리플록사신', 'PRLFLX', 'Prulifloxacin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('네모녹사신', 'NMNXCN', 'Nemonoxacin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('오리타반신', 'ORTVNC', 'Oritavancin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('텔라반신', 'TLVNCN', 'Telavancin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('퀴누프리스틴', 'QNPRST', 'Quinupristin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('클로람페니콜', 'CHLRMP', 'Chloramphenicol', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('린코마이신', 'LNCMYC', 'Lincomycin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('설파디아진', 'SLFDZN', 'Sulfadiazine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('답손', 'DPSN', 'Dapsone', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('클로파지민', 'CLFZMN', 'Clofazimine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('에티오나미드', 'ETHNMD', 'Ethionamide', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('파라아미노살리실산', 'PAS', 'Para Aminosalicylic Acid', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('카나마이신', 'KNMYCN', 'Kanamycin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('카프레오마이신', 'CPRMYC', 'Capreomycin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('프레토마니드', 'PRTMND', 'Pretomanid', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('리파펜틴', 'RFPNTN', 'Rifapentine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('플루시토신', 'FLCYTS', 'Flucytosine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('그리세오풀빈', 'GRSFLV', 'Griseofulvin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('아모롤핀', 'AMRLFN', 'Amorolfine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('시클로피록스', 'CLPRX', 'Ciclopirox', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('에피나코나졸', 'EFNCNZ', 'Efinaconazole', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('부테나핀', 'BTNFN', 'Butenafine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('설코나졸', 'SLCNZL', 'Sulconazole', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('이소코나졸', 'ISCNZL', 'Isoconazole', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('미코나졸', 'MCNZL', 'Miconazole', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('에코나졸', 'ECNZL', 'Econazole', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('세르타코나졸', 'SRTCNZ', 'Sertaconazole', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('플루트리마졸', 'FLTRMZ', 'Flutrimazole', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('리바비린', 'RBVRN', 'Ribavirin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('인터페론알파', 'INTALP', 'Interferon Alpha', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('페그인터페론', 'PGNTRF', 'Peginterferon', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('시도포비르', 'CDFVR', 'Cidofovir', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('레테르모비르', 'LTRMVR', 'Letermovir', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('마리바비르', 'MRBVR', 'Maribavir', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('팔리비주맙', 'PLVZMB', 'Palivizumab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('니르세비맙', 'NRSVMB', 'Nirsevimab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('소트로비맙', 'STRVMB', 'Sotrovimab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('트라스투주맙데룩스테칸', 'TRSDRX', 'Trastuzumab Deruxtecan', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('트라스투주맙엠탄신', 'TRSEMT', 'Trastuzumab Emtansine', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('사시투주맙고비테칸', 'SCTGVT', 'Sacituzumab Govitecan', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('엔포투맙베도틴', 'ENFVDT', 'Enfortumab Vedotin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('폴라투주맙베도틴', 'PLTVDT', 'Polatuzumab Vedotin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('이노투주맙오조가마이신', 'INTOZG', 'Inotuzumab Ozogamicin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('겜투주맙오조가마이신', 'GMTOZG', 'Gemtuzumab Ozogamicin', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('모가물리주맙', 'MGMLZM', 'Mogamulizumab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('엘로투주맙', 'ELTZMB', 'Elotuzumab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('이사툭시맙', 'ISTXMB', 'Isatuximab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('오비누투주맙', 'OBNTZM', 'Obinutuzumab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('오파투무맙', 'OFTMB', 'Ofatumumab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('세미플리맙', 'CMPLMB', 'Cemiplimab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('도스탈리맙', 'DSTRLM', 'Dostarlimab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('티슬렐리주맙', 'TSLZMB', 'Tislelizumab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('트레멜리무맙', 'TRMLMB', 'Tremelimumab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('렐라틀리맙', 'RLTLMB', 'Relatlimab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('아미반타맙', 'AMVNTM', 'Amivantamab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('테클리스타맙', 'TCLSTM', 'Teclistamab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('에프코리타맙', 'EPCRTM', 'Epcoritamab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('글로피타맙', 'GLFTMB', 'Glofitamab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('모수네투주맙', 'MSNTZM', 'Mosunetuzumab', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('티사젠렉류셀', 'TSGNLC', 'Tisagenlecleucel', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('악시캅타진실로류셀', 'AXCCLC', 'Axicabtagene Ciloleucel', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('소토라십', 'STRSB', 'Sotorasib', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('아다그라십', 'ADGRSB', 'Adagrasib', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('다브라페닙', 'DBRFNB', 'Dabrafenib', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('트라메티닙', 'TRMTNB', 'Trametinib', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('베무라페닙', 'VMRFNB', 'Vemurafenib', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('코비메티닙', 'CBMTNB', 'Cobimetinib', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('엔코라페닙', 'ENCRFN', 'Encorafenib', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('비니메티닙', 'BNMTNB', 'Binimetinib', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('카프마티닙', 'CPMTNB', 'Capmatinib', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('테포티닙', 'TPTNB', 'Tepotinib', '분류: 성분명: 추가', 'N', NOW(6), NOW(6)),
-  ('셀퍼카티닙', 'SLPRCT', 'Selpercatinib', '분류: 성분명: 추가', 'N', NOW(6), NOW(6));
-
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방', 'PRSC', 'Prescription', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방전', 'PRSCSHT', 'Prescription Sheet', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('원외처방', 'OTPPRS', 'Outpatient Prescription', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('원내처방', 'INHPRS', 'Inhouse Prescription', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정규처방', 'RGLPRS', 'Regular Prescription', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('임시처방', 'TMPPRS', 'Temporary Prescription', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('응급처방', 'EMRPRS', 'Emergency Prescription', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('퇴원처방', 'DSCPRS', 'Discharge Prescription', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('추가처방', 'ADTPRS', 'Additional Prescription', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('변경처방', 'CHNPRS', 'Changed Prescription', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('중단처방', 'DSCNPRSC', 'Discontinued Prescription', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반복처방', 'RPTPRS', 'Repeat Prescription', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('예약처방', 'RSRPRS', 'Reserved Prescription', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('구두처방', 'VRBORD', 'Verbal Order', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약속처방', 'ORDSET', 'Order Set', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('선처방', 'PREORD', 'Pre Order', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('후처방', 'PSTORD', 'Post Order', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정시처방', 'SCHORD', 'Scheduled Order', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('필요시처방', 'PRNORD', 'PRN Order', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('지속처방', 'CNTORD', 'Continuous Order', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일회처방', 'SNGORD', 'Single Order', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방의', 'PRSCRB', 'Prescriber', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방과', 'PRSDPR', 'Prescribing Department', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방량', 'PRSQNT', 'Prescribed Quantity', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방일수', 'PRSDYS', 'Prescribed Days', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방구분', 'PRSDVS', 'Prescription Division', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방상태', 'PRSSTS', 'Prescription Status', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방변경', 'PRSCHN', 'Prescription Change', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방취소', 'PRSCNC', 'Prescription Cancel', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방중단', 'PRSSTP', 'Prescription Stop', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방확인', 'PRSCNF', 'Prescription Confirm', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방검토', 'PRSRVW', 'Prescription Review', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방중재', 'PRSINT', 'Prescription Intervention', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방감사', 'PRSADT', 'Prescription Audit', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방발행', 'PRSIS', 'Prescription Issue', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방전달', 'ORDCMN', 'Order Communication', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방코드', 'PRSCD', 'Prescription Code', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방전번호', 'PRSSHTNMB', 'Prescription Sheet Number', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('교부번호', 'DLVNMB', 'Delivery Number', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오더', 'ORDENT', 'Order Entry', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오더세트', 'ORDBND', 'Order Bundle', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('지시', 'INSTRC', 'Instruction', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('지시사항', 'INSITM', 'Instruction Item', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('의사지시', 'PHYORD', 'Physician Order', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('간호지시', 'NRSORD', 'Nursing Order', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투약지시', 'MDCORD', 'Medication Order', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수액지시', 'FLDORD', 'Fluid Order', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주사지시', 'INJORD', 'Injection Order', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('경구지시', 'ORLORD', 'Oral Order', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대리처방', 'PRXPRS', 'Proxy Prescription', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재처방', 'REPRS', 'Re Prescription', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방이력', 'PRSHST', 'Prescription History', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방집', 'FRMLRY', 'Formulary', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('원내약', 'FRMDRG', 'Formulary Drug', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('원외약', 'NONFRMDRG', 'Non Formulary Drug', '분류: 처방', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제', 'DSPN', 'Dispensing', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제실', 'DSPRM', 'Dispensing Room', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제대', 'DSPTBL', 'Dispensing Table', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제자', 'DSPNSR', 'Dispenser', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제량', 'DSPQNT', 'Dispensed Quantity', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제료', 'DSPFEE', 'Dispensing Fee', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제방법', 'DSPMTH', 'Dispensing Method', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제지시', 'DSPINS', 'Dispensing Instruction', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제완료', 'DSPCMP', 'Dispensing Completion', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제대기', 'DSPWTN', 'Dispensing Waiting', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제중', 'DSPPRG', 'Dispensing In Progress', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제취소', 'DSPCNC', 'Dispensing Cancel', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제보류', 'DSPHLD', 'Dispensing Hold', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제오류', 'DSPER', 'Dispensing Error', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제기록', 'DSPRCR', 'Dispensing Record', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제내역', 'DSPDTL', 'Dispensing Detail', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제차수', 'DSPRND', 'Dispensing Round', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제구분', 'DSPDVS', 'Dispensing Division', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제유형', 'DSPTYP', 'Dispensing Type', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('산제', 'PWDDSP', 'Powder Dispensing', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('분쇄', 'GRNDNG', 'Grinding', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('분할', 'SPLTNG', 'Splitting', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반절', 'HLFSPL', 'Half Splitting', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('분포', 'PCKUNTDS', 'Packaging Unit Dose', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일포화', 'UNTDSPCK', 'Unit Dose Packaging', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('포장', 'PCKGNG', 'Packaging', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('소분', 'SBDVSN', 'Subdivision', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('혼합', 'MIXING', 'Mixing', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조합', 'CMPNDN', 'Compounding', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('희석', 'DLTN', 'Dilution', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('용해', 'DSLTN', 'Dissolution', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재구성', 'RCNSTN', 'Reconstitution', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('충전', 'FLNG', 'Filling', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('멸균', 'STRLZT', 'Sterilization', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('무균조제', 'ASPCMP', 'Aseptic Compounding', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항암조제', 'CHMCMP', 'Chemotherapy Compounding', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('영양수액조제', 'PRNNTRCMP', 'Parenteral Nutrition Compounding', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주사조제', 'INJCMP', 'Injection Compounding', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('경구조제', 'ORLDSP', 'Oral Dispensing', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('외용조제', 'EXTDSP', 'External Dispensing', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('자동조제', 'ATMDSP', 'Automatic Dispensing', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수동조제', 'MNLDSP', 'Manual Dispensing', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('가루약', 'PWDMDC', 'Powdered Medicine', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('물약', 'LQDMDC', 'Liquid Medicine', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('계량', 'MSRMNT', 'Measurement', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('칭량', 'WGHNG', 'Weighing', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('감량', 'DSRDC', 'Dose Reduction', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('증량', 'DSESC', 'Dose Escalation', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라벨', 'LBL', 'Label', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약봉투', 'MDCENV', 'Medicine Envelope', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약포지', 'MDCPCKPR', 'Medicine Packet Paper', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약포', 'MDCPCK', 'Medicine Packet', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('복약봉투', 'MDCBAG', 'Medication Bag', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('바이알', 'VIAL', 'Vial', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('앰플', 'AMPL', 'Ampoule', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수액백', 'INFBAG', 'Infusion Bag', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시린지', 'SYRNG', 'Syringe', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트레이', 'TRAY', 'Tray', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제카드', 'DSPCRD', 'Dispensing Card', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제번호', 'DSPNMB', 'Dispensing Number', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제일련', 'DSPSQN', 'Dispensing Sequence', '분류: 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('감사', 'AUDIT', 'Audit', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방감사자', 'PRSCADTR', 'Prescription Auditor', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약사검토', 'PHRRVW', 'Pharmacist Review', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('중재', 'INTRVN', 'Intervention', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('중재사유', 'INTRSN', 'Intervention Reason', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('중재결과', 'INTRSL', 'Intervention Result', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('상호작용', 'INTRCT', 'Interaction', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약물상호작용', 'DRGINT', 'Drug Interaction', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('중복투약', 'DPLMDC', 'Duplicate Medication', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('동일성분', 'SMING', 'Same Ingredient', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('동일효능', 'SMEFC', 'Same Efficacy', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('금기', 'CNTRND', 'Contraindication', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('병용금기', 'CMBCNT', 'Combination Contraindication', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('연령금기', 'AGECNT', 'Age Contraindication', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('임부금기', 'PRGCNT', 'Pregnancy Contraindication', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('노인주의', 'ELDCTN', 'Elderly Caution', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('소아주의', 'PDTCTN', 'Pediatric Caution', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('신기능', 'RNLFNC', 'Renal Function', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('간기능', 'HPTFNC', 'Hepatic Function', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('용량조절', 'DSADJ', 'Dose Adjustment', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('용량초과', 'OVRDS', 'Overdose', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('최대용량', 'MXMDS', 'Maximum Dose', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('최소용량', 'MNMDS', 'Minimum Dose', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('상용량', 'USLDS', 'Usual Dose', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('극량', 'LTHLMTDS', 'Lethal Limit Dose', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투여일수초과', 'EXCADMDYS', 'Exceeded Administration Days', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알림창', 'ALRP', 'Alert Popup', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('경고', 'WRNG', 'Warning', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주의', 'CTN', 'Caution', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('참고', 'RFRNC', 'Reference', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('점검', 'INSCHC', 'Inspection Check', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('DUR', 'DUR', 'Drug Utilization Review', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('의약품안전사용', 'DRGSFTUSE', 'Drug Safety Use', '분류: 감사·중재', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수', 'INSP', 'Inspection', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수자', 'INSPCT', 'Inspector', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수일', 'INSDAY', 'Inspection Day', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수결과', 'INSRSL', 'Inspection Result', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수완료', 'INSCMP', 'Inspection Completion', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수대기', 'INSWTN', 'Inspection Waiting', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수보류', 'INSHLD', 'Inspection Hold', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수불량', 'INSDFC', 'Inspection Defect', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수기준', 'INSCRT', 'Inspection Criteria', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수항목', 'INSPITEM', 'Inspection Item', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수내역', 'INSDTL', 'Inspection Detail', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수서', 'INSRPR', 'Inspection Report', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수확인', 'INSCNF', 'Inspection Confirmation', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수구분', 'INSDVS', 'Inspection Division', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('입고검수', 'RCVINS', 'Receiving Inspection', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제검수', 'DSPNINSP', 'Dispensing Inspection', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('최종검수', 'FNLINS', 'Final Inspection', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이중검수', 'DBLINS', 'Double Inspection', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('육안검수', 'VSLINS', 'Visual Inspection', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('바코드검수', 'BRCINS', 'Barcode Inspection', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수량검수', 'QNTINS', 'Quantity Inspection', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('외관검수', 'APRINS', 'Appearance Inspection', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('적합', 'CNFRMT', 'Conformity', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부적합', 'NCNFRM', 'Nonconformity', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('합격', 'PASS', 'Pass', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불합격', 'FAIL', 'Fail', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('양품', 'GDPRD', 'Good Product', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불량품', 'DFCPRD', 'Defective Product', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('파손', 'DAMAGE', 'Damage', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오염', 'CNTMNT', 'Contamination', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('변질', 'DTRTN', 'Deterioration', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('누락', 'OMSN', 'Omission', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('과량', 'EXCQNT', 'Excess Quantity', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부족', 'SHRTG', 'Shortage', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오조제', 'WRNDSP', 'Wrong Dispensing', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오투약', 'MDCER', 'Medication Error', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재조제', 'REDSP', 'Re Dispensing', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재검수', 'REINS', 'Re Inspection', '분류: 검수', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출', 'ISU', 'Issue', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출처', 'ISDST', 'Issue Destination', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출량', 'ISDQNT', 'Issued Quantity', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출일', 'ISDAY', 'Issue Day', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출자', 'ISSUER', 'Issuer', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출요청', 'ISRQS', 'Issue Request', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출승인', 'ISAPR', 'Issue Approval', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출완료', 'ISCMP', 'Issue Completion', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출대기', 'ISWTN', 'Issue Waiting', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출보류', 'ISHLD', 'Issue Hold', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출취소', 'ISCNC', 'Issue Cancel', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출내역', 'ISDTL', 'Issue Detail', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출서', 'ISSLP', 'Issue Slip', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출구분', 'ISDVS', 'Issue Division', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출유형', 'ISTYP', 'Issue Type', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출차수', 'ISRND', 'Issue Round', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정기불출', 'RGLIS', 'Regular Issue', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('긴급불출', 'URGIS', 'Urgent Issue', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('임시불출', 'TMPIS', 'Temporary Issue', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('병동불출', 'WRDIS', 'Ward Issue', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('외래불출', 'OTPIS', 'Outpatient Issue', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부서불출', 'DPRIS', 'Department Issue', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비품불출', 'STCITMIS', 'Stock Item Issue', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('상비약', 'WRDSTCDRG', 'Ward Stock Drug', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비치약', 'FLRSTC', 'Floor Stock', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('병동재고', 'WRDSTC', 'Ward Stock', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약품청구', 'DRGRQS', 'Drug Requisition', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('물품청구', 'SPLRQS', 'Supply Requisition', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인계', 'HNDVR', 'Handover', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인수', 'TKVR', 'Takeover', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인수자', 'RCVR', 'Receiver', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인계자', 'HNDGVR', 'Handover Giver', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수령', 'RCPTK', 'Receipt Take', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수령자', 'RCPNT', 'Recipient', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수령확인', 'RCPCNF', 'Receipt Confirmation', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('배송함', 'DLVBOX', 'Delivery Box', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('운반', 'TRNSPR', 'Transport', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('운반자', 'TRNSPRT', 'Transporter', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('기송관', 'PNMTB', 'Pneumatic Tube', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에어슈터', 'AIRSHT', 'Air Shooter', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카트', 'CART', 'Cart', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투약카트', 'MDCCRT', 'Medication Cart', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('응급카트', 'EMRCRT', 'Emergency Cart', '분류: 불출', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납', 'RTRN', 'Return', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납처', 'RTRDST', 'Return Destination', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납량', 'RTRQNT', 'Returned Quantity', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납일', 'RTRDAY', 'Return Day', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납자', 'RTRNR', 'Returner', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납사유', 'RTRRSN', 'Return Reason', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납요청', 'RTRRQS', 'Return Request', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납승인', 'RTRAPR', 'Return Approval', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납완료', 'RTRCMP', 'Return Completion', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납대기', 'RTRWTN', 'Return Waiting', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납보류', 'RTRHLD', 'Return Hold', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납취소', 'RTRCNC', 'Return Cancel', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납내역', 'RTRDTL', 'Return Detail', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납서', 'RTRSLP', 'Return Slip', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납구분', 'RTRDVS', 'Return Division', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납유형', 'RTRTYP', 'Return Type', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납확인', 'RTRCNF', 'Return Confirmation', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미사용반납', 'UNSRTR', 'Unused Return', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('잔량', 'RMNQNT', 'Remaining Quantity', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('잔량반납', 'RMNRTR', 'Remainder Return', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('잔량폐기', 'RMNDSP', 'Remainder Disposal', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재사용', 'REUSE', 'Reuse', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재입고', 'RSTCKN', 'Restocking', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폐기', 'DSPSL', 'Disposal', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폐기량', 'DSPSQNTY', 'Disposed Quantity', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폐기사유', 'DSPRSN', 'Disposal Reason', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폐기승인', 'DSPAPR', 'Disposal Approval', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폐기대장', 'DSPLDG', 'Disposal Ledger', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반송', 'SNDBCK', 'Send Back', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('회수', 'RECALL', 'Recall', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('회수약', 'RCLDRG', 'Recalled Drug', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리콜', 'PRDRCL', 'Product Recall', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납약', 'RTRDRG', 'Returned Drug', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('퇴원반납', 'DSCRTR', 'Discharge Return', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('중단반납', 'DSCNRTRN', 'Discontinuation Return', '분류: 반납', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투약', 'MDCADM', 'Medication Administration', '분류: 투약', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투약자', 'MDCTADMN', 'Medication Administrator', '분류: 투약', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투약시간', 'MDCTM', 'Medication Time', '분류: 투약', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투약기록', 'MDCRCR', 'Medication Record', '분류: 투약', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투약완료', 'ADMCMP', 'Administration Completion', '분류: 투약', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투약보류', 'ADMHLD', 'Administration Hold', '분류: 투약', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투약거부', 'ADMRFS', 'Administration Refusal', '분류: 투약', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미투약', 'NOTADM', 'Not Administered', '분류: 투약', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투여', 'ADM', 'Administration', '분류: 투약', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투여량', 'ADMDS', 'Administered Dose', '분류: 투약', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투여경로', 'ADMRT', 'Administration Route', '분류: 투약', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투여속도', 'INFRT', 'Infusion Rate', '분류: 투약', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투여간격', 'DSNINT', 'Dosing Interval', '분류: 투약', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투여기간', 'ADMPRD', 'Administration Period', '분류: 투약', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('복용', 'TKNMDC', 'Taking Medicine', '분류: 투약', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('복약', 'MDCTKN', 'Medication Taking', '분류: 투약', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('복약지도', 'MDCCNS', 'Medication Counseling', '분류: 투약', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('복약순응도', 'MDCADH', 'Medication Adherence', '분류: 투약', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('자가투약', 'SLFMDC', 'Self Medication', '분류: 투약', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('지참약', 'BRGMDC', 'Brought Medicine', '분류: 투약', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('지참약확인', 'BRGMDCCHC', 'Brought Medicine Check', '분류: 투약', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('접수', 'RCPTN', 'Reception', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('등록자', 'RGSTRN', 'Registrant', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수정자', 'MDFR', 'Modifier', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('삭제자', 'DLTR', 'Deleter', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('확인자', 'CNFRMR', 'Confirmer', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('승인자', 'APRVR', 'Approver', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('요청자', 'RQSTR', 'Requester', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처리자', 'PRCSR', 'Processor', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('작성자', 'WRITER', 'Writer', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검토자', 'RVWR', 'Reviewer', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반려', 'RJCTN', 'Rejection', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반려사유', 'RJCRSN', 'Rejection Reason', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보류', 'HOLD', 'Hold', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보류사유', 'HLDRSN', 'Hold Reason', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('해제', 'UNLOCK', 'Unlock', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('완료', 'CMPLTN', 'Completion', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('진행', 'PRGRS', 'Progress', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대기', 'WTNG', 'Waiting', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('예약', 'RSRVTN', 'Reservation', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('변경', 'CHANGE', 'Change', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('변경사유', 'CHNRSN', 'Change Reason', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이력', 'HSTRY', 'History', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('기록', 'RECORD', 'Record', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('발행', 'ISNC', 'Issuance', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('출력', 'PRINT', 'Print', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재출력', 'RPRNT', 'Reprint', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조회', 'LOOKUP', 'Lookup', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('저장', 'SAVE', 'Save', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전송', 'TRNSMS', 'Transmission', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수신', 'RCV', 'Receive', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('발신', 'SNDNG', 'Sending', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('연동', 'INTGRT', 'Integration', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마감', 'CLSNG', 'Closing', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일마감', 'DLYCLS', 'Daily Closing', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('월마감', 'MNTCLS', 'Monthly Closing', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('집계', 'AGRGTN', 'Aggregation', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('통계', 'STSTCS', 'Statistics', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보고', 'REPORT', 'Report', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보고서', 'RPRDCM', 'Report Document', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('결재', 'SGNF', 'Signoff', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전자서명', 'ELCSGN', 'Electronic Signature', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('서명', 'SGNTR', 'Signature', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('서명자', 'SIGNER', 'Signer', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인증', 'CRTFCT', 'Certification', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('본인확인', 'IDNVRF', 'Identity Verification', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대체', 'SBSTN', 'Substitution', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대체약', 'SBSDRG', 'Substitute Drug', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대체조제', 'SBSDSP', 'Substitute Dispensing', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('동등', 'EQVLNT', 'Equivalent', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('동등성', 'EQVLNC', 'Equivalence', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('교체', 'RPLCMN', 'Replacement', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이관', 'TRNSFR', 'Transfer', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이동', 'MVMNT', 'Movement', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('배정', 'ASGNMN', 'Assignment', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('할당', 'ALCTN', 'Allocation', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('우선순위', 'PRTY', 'Priority', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('긴급', 'URGNCY', 'Urgency', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('응급', 'EMRGNC', 'Emergency', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일반', 'GNRL', 'General', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정기', 'RGLR', 'Regular', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수시', 'OCSNL', 'Occasional', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('임시', 'TMPRY', 'Temporary', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('차수', 'ROUND', 'Round', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('회차', 'SESSION', 'Session', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대상', 'TARGET', 'Target', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대상자', 'TRGPRS', 'Target Person', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('제외', 'EXCLSN', 'Exclusion', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('포함', 'INCLSN', 'Inclusion', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('적용', 'APPLY', 'Apply', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미적용', 'NONAPL', 'Non Application', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('허용', 'ALLOW', 'Allow', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불허', 'DSLWNC', 'Disallowance', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('제한', 'RSTRCT', 'Restriction', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('제한약', 'RSTDRG', 'Restricted Drug', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사전승인', 'PRAPR', 'Prior Approval', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사후승인', 'PSTAPR', 'Post Approval', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('예외', 'EXCPTN', 'Exception', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('예외사유', 'EXCRSN', 'Exception Reason', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('특이사항', 'SPCNT', 'Special Note', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메모', 'MEMO', 'Memo', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('코멘트', 'CMNT', 'Comment', '분류: 업무 일반 동작', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약품정보지', 'DRGINFSHT', 'Drug Information Sheet', '분류: 문서·출력물', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('복약안내문', 'MDCGD', 'Medication Guide', '분류: 문서·출력물', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투약표', 'MDCCHR', 'Medication Chart', '분류: 문서·출력물', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투약카드', 'MDCCRD', 'Medication Card', '분류: 문서·출력물', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제내역서', 'DSPSTM', 'Dispensing Statement', '분류: 문서·출력물', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출명세서', 'ISSTM', 'Issue Statement', '분류: 문서·출력물', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납명세서', 'RTRSTM', 'Return Statement', '분류: 문서·출력물', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수명세서', 'INSSTM', 'Inspection Statement', '분류: 문서·출력물', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('입고명세서', 'RCVSTM', 'Receiving Statement', '분류: 문서·출력물', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('거래명세서', 'TRNSTM', 'Transaction Statement', '분류: 문서·출력물', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방집계표', 'PRSSMR', 'Prescription Summary', '분류: 문서·출력물', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약품목록', 'DRGLST', 'Drug List', '분류: 문서·출력물', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재고현황', 'STCSTS', 'Stock Status', '분류: 문서·출력물', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('월보', 'MNTRPR', 'Monthly Report', '분류: 문서·출력물', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일보', 'DLYRPR', 'Daily Report', '분류: 문서·출력물', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대장', 'LEDGER', 'Ledger', '분류: 문서·출력물', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('관리대장', 'MNGLDG', 'Management Ledger', '분류: 문서·출력물', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약대장', 'NRCLDG', 'Narcotic Ledger', '분류: 문서·출력물', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('점검표', 'CHCKLS', 'Checklist', '분류: 문서·출력물', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('서식', 'FRMTMP', 'Form Template', '분류: 문서·출력물', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('양식', 'FORMAT', 'Format', '분류: 문서·출력물', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약사', 'PHRMCS', 'Pharmacist', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약제부', 'PHRDPR', 'Pharmacy Department', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약제과', 'PHRDVS', 'Pharmacy Division', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약제팀', 'PHRTM', 'Pharmacy Team', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약국', 'PHRMCY', 'Pharmacy', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('외래약국', 'OTPPHR', 'Outpatient Pharmacy', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('입원약국', 'INPPHR', 'Inpatient Pharmacy', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('중앙약국', 'CNTPHR', 'Central Pharmacy', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('위성약국', 'STLPHR', 'Satellite Pharmacy', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('응급약국', 'EMRPHR', 'Emergency Pharmacy', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주사약국', 'INJPHR', 'Injection Pharmacy', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항암조제실', 'CHMRM', 'Chemotherapy Room', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('무균조제실', 'CLNRM', 'Clean Room', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약품창고', 'DRGWRH', 'Drug Warehouse', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약품관리', 'DRGMNG', 'Drug Management', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('임상약사', 'CLNPHR', 'Clinical Pharmacist', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전담약사', 'DCTPHR', 'Dedicated Pharmacist', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('책임약사', 'RSPPHR', 'Responsible Pharmacist', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약무보조원', 'PHRAST', 'Pharmacy Assistant', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약국장', 'PHRDRC', 'Pharmacy Director', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('의사', 'PHYSCN', 'Physician', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주치의', 'ATNPHY', 'Attending Physician', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전공의', 'RSDNT', 'Resident', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전문의', 'SPCLST', 'Specialist', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인턴', 'INTERN', 'Intern', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('간호사', 'NURSE', 'Nurse', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수간호사', 'HDNRS', 'Head Nurse', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('책임간호사', 'CHRNRS', 'Charge Nurse', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('간호조무사', 'NRSAST', 'Nursing Assistant', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('간호부', 'NRSDPR', 'Nursing Department', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('병동', 'WARD', 'Ward', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('병실', 'PTNRM', 'Patient Room', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('병상', 'BED', 'Bed', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('병동간호사', 'WRDNRS', 'Ward Nurse', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보호자', 'GRDN', 'Guardian', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('의료진', 'MDCSTF', 'Medical Staff', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('진료지원', 'MDCSPR', 'Medical Support', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('의료기사', 'MDCTCH', 'Medical Technician', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('영양사', 'DTN', 'Dietitian', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('원무', 'HSPADM', 'Hospital Administration', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('원무과', 'ADMOFC', 'Admission Office', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('구매팀', 'PRCTM', 'Purchasing Team', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('물류팀', 'LGSTM', 'Logistics Team', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('QI팀', 'QITEAM', 'Quality Improvement Team', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('감염관리', 'INFCNT', 'Infection Control', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('환자안전', 'PTNSFT', 'Patient Safety', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약사위원회', 'PHRCMT', 'Pharmacy Committee', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약사심의', 'PHRDLB', 'Pharmacy Deliberation', '분류: 역할·직종', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약품', 'DRUG', 'Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('의약품', 'MDCPRD', 'Medicinal Product', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약물', 'MDCN', 'Medication', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('성분', 'INGR', 'Ingredient', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주성분', 'MNING', 'Main Ingredient', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('첨가제', 'EXCPNT', 'Excipient', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('함량', 'CNTSTR', 'Content Strength', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('역가', 'PTNCY', 'Potency', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('농도', 'CNCNTR', 'Concentration', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('용량', 'DOSE', 'Dose', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('용법', 'USG', 'Usage', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('용법용량', 'DSGADM', 'Dosage And Administration', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('효능', 'EFCY', 'Efficacy', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('효능효과', 'INDEFC', 'Indication Effect', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('적응증', 'INDCTN', 'Indication', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부작용', 'SDEFC', 'Side Effect', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이상반응', 'ADVRCT', 'Adverse Reaction', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약효', 'DRGEFC', 'Drug Effect', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약효군', 'THRCLS', 'Therapeutic Class', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약효분류', 'THRPCLSF', 'Therapeutic Classification', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약리작용', 'PHRACT', 'Pharmacological Action', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('규격', 'SPCFCT', 'Specification', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('포장단위', 'PCKUNT', 'Package Unit', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('최소단위', 'MNMUNT', 'Minimum Unit', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('입고단위', 'RCVUNT', 'Receiving Unit', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출단위', 'ISUNT', 'Issue Unit', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제단위', 'DSPUNT', 'Dispensing Unit', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투여단위', 'ADMUNT', 'Administration Unit', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('환산', 'CNVRSN', 'Conversion', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('환산계수', 'CNVFCT', 'Conversion Factor', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('제약사', 'PHRCMP', 'Pharmaceutical Company', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('제조사', 'MNFCTR', 'Manufacturer', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수입사', 'IMPRTR', 'Importer', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('판매사', 'DSTSLR', 'Distributor Seller', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('도매상', 'WHLSLR', 'Wholesaler', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('품목허가', 'PRDAPR', 'Product Approval', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('허가번호', 'LCNNMB', 'License Number', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보험코드', 'INSCD', 'Insurance Code', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('표준코드', 'STNCD', 'Standard Code', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대표코드', 'RPRCD', 'Representative Code', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('KD코드', 'KDCD', 'Korea Drug Code', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('EDI코드', 'EDICD', 'EDI Code', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('ATC코드', 'ATCCD', 'ATC Code', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주성분코드', 'MNINGCD', 'Main Ingredient Code', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약가', 'DRGPRC', 'Drug Price', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보험약가', 'INSDRGPRC', 'Insurance Drug Price', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('상한금액', 'UPRLMTPRC', 'Upper Limit Price', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('구입가', 'PRCPRC', 'Purchase Price', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('판매가', 'SLNPRC', 'Selling Price', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('단가차액', 'PRCDFR', 'Price Difference', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비급여', 'NONCVR', 'Non Covered', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('선별급여', 'SLCCVR', 'Selective Coverage', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전액본인부담', 'FLSLFPAY', 'Full Self Pay', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('본인부담', 'CPYMNT', 'Copayment', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오리지널', 'ORGDRG', 'Original Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('제네릭', 'GNRDRG', 'Generic Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('복제약', 'CPYDRG', 'Copy Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전문의약품', 'PRSDRG', 'Prescription Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일반의약품', 'OVRCNTDRG', 'Over The Counter Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('희귀의약품', 'ORPDRG', 'Orphan Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('퇴장방지의약품', 'ESNSPLDRG', 'Essential Supply Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('국가필수의약품', 'NTNESNDRG', 'National Essential Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('고가약', 'HGHCSTDRG', 'High Cost Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('신약', 'NEWDRG', 'New Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('임상시험약', 'INVDRG', 'Investigational Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('위탁약', 'CNSDRG', 'Consigned Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('자가제조약', 'INHPRP', 'Inhouse Preparation', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('원료약', 'RAWMTRDRG', 'Raw Material Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('생물의약품', 'BLGC', 'Biologic', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('바이오시밀러', 'BSMLR', 'Biosimilar', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('백신', 'VCN', 'Vaccine', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('혈액제제', 'BLDPRD', 'Blood Product', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('방사성의약품', 'RDPHRM', 'Radiopharmaceutical', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조영제', 'CNTAGN', 'Contrast Agent', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수액', 'INFFLD', 'Infusion Fluid', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수액제', 'INTFLD', 'Intravenous Fluid', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('영양제', 'NTRSPL', 'Nutritional Supplement', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전해질', 'ELCTRL', 'Electrolyte', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약', 'NRCTC', 'Narcotic', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약류', 'NRCCLS', 'Narcotic Class', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('향정신성의약품', 'PSYDRG', 'Psychotropic Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('향정', 'PSYCHT', 'Psychotropic', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대마', 'CNBS', 'Cannabis', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('임시마약', 'TMPNRC', 'Temporary Narcotic', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('고위험약', 'HGHALRMDC', 'High Alert Medication', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('고주의약', 'HGHCTNDRG', 'High Caution Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('유사외관', 'LKALK', 'Look Alike', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('유사발음', 'SNDALK', 'Sound Alike', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항암제', 'ANTDRG', 'Anticancer Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세포독성', 'CYTXC', 'Cytotoxic', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('독약', 'PSNDRG', 'Poison Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('극약', 'PWRDRG', 'Powerful Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('냉장약', 'RFRDRG', 'Refrigerated Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('차광약', 'LGHPRTDRG', 'Light Protected Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('분할불가', 'NONSPL', 'Non Splittable', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('분쇄불가', 'NONCRS', 'Non Crushable', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('서방형', 'EXTRLS', 'Extended Release', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('지속형', 'STNRLS', 'Sustained Release', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('장용형', 'ENTCTD', 'Enteric Coated', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('속효성', 'RPDACT', 'Rapid Acting', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('지효성', 'LNGACT', 'Long Acting', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('복합제', 'CMBDRG', 'Combination Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('단일제', 'SNGDRG', 'Single Drug', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사용중지', 'USESPN', 'Use Suspension', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('품절', 'OUTSTC', 'Out Of Stock', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('공급중단', 'SPLDSC', 'Supply Discontinuation', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('생산중단', 'PRDDSC', 'Production Discontinuation', '분류: 약품 속성', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('제형', 'DSGFRM', 'Dosage Form', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정', 'TAB', 'Tablet', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정제', 'TBLFRM', 'Tablet Form', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('필름코팅정', 'FLMCTDTBL', 'Film Coated Tablet', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('당의정', 'SGRCTDTBL', 'Sugar Coated Tablet', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('나정', 'UNCTBL', 'Uncoated Tablet', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('서방정', 'EXTRLSTBL', 'Extended Release Tablet', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('장용정', 'ENTCTDTBL', 'Enteric Coated Tablet', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('구강붕해정', 'ORLDSNTBL', 'Orally Disintegrating Tablet', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('설하정', 'SBLTBL', 'Sublingual Tablet', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('저작정', 'CHWTBL', 'Chewable Tablet', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('발포정', 'EFRTBL', 'Effervescent Tablet', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('분산정', 'DSPRTBLT', 'Dispersible Tablet', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('질정', 'VGNTBL', 'Vaginal Tablet', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('캡슐', 'CAP', 'Capsule', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('경질캡슐', 'HRDCPS', 'Hard Capsule', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('연질캡슐', 'SFTCPS', 'Soft Capsule', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('서방캡슐', 'EXTRLSCPS', 'Extended Release Capsule', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('장용캡슐', 'ENTCPS', 'Enteric Capsule', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('산', 'PWDFRM', 'Powder Form', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('과립', 'GRNL', 'Granule', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세립', 'FNGRN', 'Fine Granule', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시럽', 'SYRUP', 'Syrup', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('건조시럽', 'DRYSYR', 'Dry Syrup', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('현탁액', 'SPNSN', 'Suspension', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('액제', 'SLTN', 'Solution', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('내용액제', 'ORLSLT', 'Oral Solution', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('엘릭서', 'ELIXIR', 'Elixir', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에멀젼', 'EMLSN', 'Emulsion', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주사제', 'INJCTN', 'Injection', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주사', 'INJSHT', 'Injection Shot', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('동결건조', 'LYPHLZ', 'Lyophilized', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프리필드시린지', 'PRFSYR', 'Prefilled Syringe', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('펜', 'PENINJ', 'Pen Injector', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카트리지', 'CRTRDG', 'Cartridge', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('연고', 'ONTMNT', 'Ointment', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('크림', 'CREAM', 'Cream', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('겔', 'GEL', 'Gel', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로션', 'LOTION', 'Lotion', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('페이스트', 'PASTE', 'Paste', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('첩부제', 'PATCH', 'Patch', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('패취', 'TRNPTC', 'Transdermal Patch', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('파스', 'PLSTR', 'Plaster', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('좌제', 'SPSTRY', 'Suppository', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('관장제', 'ENEMA', 'Enema', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('점안제', 'EYEDRP', 'Eye Drop', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('안연고', 'EYEONT', 'Eye Ointment', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('점이제', 'EARDRP', 'Ear Drop', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('점비제', 'NSLDRP', 'Nasal Drop', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비강분무', 'NSLSPR', 'Nasal Spray', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('흡입제', 'INHLR', 'Inhaler', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정량흡입기', 'MTRDSINH', 'Metered Dose Inhaler', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('건조분말흡입기', 'DRYPWDINH', 'Dry Powder Inhaler', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('네뷸라이저', 'NBLZR', 'Nebulizer', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('흡입액', 'INHSLT', 'Inhalation Solution', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('가글', 'GARGLE', 'Gargle', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('구강용해필름', 'ORLFLM', 'Oral Film', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트로키', 'TROCHE', 'Troche', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('외용액', 'EXTSLT', 'External Solution', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('스프레이', 'SPRAY', 'Spray', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에어로솔', 'ARSL', 'Aerosol', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('샴푸', 'SHMP', 'Shampoo', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세정제', 'CLNSR', 'Cleanser', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('소독제', 'DSNFCT', 'Disinfectant', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('키트', 'KIT', 'Kit', '분류: 제형', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('경구', 'PO', 'Oral', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정맥', 'IV', 'Intravenous', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('근육', 'IM', 'Intramuscular', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피하', 'SC', 'Subcutaneous', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피내', 'INTRDR', 'Intradermal', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('척수강', 'IT', 'Intrathecal', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('경막외', 'EPDRL', 'Epidural', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('동맥', 'IA', 'Intraarterial', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('관절강', 'INTRTC', 'Intraarticular', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('복강', 'INTRPR', 'Intraperitoneal', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('흉강', 'INTRPL', 'Intrapleural', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('방광', 'INTRVS', 'Intravesical', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('설하', 'SL', 'Sublingual', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('협측', 'BUCCAL', 'Buccal', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('직장', 'PR', 'Rectal', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('질', 'VGNL', 'Vaginal', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('국소', 'TPCL', 'Topical', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('경피', 'TRNSDR', 'Transdermal', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('흡입', 'INHLTN', 'Inhalation', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비강', 'NASAL', 'Nasal', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('안구', 'OPHTHL', 'Ophthalmic', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이', 'OTIC', 'Otic', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('경관', 'ENTTB', 'Enteral Tube', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비위관', 'NSGTB', 'Nasogastric Tube', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('위루관', 'GSTTB', 'Gastrostomy Tube', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정맥주사', 'INTINJ', 'Intravenous Injection', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정맥점적', 'INTDRP', 'Intravenous Drip', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일시주입', 'BOLUS', 'Bolus', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('지속주입', 'CNTINF', 'Continuous Infusion', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('간헐주입', 'INTINF', 'Intermittent Infusion', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('측관주입', 'SDLNINJ', 'Side Line Injection', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('중심정맥', 'CNTVNS', 'Central Venous', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('말초정맥', 'PRPVNS', 'Peripheral Venous', '분류: 투여경로', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투여빈도', 'DSNFRQ', 'Dosing Frequency', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('1일1회', 'QD', 'Once Daily', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('1일2회', 'BID', 'Twice Daily', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('1일3회', 'TID', 'Three Times Daily', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('1일4회', 'QID', 'Four Times Daily', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('격일', 'QOD', 'Every Other Day', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('매주', 'WEEKLY', 'Weekly', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('매시간', 'HOURLY', 'Hourly', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('필요시', 'PRN', 'As Needed', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('즉시', 'STAT', 'Immediately', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('취침전', 'HS', 'At Bedtime', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('식전', 'AC', 'Before Meal', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('식후', 'PC', 'After Meal', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('식간', 'BTWMLS', 'Between Meals', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('공복', 'EMPSTM', 'Empty Stomach', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아침', 'MRNG', 'Morning', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('점심', 'LUNCH', 'Lunch', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('저녁', 'EVNG', 'Evening', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('기상시', 'UPNWKN', 'Upon Waking', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시간간격', 'TMINT', 'Time Interval', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투약횟수', 'ADMFRQ', 'Administration Frequency', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('1회량', 'SNGDS', 'Single Dose', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('1일량', 'DLYDS', 'Daily Dose', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('총량', 'TLAMN', 'Total Amount', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일수', 'DAYS', 'Days', '분류: 용법·빈도', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('횟수', 'FREQ', 'Frequency Count', '분류: 용법·빈도', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시각', 'TM', 'Clock Time', '분류: 용법·빈도', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('기간', 'PRD', 'Period', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('분', 'MINUTE', 'Minute', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시간', 'HOUR', 'Hour', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주', 'WEEK', 'Week', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('개월', 'MNTCNT', 'Month Count', '분류: 용법·빈도', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('단위', 'UNIT', 'Unit', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('밀리그램', 'MG', 'Milligram', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('그램', 'G', 'Gram', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마이크로그램', 'MCG', 'Microgram', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('킬로그램', 'KG', 'Kilogram', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('밀리리터', 'ML', 'Milliliter', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리터', 'L', 'Liter', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('국제단위', 'IU', 'International Unit', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('밀리당량', 'MEQ', 'Milliequivalent', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('밀리몰', 'MMOL', 'Millimole', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('퍼센트', 'PCT', 'Percent', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('방울', 'DROP', 'Drop', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('개', 'PIECE', 'Piece', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('병', 'BOTTLE', 'Bottle', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('포', 'PACKET', 'Packet', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('매', 'SHEET', 'Sheet', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('관', 'TUBE', 'Tube', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('통', 'CNTCAN', 'Container Can', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('박스', 'BOX', 'Box', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('팩', 'PACK', 'Pack', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세트', 'SET', 'Set', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('앰플단위', 'AMPUNT', 'Ampoule Unit', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('바이알단위', 'VLUNT', 'Vial Unit', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('체표면적', 'BSA', 'Body Surface Area', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('체중', 'BWT', 'Body Weight', '분류: 단위', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('신장', 'HT', 'Height', '분류: 단위', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('킬로그램당', 'PERKLG', 'Per Kilogram', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('제곱미터당', 'PERSQRMTR', 'Per Square Meter', '분류: 단위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보관', 'STRG', 'Storage', '분류: 보관', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보관방법', 'STRMTH', 'Storage Method', '분류: 보관', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보관조건', 'STRCND', 'Storage Condition', '분류: 보관', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보관위치', 'STRLCT', 'Storage Location', '분류: 보관', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보관온도', 'STRTMP', 'Storage Temperature', '분류: 보관', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('실온', 'RMTMP', 'Room Temperature', '분류: 보관', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('상온', 'NRMTMP', 'Normal Temperature', '분류: 보관', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('냉장', 'RFRGRT', 'Refrigeration', '분류: 보관', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('냉동', 'FRZNG', 'Freezing', '분류: 보관', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('차광', 'LGHSHL', 'Light Shielding', '분류: 보관', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('밀봉', 'SLNG', 'Sealing', '분류: 보관', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('밀폐', 'ARTGHT', 'Airtight', '분류: 보관', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('습기', 'HMDTY', 'Humidity', '분류: 보관', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('온도', 'TMPR', 'Temperature', '분류: 보관', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('습도', 'HMDT', 'Humidity Level', '분류: 보관', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('유효기간', 'EXPPRD', 'Expiration Period', '분류: 보관', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사용기한', 'USEBY', 'Use By', '분류: 보관', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('개봉', 'OPNG', 'Opening', '분류: 보관', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('개봉후', 'AFTOPN', 'After Opening', '분류: 보관', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('안정성', 'STBLTY', 'Stability', '분류: 보관', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제후안정성', 'PSTCMPSTB', 'Post Compounding Stability', '분류: 보관', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('해열진통제', 'ANTANL', 'Antipyretic Analgesic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비스테로이드소염진통제', 'NSAID', 'NSAID', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약성진통제', 'OPDANL', 'Opioid Analgesic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('국소마취제', 'LCLANS', 'Local Anesthetic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전신마취제', 'GNRANS', 'General Anesthetic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('근이완제', 'MSCRLX', 'Muscle Relaxant', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('진정제', 'SDTV', 'Sedative', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수면제', 'HYPNTC', 'Hypnotic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항불안제', 'ANXLYT', 'Anxiolytic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항우울제', 'ANTDPR', 'Antidepressant', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항정신병약', 'ANTPSY', 'Antipsychotic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('기분안정제', 'MDSTB', 'Mood Stabilizer', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항전간제', 'ANTPLP', 'Antiepileptic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항파킨슨제', 'ANTPRK', 'Antiparkinsonian', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('치매치료제', 'ANTDDRUG', 'Antidementia Drug', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('중추신경흥분제', 'CNSSTM', 'CNS Stimulant', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항히스타민제', 'ANTHST', 'Antihistamine', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('진해거담제', 'ANTEXP', 'Antitussive Expectorant', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('기관지확장제', 'BRNCHD', 'Bronchodilator', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('흡입스테로이드', 'INHCRT', 'Inhaled Corticosteroid', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('류코트리엔길항제', 'LKTANT', 'Leukotriene Antagonist', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('강심제', 'CRDTNC', 'Cardiotonic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항부정맥제', 'ANTRHY', 'Antiarrhythmic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항고혈압제', 'ANTHYP', 'Antihypertensive', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이뇨제', 'DRTC', 'Diuretic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('베타차단제', 'BTBLC', 'Beta Blocker', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('칼슘채널차단제', 'CLCCHNBLC', 'Calcium Channel Blocker', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('안지오텐신전환효소억제제', 'ACEINH', 'ACE Inhibitor', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('안지오텐신수용체차단제', 'ANGRCPBLC', 'Angiotensin Receptor Blocker', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('혈관확장제', 'VSDLTR', 'Vasodilator', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('승압제', 'VSPRSR', 'Vasopressor', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항협심증제', 'ANTNGN', 'Antianginal', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('고지혈증치료제', 'ANTHYPR', 'Antihyperlipidemic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('스타틴', 'STATIN', 'Statin', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항응고제', 'ANTCGL', 'Anticoagulant', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항혈소판제', 'ANTPLT', 'Antiplatelet', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('혈전용해제', 'THRMBL', 'Thrombolytic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('지혈제', 'HMSTC', 'Hemostatic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조혈제', 'HMTPTC', 'Hematopoietic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('철분제', 'IRNSPL', 'Iron Supplement', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('소화성궤양치료제', 'ANTLCR', 'Antiulcer', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('양성자펌프억제제', 'PRTPMPINH', 'Proton Pump Inhibitor', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('제산제', 'ANTCD', 'Antacid', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('위장운동촉진제', 'PRKNTC', 'Prokinetic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('진토제', 'ANTMTC', 'Antiemetic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('지사제', 'ANTDRH', 'Antidiarrheal', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('완하제', 'LXTV', 'Laxative', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정장제', 'PRBTC', 'Probiotic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('소화제', 'DGSTV', 'Digestive', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('간장약', 'HPTPRT', 'Hepatoprotective', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('담즙분비촉진제', 'CHLRTC', 'Choleretic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('당뇨병치료제', 'ANTDBT', 'Antidiabetic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인슐린', 'INSLN', 'Insulin', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('갑상선호르몬', 'THYHRM', 'Thyroid Hormone', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항갑상선제', 'ANTHYR', 'Antithyroid', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부신피질호르몬', 'CRTCST', 'Corticosteroid', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('성호르몬', 'SEXHRM', 'Sex Hormone', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('골다공증치료제', 'ANTSTP', 'Antiosteoporotic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('통풍치료제', 'ANTGT', 'Antigout', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항류마티스제', 'ANTRHM', 'Antirheumatic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('면역억제제', 'IMNSPR', 'Immunosuppressant', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항생제', 'ANTBTC', 'Antibiotic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('페니실린계', 'PNCCLS', 'Penicillin Class', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세팔로스포린계', 'CPHCLS', 'Cephalosporin Class', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카바페넴계', 'CRBCLS', 'Carbapenem Class', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아미노글리코사이드계', 'AMNCLS', 'Aminoglycoside Class', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마크로라이드계', 'MCRCLS', 'Macrolide Class', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('퀴놀론계', 'QNLCLS', 'Quinolone Class', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테트라사이클린계', 'TRCCLS', 'Tetracycline Class', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('글리코펩타이드계', 'GLYCLS', 'Glycopeptide Class', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('설폰아마이드계', 'SLFCLS', 'Sulfonamide Class', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항결핵제', 'ANTBRC', 'Antituberculosis', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항진균제', 'ANTFNG', 'Antifungal', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항바이러스제', 'ANTVRL', 'Antiviral', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항레트로바이러스제', 'ANTRTR', 'Antiretroviral', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('구충제', 'ANTHLM', 'Anthelmintic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항말라리아제', 'ANTMLR', 'Antimalarial', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알킬화제', 'ALKAGN', 'Alkylating Agent', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대사길항제', 'ANTMTB', 'Antimetabolite', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항암항생제', 'ANTANT', 'Antitumor Antibiotic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('식물알칼로이드', 'PLNALK', 'Plant Alkaloid', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('표적치료제', 'TRGTHR', 'Targeted Therapy', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('면역항암제', 'IMNONCDRG', 'Immuno Oncology Drug', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('호르몬항암제', 'HRMANT', 'Hormonal Anticancer', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('단클론항체', 'MNCANT', 'Monoclonal Antibody', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('면역글로불린', 'IMNGLB', 'Immunoglobulin', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비타민', 'VTMN', 'Vitamin', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('무기질', 'MNRL', 'Mineral', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아미노산', 'AMNACD', 'Amino Acid', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('지방유제', 'LPDEML', 'Lipid Emulsion', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('포도당', 'DXTRS', 'Dextrose', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('생리식염수', 'NRMSLN', 'Normal Saline', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('링거액', 'RNGSLT', 'Ringer Solution', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알부민', 'ALBMN', 'Albumin', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('해독제', 'ANTDT', 'Antidote', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('길항제', 'ANTGNS', 'Antagonist', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('안과용제', 'OPHAGN', 'Ophthalmic Agent', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이비과용제', 'ENTAGN', 'ENT Agent', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피부과용제', 'DRMAGN', 'Dermatologic Agent', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비뇨기과용제', 'URLAGN', 'Urologic Agent', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전립선비대증치료제', 'BPHDRG', 'BPH Drug', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('발기부전치료제', 'ERCDYSDRG', 'Erectile Dysfunction Drug', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('자궁수축제', 'UTRTNC', 'Uterotonic', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피임제', 'CNTRCP', 'Contraceptive', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('금연보조제', 'SMKCSTAID', 'Smoking Cessation Aid', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비만치료제', 'ANTBST', 'Antiobesity', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('진단용약', 'DGNAGN', 'Diagnostic Agent', '분류: 약효분류', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('진료과', 'CLNDPR', 'Clinical Department', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('내과', 'INTMDC', 'Internal Medicine', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('소화기내과', 'GSTRNT', 'Gastroenterology', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('순환기내과', 'CRDLGY', 'Cardiology', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('호흡기내과', 'PLMNLG', 'Pulmonology', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('내분비내과', 'ENDCRN', 'Endocrinology', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('신장내과', 'NPHRLG', 'Nephrology', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('혈액종양내과', 'HMTONC', 'Hematology Oncology', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('감염내과', 'INFDS', 'Infectious Disease', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('류마티스내과', 'RHMTLG', 'Rheumatology', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알레르기내과', 'ALRDPR', 'Allergy Department', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('외과', 'SRGRY', 'Surgery', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일반외과', 'GNRSRG', 'General Surgery', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('흉부외과', 'THRSRG', 'Thoracic Surgery', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('신경외과', 'NRSRGR', 'Neurosurgery', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정형외과', 'ORTHPD', 'Orthopedics', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('성형외과', 'PLSSRG', 'Plastic Surgery', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이식외과', 'TRNSRG', 'Transplant Surgery', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대장항문외과', 'CLRSRG', 'Colorectal Surgery', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('유방외과', 'BRSSRG', 'Breast Surgery', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('소아청소년과', 'PDTRCS', 'Pediatrics', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('산부인과', 'OBSGYN', 'Obstetrics Gynecology', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('신경과', 'NRLGY', 'Neurology', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정신건강의학과', 'PSYCHTR', 'Psychiatry', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피부과', 'DRMTLG', 'Dermatology', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비뇨의학과', 'URLGY', 'Urology', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('안과', 'OPHTHLM', 'Ophthalmology', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이비인후과', 'OTRHNL', 'Otorhinolaryngology', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재활의학과', 'RHBMDC', 'Rehabilitation Medicine', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마취통증의학과', 'ANSTHS', 'Anesthesiology', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('영상의학과', 'RDLGY', 'Radiology', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('방사선종양학과', 'RDTONC', 'Radiation Oncology', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('핵의학과', 'NCLMDC', 'Nuclear Medicine', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('진단검사의학과', 'LBRMDC', 'Laboratory Medicine', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('병리과', 'PTHLGY', 'Pathology', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('응급의학과', 'EMRMDC', 'Emergency Medicine', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('가정의학과', 'FMLMDC', 'Family Medicine', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('치과', 'DNTSTR', 'Dentistry', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('구강악안면외과', 'ORLMXLSRG', 'Oral Maxillofacial Surgery', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('한방과', 'KRNMDC', 'Korean Medicine', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('직업환경의학과', 'OCPMDC', 'Occupational Medicine', '분류: 진료과', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('진료', 'MDCTRT', 'Medical Treatment', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('외래', 'OTPTNT', 'Outpatient', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('입원', 'ADMSN', 'Admission', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('퇴원', 'DSCHRG', 'Discharge', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전원', 'TRNHSP', 'Transfer Hospital', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전과', 'TRNDPR', 'Transfer Department', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전동', 'TRNWRD', 'Transfer Ward', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재원', 'HSPTLZ', 'Hospitalization', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('내원', 'VISIT', 'Visit', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('초진', 'FRSVST', 'First Visit', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재진', 'RVST', 'Revisit', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('응급실', 'EMRRM', 'Emergency Room', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('중환자실', 'ICU', 'Intensive Care Unit', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('신생아중환자실', 'NICU', 'Neonatal ICU', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('소아중환자실', 'PICU', 'Pediatric ICU', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수술실', 'OPRRM', 'Operating Room', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('회복실', 'RCVRM', 'Recovery Room', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('분만실', 'DLVRM', 'Delivery Room', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투석실', 'DLYRM', 'Dialysis Room', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주사실', 'INJRM', 'Injection Room', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처치실', 'TRTRM', 'Treatment Room', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검사실', 'LBRTRY', 'Laboratory', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('내시경실', 'ENDRM', 'Endoscopy Room', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('혈관조영실', 'ANGRM', 'Angiography Room', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('낮병동', 'DAYWRD', 'Day Ward', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항암주사실', 'CHMINFRM', 'Chemotherapy Infusion Room', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('격리병실', 'ISLRM', 'Isolation Room', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('음압병실', 'NGTPRSRM', 'Negative Pressure Room', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('간호스테이션', 'NRSSTN', 'Nursing Station', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('진료실', 'CNSRM', 'Consultation Room', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수납창구', 'PYMCNT', 'Payment Counter', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약제창구', 'PHRCNT', 'Pharmacy Counter', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투약구', 'DSPWND', 'Dispensing Window', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대기실', 'WTNRM', 'Waiting Room', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('병원', 'HSPTL', 'Hospital', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('의원', 'CLINIC', 'Clinic', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('요양병원', 'NRSHSP', 'Nursing Hospital', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('상급종합병원', 'TRTHSP', 'Tertiary Hospital', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('종합병원', 'GNRHSP', 'General Hospital', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('본원', 'MNHSP', 'Main Hospital', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('분원', 'BRNHSP', 'Branch Hospital', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('병동코드', 'WRDCD', 'Ward Code', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('진료과코드', 'DPRCD', 'Department Code', '분류: 진료·장소', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('환자', 'PT', 'Patient', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('환자번호', 'PTNNMB', 'Patient Number', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('등록번호', 'RGSNMB', 'Registration Number', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('내원번호', 'VSTNMB', 'Visit Number', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('입원번호', 'ADMNMB', 'Admission Number', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수진자', 'INSPTN', 'Insured Patient', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('성별', 'GENDER', 'Gender', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('나이', 'AGE', 'Age', '분류: 환자', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('연령', 'AGEGRP', 'Age Group', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('연령대', 'AGERNG', 'Age Range', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('소아', 'PDTRC', 'Pediatric', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('신생아', 'NWBRN', 'Newborn', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('영아', 'INFANT', 'Infant', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('노인', 'ELDRLY', 'Elderly', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('임부', 'PRGWMN', 'Pregnant Woman', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수유부', 'LCTWMN', 'Lactating Woman', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('가임여성', 'CHLWMN', 'Childbearing Woman', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('혈액형', 'BLDTYP', 'Blood Type', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보험유형', 'INSTYP', 'Insurance Type', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('건강보험', 'HLTINS', 'Health Insurance', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('의료급여', 'MDCAID', 'Medical Aid', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('산재보험', 'INDACDINS', 'Industrial Accident Insurance', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('자동차보험', 'ATINS', 'Auto Insurance', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보훈', 'VTRNS', 'Veterans', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일반환자', 'GNRPTN', 'General Patient', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('행려환자', 'HMLPTN', 'Homeless Patient', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('외국인', 'FRGNR', 'Foreigner', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주민등록번호', 'RSDRGSNMB', 'Resident Registration Number', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('여권번호', 'PSPNMB', 'Passport Number', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('연락처', 'CNTCT', 'Contact', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보호자연락처', 'GRDCNT', 'Guardian Contact', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알레르기', 'ALRGY', 'Allergy', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약물알레르기', 'DRGALR', 'Drug Allergy', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('음식알레르기', 'FDALR', 'Food Allergy', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('과민반응', 'HYPRSN', 'Hypersensitivity', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아나필락시스', 'ANPHYL', 'Anaphylaxis', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부작용이력', 'ADVEVNHST', 'Adverse Event History', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('흡연', 'SMKNG', 'Smoking', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('음주', 'DRNKNG', 'Drinking', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('키', 'STR', 'Stature', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('몸무게', 'WEIGHT', 'Weight', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('혈압', 'BP', 'Blood Pressure', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('맥박', 'PULSE', 'Pulse', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('호흡수', 'RSPRT', 'Respiratory Rate', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('체온', 'BDYTMP', 'Body Temperature', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('산소포화도', 'SPO2', 'Oxygen Saturation', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('의식상태', 'CNSLVL', 'Consciousness Level', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('활력징후', 'VTLSGN', 'Vital Sign', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('통증점수', 'PNSCR', 'Pain Score', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('낙상위험', 'FLRSK', 'Fall Risk', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('욕창위험', 'PRSULCRSK', 'Pressure Ulcer Risk', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('연하곤란', 'DYSPHG', 'Dysphagia', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('금식', 'NPO', 'Nothing By Mouth', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('식이', 'DIET', 'Diet', '분류: 환자', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('진단', 'DGNS', 'Diagnosis', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('진단명', 'DGNNM', 'Diagnosis Name', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주진단', 'PRMDGN', 'Primary Diagnosis', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부진단', 'SCNDGN', 'Secondary Diagnosis', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('상병', 'DSINJ', 'Disease Injury', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('상병코드', 'DSCD', 'Disease Code', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('질병', 'DS', 'Disease', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('질환', 'ILNS', 'Illness', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('증상', 'SYMPTM', 'Symptom', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('고혈압', 'HYPRTN', 'Hypertension', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('저혈압', 'HYPTNS', 'Hypotension', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('당뇨병', 'DBTMLT', 'Diabetes Mellitus', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('고지혈증', 'HYPRLP', 'Hyperlipidemia', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('협심증', 'ANGINA', 'Angina', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('심근경색', 'MYCINF', 'Myocardial Infarction', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('심부전', 'HRTFLR', 'Heart Failure', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('심방세동', 'ATRFBR', 'Atrial Fibrillation', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부정맥', 'ARHYTH', 'Arrhythmia', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('뇌졸중', 'STROKE', 'Stroke', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('뇌경색', 'CRBINF', 'Cerebral Infarction', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('뇌출혈', 'CRBHMR', 'Cerebral Hemorrhage', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('치매', 'DMNT', 'Dementia', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('파킨슨병', 'PRKDS', 'Parkinson Disease', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('뇌전증', 'EPLPSY', 'Epilepsy', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('편두통', 'MGRN', 'Migraine', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('우울증', 'DPRSN', 'Depression', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조현병', 'SCHZPH', 'Schizophrenia', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('양극성장애', 'BPLDSR', 'Bipolar Disorder', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불면증', 'INSMN', 'Insomnia', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불안장애', 'ANXDSR', 'Anxiety Disorder', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('천식', 'ASTHMA', 'Asthma', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('만성폐쇄성폐질환', 'COPD', 'COPD', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폐렴', 'PNMN', 'Pneumonia', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('결핵', 'TBRCLS', 'Tuberculosis', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('기관지염', 'BRNCHT', 'Bronchitis', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('감기', 'CMNCLD', 'Common Cold', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인플루엔자', 'INFLNZ', 'Influenza', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('코로나바이러스감염증', 'COVID', 'COVID19', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('위염', 'GSTRTS', 'Gastritis', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('위궤양', 'GSTULC', 'Gastric Ulcer', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('역류성식도염', 'RFLESP', 'Reflux Esophagitis', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('간염', 'HPTS', 'Hepatitis', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('간경변', 'LVRCRH', 'Liver Cirrhosis', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('췌장염', 'PNCRTS', 'Pancreatitis', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('장염', 'ENTRTS', 'Enteritis', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('변비', 'CNSTPT', 'Constipation', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('설사', 'DRH', 'Diarrhea', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('구토', 'VMTNG', 'Vomiting', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오심', 'NAUSEA', 'Nausea', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('신부전', 'RNLFLR', 'Renal Failure', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('만성신장병', 'CKD', 'Chronic Kidney Disease', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('급성신손상', 'AKI', 'Acute Kidney Injury', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('요로감염', 'UTI', 'Urinary Tract Infection', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전립선비대증', 'BPH', 'Benign Prostatic Hyperplasia', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('갑상선기능저하증', 'HYPTHY', 'Hypothyroidism', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('갑상선기능항진증', 'HYPRTH', 'Hyperthyroidism', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('골다공증', 'OSTPRS', 'Osteoporosis', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('관절염', 'ARTHRT', 'Arthritis', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('류마티스관절염', 'RHMART', 'Rheumatoid Arthritis', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('통풍', 'GOUT', 'Gout', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('요통', 'LOWBCKPN', 'Low Back Pain', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('골절', 'FRCTR', 'Fracture', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('암', 'CANCER', 'Cancer', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폐암', 'LNGCNC', 'Lung Cancer', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('위암', 'GSTCNC', 'Gastric Cancer', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대장암', 'CLRCNC', 'Colorectal Cancer', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('간암', 'LVRCNC', 'Liver Cancer', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('유방암', 'BRSCNC', 'Breast Cancer', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전립선암', 'PRSTCNCR', 'Prostate Cancer', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('갑상선암', 'THYCNC', 'Thyroid Cancer', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('췌장암', 'PNCCNC', 'Pancreatic Cancer', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('백혈병', 'LKM', 'Leukemia', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('림프종', 'LYMPHM', 'Lymphoma', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('다발골수종', 'MLTMYL', 'Multiple Myeloma', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('빈혈', 'ANEMIA', 'Anemia', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('혈소판감소증', 'THRMBC', 'Thrombocytopenia', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('호중구감소증', 'NTRPN', 'Neutropenia', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('패혈증', 'SEPSIS', 'Sepsis', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('쇼크', 'SHOCK', 'Shock', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('탈수', 'DHYDRT', 'Dehydration', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('저칼륨혈증', 'HYPKLM', 'Hypokalemia', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('고칼륨혈증', 'HYPRKL', 'Hyperkalemia', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('저나트륨혈증', 'HYPNTR', 'Hyponatremia', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('저혈당', 'HYPGLY', 'Hypoglycemia', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('고혈당', 'HYPRGL', 'Hyperglycemia', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아토피피부염', 'ATPDRM', 'Atopic Dermatitis', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('두드러기', 'URTCR', 'Urticaria', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('건선', 'PSRS', 'Psoriasis', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대상포진', 'HRPZST', 'Herpes Zoster', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('녹내장', 'GLCM', 'Glaucoma', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('백내장', 'CTRCT', 'Cataract', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('결막염', 'CNJNCT', 'Conjunctivitis', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('중이염', 'OTSMD', 'Otitis Media', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비염', 'RHNTS', 'Rhinitis', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부비동염', 'SNSTS', 'Sinusitis', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('편도염', 'TNSLTS', 'Tonsillitis', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('통증', 'PAIN', 'Pain', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('발열', 'FEVER', 'Fever', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부종', 'EDEMA', 'Edema', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('출혈', 'BLDNG', 'Bleeding', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('경련', 'SZR', 'Seizure', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('섬망', 'DLRM', 'Delirium', '분류: 진단·질환', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검사', 'TEST', 'Test', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검사결과', 'TSTRSL', 'Test Result', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검사항목', 'TSTITM', 'Test Item', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검사일', 'TSTDAY', 'Test Day', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검체', 'SPCMN', 'Specimen', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('채혈', 'BLDCLC', 'Blood Collection', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('혈액검사', 'BLDTST', 'Blood Test', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('소변검사', 'URNLYS', 'Urinalysis', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일반혈액검사', 'CBC', 'Complete Blood Count', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('간기능검사', 'LFT', 'Liver Function Test', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('신기능검사', 'RFT', 'Renal Function Test', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('혈중농도', 'BLDCNC', 'Blood Concentration', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약물농도', 'DRGLVL', 'Drug Level', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('치료약물모니터링', 'TDM', 'Therapeutic Drug Monitoring', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('최고농도', 'PKCNC', 'Peak Concentration', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('최저농도', 'TRGCNC', 'Trough Concentration', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반감기', 'HLFLF', 'Half Life', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('청소율', 'CLRNC', 'Clearance', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('크레아티닌', 'CRTN', 'Creatinine', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('크레아티닌청소율', 'CRCL', 'Creatinine Clearance', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사구체여과율', 'GFR', 'Glomerular Filtration Rate', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('혈중요소질소', 'BUN', 'Blood Urea Nitrogen', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아스파르테이트아미노전이효소', 'AST', 'AST', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알라닌아미노전이효소', 'ALT', 'ALT', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('빌리루빈', 'BLRBN', 'Bilirubin', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알부민수치', 'ALBLVL', 'Albumin Level', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('혈색소', 'HB', 'Hemoglobin', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('적혈구', 'RBC', 'Red Blood Cell', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('백혈구', 'WBC', 'White Blood Cell', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('혈소판', 'PLT', 'Platelet', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('호중구', 'NTRPHL', 'Neutrophil', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('절대호중구수', 'ANC', 'Absolute Neutrophil Count', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프로트롬빈시간', 'PRTTM', 'Prothrombin Time', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('국제표준화비율', 'INR', 'INR', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('활성화부분트롬보플라스틴시간', 'APTT', 'aPTT', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('혈당', 'BLDGLC', 'Blood Glucose', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('당화혈색소', 'HBA1C', 'HbA1c', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('콜레스테롤', 'CHLSTR', 'Cholesterol', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('중성지방', 'TRGLYC', 'Triglyceride', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('나트륨', 'SODIUM', 'Sodium', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('칼륨', 'PTSM', 'Potassium', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('칼슘', 'CLCM', 'Calcium', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마그네슘', 'MGNSM', 'Magnesium', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인', 'PHSPHR', 'Phosphorus', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('염소', 'CHLRD', 'Chloride', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('C반응단백', 'CRP', 'C Reactive Protein', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프로칼시토닌', 'PRCLCT', 'Procalcitonin', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('배양검사', 'CLTTST', 'Culture Test', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('감수성검사', 'SCPTST', 'Susceptibility Test', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('내성', 'RSTNC', 'Resistance', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('다제내성균', 'MDRO', 'Multidrug Resistant Organism', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('심전도', 'ECG', 'Electrocardiogram', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('흉부촬영', 'CHSXRY', 'Chest Xray', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('컴퓨터단층촬영', 'CT', 'CT Scan', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('자기공명영상', 'MRI', 'MRI', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('초음파', 'ULTRSN', 'Ultrasound', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('내시경', 'ENDSCP', 'Endoscopy', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조직검사', 'BIOPSY', 'Biopsy', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('유전자검사', 'GNTTST', 'Genetic Test', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약물유전체', 'PHRMCG', 'Pharmacogenomics', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('임신검사', 'PRGTST', 'Pregnancy Test', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피부반응검사', 'SKNTST', 'Skin Test', '분류: 검사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('신체부위', 'BDYPRT', 'Body Part', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('머리', 'HEAD', 'Head', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('눈', 'EYE', 'Eye', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('귀', 'EAR', 'Ear', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('코', 'NOSE', 'Nose', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('입', 'MOUTH', 'Mouth', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('목', 'NECK', 'Neck', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('가슴', 'CHEST', 'Chest', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('복부', 'ABDMN', 'Abdomen', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('등', 'BACK', 'Back', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('허리', 'WAIST', 'Waist', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('팔', 'ARM', 'Arm', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('손', 'HAND', 'Hand', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('다리', 'LEG', 'Leg', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('발', 'FOOT', 'Foot', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피부', 'SKIN', 'Skin', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('심장', 'HEART', 'Heart', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폐', 'LUNG', 'Lung', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('간', 'LIVER', 'Liver', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('신장기관', 'KIDNEY', 'Kidney', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('위', 'STMCH', 'Stomach', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('장', 'INTSTN', 'Intestine', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('췌장', 'PNCRS', 'Pancreas', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('담낭', 'GLBLDR', 'Gallbladder', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('뇌', 'BRAIN', 'Brain', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('척추', 'SPINE', 'Spine', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('관절', 'JOINT', 'Joint', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('뼈', 'BONE', 'Bone', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('근육조직', 'MUSCLE', 'Muscle', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('혈관', 'BLDVSL', 'Blood Vessel', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('좌측', 'LFTSD', 'Left Side', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('우측', 'RGHSD', 'Right Side', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('양측', 'BTHSDS', 'Both Sides', '분류: 신체 부위', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('치료', 'THRPY', 'Therapy', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수술', 'OPRTN', 'Operation', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시술', 'PRCDR', 'Procedure', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처치', 'TRTCR', 'Treatment Care', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수혈', 'TRNSFS', 'Transfusion', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투석', 'DLYS', 'Dialysis', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('혈액투석', 'HMDLYS', 'Hemodialysis', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('복막투석', 'PRTDLY', 'Peritoneal Dialysis', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항암치료', 'CHMTHR', 'Chemotherapy', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('방사선치료', 'RDTHRP', 'Radiotherapy', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항암요법', 'CHMRGM', 'Chemotherapy Regimen', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레지먼', 'RGMN', 'Regimen', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주기', 'CYCLE', 'Cycle', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사이클', 'TRTCYC', 'Treatment Cycle', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('코스', 'COURSE', 'Course', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전처치', 'PRMDCT', 'Premedication', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('진정', 'SDTN', 'Sedation', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마취', 'ANESTHESIA', 'Anesthesia', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('통증조절', 'PNCNT', 'Pain Control', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('자가통증조절', 'PCA', 'Patient Controlled Analgesia', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('영양지원', 'NTRSPR', 'Nutrition Support', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정맥영양', 'PN', 'Parenteral Nutrition', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('경장영양', 'EN', 'Enteral Nutrition', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('산소요법', 'OXYTHR', 'Oxygen Therapy', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인공호흡기', 'VNTLTR', 'Ventilator', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('기관삽관', 'INTBTN', 'Intubation', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('심폐소생술', 'CPR', 'Cardiopulmonary Resuscitation', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('예방접종', 'VCNTN', 'Vaccination', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('예방적투여', 'PRPHYL', 'Prophylaxis', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('경험적치료', 'EMPTHR', 'Empirical Therapy', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('표적치료', 'TRGTTHRP', 'Target Therapy', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('완화치료', 'PLTCR', 'Palliative Care', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('호스피스', 'HSPC', 'Hospice', '분류: 치료·처치', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('발주', 'PRCHORD', 'Purchase Order', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('발주서', 'PRCORDSHT', 'Purchase Order Sheet', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('발주량', 'ORDQNT', 'Order Quantity', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('발주점', 'RDRPNT', 'Reorder Point', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('적정재고', 'OPTSTC', 'Optimal Stock', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('안전재고', 'SFTSTC', 'Safety Stock', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('최대재고', 'MXMSTC', 'Maximum Stock', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('최소재고', 'MNMSTC', 'Minimum Stock', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('납품', 'DLVSPL', 'Delivery Supply', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('납품업체', 'VENDOR', 'Vendor', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('납품서', 'DLVNT', 'Delivery Note', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('입고량', 'RCVQNT', 'Received Quantity', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('입고처', 'RCVSRC', 'Receiving Source', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('입고예정', 'EXPRCP', 'Expected Receipt', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('입고확정', 'RCPTCNFR', 'Receipt Confirmed', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('입고취소', 'RCPCNC', 'Receipt Cancel', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('가입고', 'PRVRCP', 'Provisional Receipt', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('직납', 'DRCDLV', 'Direct Delivery', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('위탁', 'CNSGNM', 'Consignment', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사용분결제', 'USGBSDPYM', 'Usage Based Payment', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('단가계약', 'UNTPRCCNT', 'Unit Price Contract', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('입찰', 'BDNG', 'Bidding', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('낙찰', 'AWARD', 'Award', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('계약기간', 'CNTPRD', 'Contract Period', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('구매요청', 'PRCRQS', 'Purchase Request', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('구매승인', 'PRCAPR', 'Purchase Approval', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('견적서', 'QTN', 'Quotation', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세금계산서', 'TAXINV', 'Tax Invoice', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('영수증', 'RCPSLP', 'Receipt Slip', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대금', 'PYMPRC', 'Payment Price', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('지급', 'PYMDSB', 'Payment Disbursement', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미지급', 'UNPAID', 'Unpaid', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('매입', 'PRCHSN', 'Purchasing', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('매출', 'RVN', 'Revenue', '분류: 구매·입고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재고량', 'STCQNT', 'Stock Quantity', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('현재고', 'CRNSTC', 'Current Stock', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('가용재고', 'AVLSTC', 'Available Stock', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('장부재고', 'BKSTC', 'Book Stock', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('실재고', 'ACTSTC', 'Actual Stock', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재고실사', 'STCTKN', 'Stock Taking', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('실사', 'PHYCNT', 'Physical Count', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재고조정', 'STCADJ', 'Stock Adjustment', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재고이동', 'STCTRN', 'Stock Transfer', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재고차이', 'STCDSC', 'Stock Discrepancy', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재고회전', 'STCKTRNV', 'Stock Turnover', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재고자산', 'INVAST', 'Inventory Asset', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이월', 'CRYOVR', 'Carry Over', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('기초재고', 'OPNSTC', 'Opening Stock', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('기말재고', 'CLSSTC', 'Closing Stock', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수불', 'RCPIS', 'Receipt And Issue', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수불부', 'RCPISLDG', 'Receipt Issue Ledger', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('선입선출', 'FIFO', 'First In First Out', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('선만료선출', 'FEFO', 'First Expired First Out', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('제조번호', 'LOTNO', 'Lot Number', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로트', 'LOT', 'Lot', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일련번호', 'SRLCD', 'Serial Code', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('바코드', 'BRCD', 'Barcode', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('2차원바코드', 'DTMTRX', 'Data Matrix', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('RFID', 'RFID', 'Radio Frequency Identification', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('표준바코드', 'STNBRC', 'Standard Barcode', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('제조일', 'MNFDAY', 'Manufacturing Day', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('만료일', 'EXPDAY', 'Expiry Day', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('유효기간임박', 'NREXP', 'Near Expiry', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('만료약', 'EXPDRG', 'Expired Drug', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불용약', 'UNSDRG', 'Unusable Drug', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('장기미사용', 'LNGTRMUNS', 'Long Term Unused', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('악성재고', 'DSTC', 'Dead Stock', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보관함', 'STRBIN', 'Storage Bin', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약장', 'MDCCBN', 'Medicine Cabinet', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('선반', 'SHELF', 'Shelf', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('랙', 'RACK', 'Rack', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('칸', 'CMPRTM', 'Compartment', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('위치', 'LCTN', 'Location', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로케이션', 'STRLCTCD', 'Storage Location Code', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('구역', 'ZONE', 'Zone', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('냉장고', 'RFRGRTR', 'Refrigerator', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('냉동고', 'FRZR', 'Freezer', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약금고', 'NRCSF', 'Narcotic Safe', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이중잠금', 'DBLLCK', 'Double Lock', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('잠금장치', 'LCKDVC', 'Locking Device', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('온도기록', 'TMPLOG', 'Temperature Log', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('온도이탈', 'TMPEXC', 'Temperature Excursion', '분류: 재고', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('장비', 'EQPDVC', 'Equipment Device', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('자동정제분포기', 'ATC', 'Automatic Tablet Packaging Machine', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('자동조제기', 'ATMDSPMCH', 'Automatic Dispensing Machine', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('자동약품분류기', 'ATMDRGSRT', 'Automatic Drug Sorter', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('산제분포기', 'PWDPCKMCH', 'Powder Packaging Machine', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('액제분주기', 'LQDDSP', 'Liquid Dispenser', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약품자동분배기', 'ADC', 'Automated Dispensing Cabinet', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('바이알분주기', 'VLDSP', 'Vial Dispenser', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('무균작업대', 'CLNBNC', 'Clean Bench', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('생물안전작업대', 'BSC', 'Biological Safety Cabinet', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('안전캐비넷', 'SFTCBN', 'Safety Cabinet', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제로봇', 'CMPRBT', 'Compounding Robot', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주사조제로봇', 'IVRBT', 'IV Robot', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라벨프린터', 'LBLPRN', 'Label Printer', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('바코드스캐너', 'BRCSCN', 'Barcode Scanner', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('PDA', 'PDA', 'Personal Digital Assistant', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('저울', 'SCLBLN', 'Scale Balance', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전자저울', 'ELCSCL', 'Electronic Scale', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('분쇄기', 'GRNDR', 'Grinder', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('교반기', 'STIRRER', 'Stirrer', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수액펌프', 'INFPMP', 'Infusion Pump', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시린지펌프', 'SYRPMP', 'Syringe Pump', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('스마트펌프', 'SMRPMP', 'Smart Pump', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('캐니스터', 'CNSTR', 'Canister', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카세트', 'CASSETTE', 'Cassette', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약품트레이', 'DRGTRY', 'Drug Tray', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약품바구니', 'DRGBSK', 'Drug Basket', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('배송카트', 'DLVCRT', 'Delivery Cart', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('기기', 'DVCMCH', 'Device Machine', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('기기상태', 'DVCSTS', 'Device Status', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('가동', 'OPRRNG', 'Operation Running', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('고장', 'BRKDWN', 'Breakdown', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정비', 'MNTNC', 'Maintenance', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('교정', 'CLBRTN', 'Calibration', '분류: 장비', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수가', 'MDCFEE', 'Medical Fee', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수가코드', 'FEECD', 'Fee Code', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('행위료', 'PRCFEE', 'Procedure Fee', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약품비', 'DRGCST', 'Drug Cost', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재료비', 'MTRCST', 'Material Cost', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('진료비', 'MDCEXP', 'Medical Expense', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('본인부담금', 'CPYAMN', 'Copay Amount', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('공단부담금', 'INSPYM', 'Insurance Payment', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('심사', 'RVWEXM', 'Review Examination', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('삭감', 'RDCCUT', 'Reduction Cut', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이의신청', 'APPEAL', 'Appeal', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('청구서', 'CLMFRM', 'Claim Form', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('명세서', 'STMNT', 'Statement', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('산정', 'CLCEST', 'Calculation Estimate', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('산정특례', 'SPCCLC', 'Special Calculation', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('가산', 'ADTCHR', 'Additional Charge', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('야간가산', 'NGHSRC', 'Night Surcharge', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('공휴가산', 'HLDSRC', 'Holiday Surcharge', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('소아가산', 'PDTSRC', 'Pediatric Surcharge', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제가산', 'DSPSRC', 'Dispensing Surcharge', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('무균조제료', 'ASPCMPFEE', 'Aseptic Compounding Fee', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약관리료', 'NRCMNGFEE', 'Narcotic Management Fee', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('복약지도료', 'CNSFEE', 'Counseling Fee', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('의약품관리료', 'DRGMNGFEE', 'Drug Management Fee', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('식대', 'MLCST', 'Meal Cost', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('급여기준', 'CVRCRT', 'Coverage Criteria', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('허가초과', 'OFFLBL', 'Off Label', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사전신청', 'PREAPL', 'Pre Application', '분류: 보험·청구', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약류관리', 'NRCCNT', 'Narcotic Control', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약류통합관리시스템', 'NIMS', 'Narcotics Information Management System', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약류취급자', 'NRCHND', 'Narcotic Handler', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약류관리자', 'NRCMNG', 'Narcotic Manager', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약처방', 'NRCPRS', 'Narcotic Prescription', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약불출', 'NRCIS', 'Narcotic Issue', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약반납', 'NRCRTR', 'Narcotic Return', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약폐기', 'NRCDSP', 'Narcotic Disposal', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약사고', 'NRCACD', 'Narcotic Accident', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('도난', 'THEFT', 'Theft', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('분실', 'LOSS', 'Loss', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사고', 'INCDNT', 'Incident', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사고보고', 'INCRPR', 'Incident Report', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('근접오류', 'NRMS', 'Near Miss', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('위해사건', 'ADVEVN', 'Adverse Event', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('적신호사건', 'SNTEVN', 'Sentinel Event', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약물이상반응보고', 'ADRRPR', 'ADR Report', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('의약품부작용', 'DRGADVEFC', 'Drug Adverse Effect', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인과관계', 'CSLTY', 'Causality', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('중증도', 'SVRTY', 'Severity', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('의약품안전', 'DRGSFT', 'Drug Safety', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('안전성정보', 'SFTINF', 'Safety Information', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('허가사항', 'APRINF', 'Approval Information', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('첨부문서', 'PCKINS', 'Package Insert', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('품질', 'QLTY', 'Quality', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('품질관리', 'QC', 'Quality Control', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('품질보증', 'QA', 'Quality Assurance', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('적정성평가', 'ADQEVL', 'Adequacy Evaluation', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인증평가', 'ACRDTN', 'Accreditation', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('의료기관인증', 'HSPACR', 'Hospital Accreditation', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('감염', 'INFCTN', 'Infection', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('감염병', 'INFDSILN', 'Infectious Disease Illness', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('격리', 'ISLTN', 'Isolation', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('소독', 'DSNFCTN', 'Disinfection', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('위생', 'HYGN', 'Hygiene', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보호구', 'PRTEQP', 'Protective Equipment', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('개인정보', 'PRSINF', 'Personal Information', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비밀번호', 'PSWRD', 'Password', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로그', 'LOG', 'Log', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('접근', 'ACCESS', 'Access', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('감사로그', 'ADTLOG', 'Audit Log', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보안', 'SCRTY', 'Security', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('암호화', 'ENCRYP', 'Encryption', '분류: 법규·관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시스템', 'SYS', 'System', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방전달시스템', 'OCS', 'Order Communication System', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전자의무기록', 'EMR', 'Electronic Medical Record', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('병원정보시스템', 'HIS', 'Hospital Information System', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약제시스템', 'PHRSYS', 'Pharmacy System', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인터페이스', 'INTRFC', 'Interface', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('연계', 'LNKG', 'Linkage', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('송신', 'TRNSMT', 'Transmit', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('배치', 'BATCH', 'Batch', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('작업', 'JOB', 'Job', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('스케줄', 'SCHDL', 'Schedule', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('큐', 'QUEUE', 'Queue', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메시지', 'MSG', 'Message', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알림', 'NTFCTN', 'Notification', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('푸시', 'PUSH', 'Push', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('화면', 'SCREEN', 'Screen', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('버튼', 'BUTTON', 'Button', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('팝업', 'POPUP', 'Popup', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('출력물', 'PRNT', 'Printout', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프린터', 'PRNTR', 'Printer', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('단말기', 'TRMNL', 'Terminal', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('장비번호', 'EQPNMB', 'Equipment Number', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('접속', 'CNCTN', 'Connection', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세션', 'SNLGN', 'Session Login', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('토큰', 'TOKEN', 'Token', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('버전', 'VRSN', 'Version', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('설정', 'STNG', 'Setting', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('환경설정', 'CNFGRT', 'Configuration', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('파라미터', 'PRMTR', 'Parameter', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('기준정보', 'MSTDT', 'Master Data', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마스터', 'MASTER', 'Master', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트랜잭션', 'TRNRCR', 'Transaction Record', '분류: 시스템·인터페이스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('값', 'VALUE', 'Value', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('기준', 'CRTRN', 'Criterion', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('기준값', 'RFRVL', 'Reference Value', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정상범위', 'NRMRNG', 'Normal Range', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('상한', 'UPRLMT', 'Upper Limit', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('하한', 'LWRLMT', 'Lower Limit', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('최대', 'MXM', 'Maximum', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('최소', 'MNM', 'Minimum', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('평균', 'AVRG', 'Average', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('합계', 'SUM', 'Sum', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('누계', 'CMLTL', 'Cumulative Total', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('차이', 'DFRNC', 'Difference', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비율', 'RATIO', 'Ratio', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('점수', 'SCR', 'Score', '분류: 일반 데이터', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('등급', 'GRADE', 'Grade', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('단계', 'STAGE', 'Stage', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레벨', 'LEVEL', 'Level', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('순위', 'RANK', 'Rank', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('그룹', 'GROUP', 'Group', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('분류', 'CLSFCT', 'Classification', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대분류', 'MJRCTG', 'Major Category', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('중분류', 'MDLCTG', 'Middle Category', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('소분류', 'MNRCTG', 'Minor Category', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항목', 'ITMENT', 'Item Entry', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('속성', 'ATRBT', 'Attribute', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('특성', 'CHRCTR', 'Characteristic', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조건', 'CNDTN', 'Condition', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('결과', 'RESULT', 'Result', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사유', 'REASON', 'Reason', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('원인', 'CAUSE', 'Cause', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('목적', 'PRPS', 'Purpose', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('방법', 'METHOD', 'Method', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('절차', 'PRCSTP', 'Procedure Step', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('규칙', 'RULE', 'Rule', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정책', 'POLICY', 'Policy', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('기준일', 'BSDAY', 'Base Day', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('적용일', 'EFCDAY', 'Effective Day', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시행', 'ENFRCM', 'Enforcement', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('개정', 'RVSN', 'Revision', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폐지', 'ABLTN', 'Abolition', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('신규', 'NEW', 'New', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('기존', 'EXSTNG', 'Existing', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이전', 'PRVS', 'Previous', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('다음', 'NEXT', 'Next', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('현재', 'CRNT', 'Current', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('최근', 'RECENT', 'Recent', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('최초', 'FIRST', 'First', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('최종', 'FINAL', 'Final', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마지막', 'LAST', 'Last', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전체', 'ALL', 'All', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부분', 'PART', 'Part', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('개별', 'INDVDL', 'Individual', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('공통', 'COMMON', 'Common', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('기본', 'DFLT', 'Default', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('선택', 'SLCTN', 'Selection', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('필수', 'MNDTRY', 'Mandatory', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('옵션', 'OPTION', 'Option', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('예', 'YES', 'Yes', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아니오', 'NOANS', 'No Answer', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('있음', 'EXIST', 'Exist', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('없음', 'NONE', 'None', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미정', 'UNDCD', 'Undecided', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('기타', 'ETC', 'Etc', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('국내', 'DMSTC', 'Domestic', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('국외', 'OVRS', 'Overseas', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('연도', 'YR', 'Year', '분류: 일반 데이터', 'Y', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('월', 'MM', 'Month', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일', 'DD', 'Day', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('요일', 'DAYWK', 'Day Of Week', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('분기', 'QRTR', 'Quarter', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반기', 'HLFYR', 'Half Year', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주간', 'WKLPRD', 'Weekly Period', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('야간', 'NIGHT', 'Night', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주말', 'WKND', 'Weekend', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('공휴일', 'HLDY', 'Holiday', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('근무', 'WRKDTY', 'Work Duty', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('근무조', 'SHIFT', 'Shift', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('당직', 'DUTY', 'On Duty', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('교대', 'SHFCHN', 'Shift Change', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오전', 'AM', 'AM', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오후', 'PM', 'PM', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시점', 'PNTTM', 'Point In Time', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일시점', 'TMPNT', 'Time Point', '분류: 일반 데이터', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아세트아미노펜', 'ACTMNP', 'Acetaminophen', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이부프로펜', 'IBPRFN', 'Ibuprofen', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('덱시부프로펜', 'DXBPRF', 'Dexibuprofen', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('나프록센', 'NPRXN', 'Naproxen', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('케토프로펜', 'KTPRFN', 'Ketoprofen', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('덱스케토프로펜', 'DXKTPR', 'Dexketoprofen', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플루르비프로펜', 'FLRBPR', 'Flurbiprofen', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('록소프로펜', 'LXPRFN', 'Loxoprofen', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('펠루비프로펜', 'PLBPRF', 'Pelubiprofen', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('잘토프로펜', 'ZLTPRF', 'Zaltoprofen', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('디클로페낙', 'DCLFNC', 'Diclofenac', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아세클로페낙', 'ACLFNC', 'Aceclofenac', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인도메타신', 'INDMTH', 'Indomethacin', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에토돌락', 'ETDLC', 'Etodolac', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('설린닥', 'SLNDC', 'Sulindac', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('케토롤락', 'KTRLC', 'Ketorolac', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('멜록시캄', 'MLXCM', 'Meloxicam', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피록시캄', 'PRXCM', 'Piroxicam', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로녹시캄', 'LRNXCM', 'Lornoxicam', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('셀레콕시브', 'CLCXB', 'Celecoxib', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폴마콕시브', 'PLMCXB', 'Polmacoxib', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에토리콕시브', 'ETRCXB', 'Etoricoxib', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('나부메톤', 'NBMTN', 'Nabumetone', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메페남산', 'MFNACD', 'Mefenamic Acid', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아스피린', 'ASPRN', 'Aspirin', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('살리실산', 'SLCACD', 'Salicylic Acid', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('디플루니살', 'DFLNSL', 'Diflunisal', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트라마돌', 'TRMDL', 'Tramadol', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('타펜타돌', 'TPNTDL', 'Tapentadol', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('모르핀', 'MRPHN', 'Morphine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('옥시코돈', 'OXYCDN', 'Oxycodone', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('하이드로모르폰', 'HYDRMR', 'Hydromorphone', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('펜타닐', 'FNTNYL', 'Fentanyl', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레미펜타닐', 'RMFNTN', 'Remifentanil', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수펜타닐', 'SFNTNL', 'Sufentanil', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알펜타닐', 'ALFNTN', 'Alfentanil', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메타돈', 'MTHDN', 'Methadone', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('페티딘', 'PTHDN', 'Pethidine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('코데인', 'CDN', 'Codeine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('디히드로코데인', 'DHYDRC', 'Dihydrocodeine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부프레노르핀', 'BPRNRP', 'Buprenorphine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('날부핀', 'NLBPHN', 'Nalbuphine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부토르파놀', 'BTRPHN', 'Butorphanol', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('날록손', 'NLXN', 'Naloxone', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('날트렉손', 'NLTRXN', 'Naltrexone', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리도카인', 'LDCN', 'Lidocaine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부피바카인', 'BPVCN', 'Bupivacaine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레보부피바카인', 'LVBPVC', 'Levobupivacaine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로피바카인', 'RPVCN', 'Ropivacaine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메피바카인', 'MPVCN', 'Mepivacaine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프릴로카인', 'PRLCN', 'Prilocaine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테트라카인', 'TRCN', 'Tetracaine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('벤조카인', 'BNZCN', 'Benzocaine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프로포폴', 'PRPFL', 'Propofol', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('케타민', 'KTMN', 'Ketamine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에토미데이트', 'ETMDT', 'Etomidate', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('티오펜탈', 'THPNTL', 'Thiopental', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세보플루란', 'SVFLRN', 'Sevoflurane', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('데스플루란', 'DSFLRN', 'Desflurane', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이소플루란', 'ISFLRN', 'Isoflurane', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아산화질소', 'NTROXD', 'Nitrous Oxide', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('덱스메데토미딘', 'DXMDTM', 'Dexmedetomidine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로큐로늄', 'RCRNM', 'Rocuronium', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('베큐로늄', 'VCRNM', 'Vecuronium', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시사트라큐리움', 'CSTRCR', 'Cisatracurium', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('숙시닐콜린', 'SCNYLC', 'Succinylcholine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수가마덱스', 'SGMDX', 'Sugammadex', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('네오스티그민', 'NSTGMN', 'Neostigmine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피리도스티그민', 'PYRDST', 'Pyridostigmine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('글리코피롤레이트', 'GLYCPY', 'Glycopyrrolate', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아트로핀', 'ATRPN', 'Atropine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에페드린', 'EPHDRN', 'Ephedrine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('페닐에프린', 'PHNYLP', 'Phenylephrine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에페리손', 'EPRSN', 'Eperisone', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('티자니딘', 'TZNDN', 'Tizanidine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('바클로펜', 'BCLFN', 'Baclofen', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로르족사존', 'CHLRZX', 'Chlorzoxazone', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메토카르바몰', 'MTHCRB', 'Methocarbamol', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오르페나드린', 'ORPHND', 'Orphenadrine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사이클로벤자프린', 'CYCLBN', 'Cyclobenzaprine', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('단트롤렌', 'DNTRLN', 'Dantrolene', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('톨페리손', 'TLPRSN', 'Tolperisone', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아플로쿠알론', 'AFLQLN', 'Afloqualone', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프레가발린', 'PRGBLN', 'Pregabalin', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('가바펜틴', 'GBPNTN', 'Gabapentin', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미로가발린', 'MRGBLN', 'Mirogabalin', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('캡사이신', 'CPSCN', 'Capsaicin', '분류: 성분명: 진통·소염·마취', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('디아제팜', 'DZPM', 'Diazepam', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로라제팜', 'LRZPM', 'Lorazepam', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알프라졸람', 'ALPRZL', 'Alprazolam', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로나제팜', 'CLNZPM', 'Clonazepam', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미다졸람', 'MDZLM', 'Midazolam', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에티졸람', 'ETZLM', 'Etizolam', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('브로마제팜', 'BRMZPM', 'Bromazepam', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로르디아제폭시드', 'CHLRDZ', 'Chlordiazepoxide', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트리아졸람', 'TRZLM', 'Triazolam', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플루라제팜', 'FLRZPM', 'Flurazepam', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('졸피뎀', 'ZLPDM', 'Zolpidem', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에스조피클론', 'ESZPCL', 'Eszopiclone', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조피클론', 'ZPCLN', 'Zopiclone', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('멜라토닌', 'MLTN', 'Melatonin', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레멜테온', 'RMLTN', 'Ramelteon', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수보렉산트', 'SVRXNT', 'Suvorexant', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부스피론', 'BSPRN', 'Buspirone', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('하이드록시진', 'HYDRXY', 'Hydroxyzine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플루옥세틴', 'FLXTN', 'Fluoxetine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('파록세틴', 'PRXTN', 'Paroxetine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('서트랄린', 'SRTRLN', 'Sertraline', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에스시탈로프람', 'ESCTLP', 'Escitalopram', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시탈로프람', 'CTLPRM', 'Citalopram', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플루복사민', 'FLVXMN', 'Fluvoxamine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('벤라팍신', 'VNLFXN', 'Venlafaxine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('데스벤라팍신', 'DSVNLF', 'Desvenlafaxine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('둘록세틴', 'DLXTN', 'Duloxetine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('밀나시프란', 'MLNCPR', 'Milnacipran', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미르타자핀', 'MRTZPN', 'Mirtazapine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트라조돈', 'TRZDN', 'Trazodone', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부프로피온', 'BPRPN', 'Bupropion', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보티옥세틴', 'VRTXTN', 'Vortioxetine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아고멜라틴', 'AGMLTN', 'Agomelatine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아미트립틸린', 'AMTRPT', 'Amitriptyline', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('노르트립틸린', 'NRTRPT', 'Nortriptyline', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이미프라민', 'IMPRMN', 'Imipramine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로미프라민', 'CLMPRM', 'Clomipramine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('독세핀', 'DXPN', 'Doxepin', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('티아넵틴', 'TNPTN', 'Tianeptine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리스페리돈', 'RSPRDN', 'Risperidone', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('팔리페리돈', 'PLPRDN', 'Paliperidone', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('올란자핀', 'OLNZPN', 'Olanzapine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('쿠에티아핀', 'QTPN', 'Quetiapine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아리피프라졸', 'ARPRZL', 'Aripiprazole', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('브렉스피프라졸', 'BRXPRZ', 'Brexpiprazole', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('지프라시돈', 'ZPRSDN', 'Ziprasidone', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로자핀', 'CLZPN', 'Clozapine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아미설프리드', 'AMSLPR', 'Amisulpride', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('블로난세린', 'BLNSRN', 'Blonanserin', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('루라시돈', 'LRSDN', 'Lurasidone', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('할로페리돌', 'HLPRDL', 'Haloperidol', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로르프로마진', 'CHLRPR', 'Chlorpromazine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('페르페나진', 'PRPHNZ', 'Perphenazine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('설피리드', 'SLPRD', 'Sulpiride', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리튬', 'LTHM', 'Lithium', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('발프로산', 'VLPACD', 'Valproic Acid', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('디발프로엑스', 'DVLPRX', 'Divalproex', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카르바마제핀', 'CRBMZP', 'Carbamazepine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('옥스카르바제핀', 'OXCRBZ', 'Oxcarbazepine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라모트리진', 'LMTRGN', 'Lamotrigine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레비티라세탐', 'LVTRCT', 'Levetiracetam', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('토피라메이트', 'TPRMT', 'Topiramate', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조니사미드', 'ZNSMD', 'Zonisamide', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라코사미드', 'LCSMD', 'Lacosamide', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('페니토인', 'PHNYTN', 'Phenytoin', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('포스페니토인', 'FSPHNY', 'Fosphenytoin', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('페노바르비탈', 'PHNBRB', 'Phenobarbital', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프리미돈', 'PRMDN', 'Primidone', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에토숙시미드', 'ETHSXM', 'Ethosuximide', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로바잠', 'CLBZM', 'Clobazam', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('페람파넬', 'PRMPNL', 'Perampanel', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('브리바라세탐', 'BRVRCT', 'Brivaracetam', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세노바메이트', 'CNBMT', 'Cenobamate', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비가바트린', 'VGBTRN', 'Vigabatrin', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('루피나미드', 'RFNMD', 'Rufinamide', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레보도파', 'LVDP', 'Levodopa', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카르비도파', 'CRBDP', 'Carbidopa', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('벤세라지드', 'BNSRZD', 'Benserazide', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('엔타카폰', 'ENTCPN', 'Entacapone', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오피카폰', 'OPCPN', 'Opicapone', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프라미펙솔', 'PRMPXL', 'Pramipexole', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로피니롤', 'RPNRL', 'Ropinirole', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로티고틴', 'RTGTN', 'Rotigotine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라사길린', 'RSGLN', 'Rasagiline', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('셀레길린', 'SLGLN', 'Selegiline', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사피나미드', 'SFNMD', 'Safinamide', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아만타딘', 'AMNTDN', 'Amantadine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트리헥시페니딜', 'TRHXYP', 'Trihexyphenidyl', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('벤즈트로핀', 'BNZTRP', 'Benztropine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('도네페질', 'DNPZL', 'Donepezil', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리바스티그민', 'RVSTGM', 'Rivastigmine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('갈란타민', 'GLNTMN', 'Galantamine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메만틴', 'MNTN', 'Memantine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('콜린알포세레이트', 'CHLALF', 'Choline Alfoscerate', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아세틸엘카르니틴', 'ACTLCRN', 'Acetyl L Carnitine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('니세르골린', 'NCRGLN', 'Nicergoline', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('은행엽엑스', 'GNKBLBEXT', 'Ginkgo Biloba Extract', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메틸페니데이트', 'MTHYLP', 'Methylphenidate', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아토목세틴', 'ATMXTN', 'Atomoxetine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('모다피닐', 'MDFNL', 'Modafinil', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수마트립탄', 'SMTRPT', 'Sumatriptan', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('졸미트립탄', 'ZLMTRP', 'Zolmitriptan', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('나라트립탄', 'NRTRPTN', 'Naratriptan', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('엘레트립탄', 'ELTRPT', 'Eletriptan', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프로프라놀롤', 'PRPRNL', 'Propranolol', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플루나리진', 'FLNRZN', 'Flunarizine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('베타히스틴', 'BTHSTN', 'Betahistine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('디멘히드리네이트', 'DMNHYD', 'Dimenhydrinate', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메클리진', 'MCLZN', 'Meclizine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('바레니클린', 'VRNCLN', 'Varenicline', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('니코틴', 'NCTN', 'Nicotine', '분류: 성분명: 신경·정신', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('암로디핀', 'AMLDPN', 'Amlodipine', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('니페디핀', 'NFDPN', 'Nifedipine', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('펠로디핀', 'FLDPN', 'Felodipine', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레르카니디핀', 'LRCNDP', 'Lercanidipine', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('실니디핀', 'CLNDPN', 'Cilnidipine', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('니카르디핀', 'NCRDPN', 'Nicardipine', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('니모디핀', 'NMDPN', 'Nimodipine', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('베니디핀', 'BNDPN', 'Benidipine', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('딜티아젬', 'DLTZM', 'Diltiazem', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('베라파밀', 'VRPML', 'Verapamil', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로사르탄', 'LSRTN', 'Losartan', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('발사르탄', 'VLSRTN', 'Valsartan', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('칸데사르탄', 'CNDSRT', 'Candesartan', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이르베사르탄', 'IRBSRT', 'Irbesartan', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('텔미사르탄', 'TLMSRT', 'Telmisartan', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('올메사르탄', 'OLMSRT', 'Olmesartan', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아질사르탄', 'AZLSRT', 'Azilsartan', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피마사르탄', 'FMSRTN', 'Fimasartan', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에프로사르탄', 'EPRSRT', 'Eprosartan', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('캡토프릴', 'CPTPRL', 'Captopril', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에날라프릴', 'ENLPRL', 'Enalapril', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리시노프릴', 'LSNPRL', 'Lisinopril', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라미프릴', 'RMPRL', 'Ramipril', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('페린도프릴', 'PRNDPR', 'Perindopril', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이미다프릴', 'IMDPRL', 'Imidapril', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('포시노프릴', 'FSNPRL', 'Fosinopril', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아테놀롤', 'ATNL', 'Atenolol', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메토프롤롤', 'MTPRL', 'Metoprolol', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비소프롤롤', 'BSPRL', 'Bisoprolol', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카르베딜롤', 'CRVDL', 'Carvedilol', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('네비볼롤', 'NBVL', 'Nebivolol', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라베탈롤', 'LBTL', 'Labetalol', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에스몰롤', 'ESML', 'Esmolol', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('베탁솔롤', 'BTXL', 'Betaxolol', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('셀리프롤롤', 'CLPRL', 'Celiprolol', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('독사조신', 'DXZSN', 'Doxazosin', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테라조신', 'TRZSN', 'Terazosin', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프라조신', 'PRZSN', 'Prazosin', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로니딘', 'CLNDN', 'Clonidine', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메틸도파', 'MTHYLD', 'Methyldopa', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('히드랄라진', 'HYDRLZ', 'Hydralazine', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미녹시딜', 'MNXDL', 'Minoxidil', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('하이드로클로로티아지드', 'HYDRCH', 'Hydrochlorothiazide', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로르탈리돈', 'CHLRTH', 'Chlorthalidone', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인다파미드', 'INDPMD', 'Indapamide', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('푸로세미드', 'FRSMD', 'Furosemide', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('토르세미드', 'TRSMD', 'Torsemide', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부메타니드', 'BMTND', 'Bumetanide', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('스피로노락톤', 'SPRNLC', 'Spironolactone', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에플레레논', 'EPLRN', 'Eplerenone', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아밀로라이드', 'AMLRD', 'Amiloride', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트리암테렌', 'TRMTRN', 'Triamterene', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아세타졸아미드', 'ACTZLM', 'Acetazolamide', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('만니톨', 'MNTL', 'Mannitol', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('톨밥탄', 'TLVPTN', 'Tolvaptan', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('디곡신', 'DGXN', 'Digoxin', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아미오다론', 'AMDRN', 'Amiodarone', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('드로네다론', 'DRNDRN', 'Dronedarone', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플레카이니드', 'FLCND', 'Flecainide', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프로파페논', 'PRPFN', 'Propafenone', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('소탈롤', 'STL', 'Sotalol', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아데노신', 'ADNSN', 'Adenosine', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이바브라딘', 'IVBRDN', 'Ivabradine', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사쿠비트릴', 'SCBTRL', 'Sacubitril', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('베르시구아트', 'VRCGT', 'Vericiguat', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('니트로글리세린', 'NTRGLY', 'Nitroglycerin', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이소소르비드', 'ISRBD', 'Isosorbide', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('니코란딜', 'NCRNDL', 'Nicorandil', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트리메타지딘', 'TRMTZD', 'Trimetazidine', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('몰시도민', 'MLSDMN', 'Molsidomine', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라놀라진', 'RNLZN', 'Ranolazine', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('도파민', 'DPMN', 'Dopamine', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('도부타민', 'DBTMN', 'Dobutamine', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('노르에피네프린', 'NRPNPH', 'Norepinephrine', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에피네프린', 'EPNPHR', 'Epinephrine', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('바소프레신', 'VSPRSN', 'Vasopressin', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('밀리논', 'MLRN', 'Milrinone', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레보시멘단', 'LVSMND', 'Levosimendan', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이소프레날린', 'ISPRNL', 'Isoprenaline', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미도드린', 'MDRN', 'Midodrine', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아토르바스타틴', 'ATRVST', 'Atorvastatin', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로수바스타틴', 'RSVSTN', 'Rosuvastatin', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('심바스타틴', 'SMVSTN', 'Simvastatin', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프라바스타틴', 'PRVSTN', 'Pravastatin', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피타바스타틴', 'PTVSTN', 'Pitavastatin', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플루바스타틴', 'FLVSTN', 'Fluvastatin', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로바스타틴', 'LVSTN', 'Lovastatin', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에제티미브', 'EZTMB', 'Ezetimibe', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('페노피브레이트', 'FNFBRT', 'Fenofibrate', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('제미피브로질', 'GMFBRZ', 'Gemfibrozil', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오메가3지방산', 'OMG3FTYACD', 'Omega 3 Fatty Acid', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에볼로쿠맙', 'EVLCMB', 'Evolocumab', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알리로쿠맙', 'ALRCMB', 'Alirocumab', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('니아신', 'NIACIN', 'Niacin', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('와파린', 'WRFRN', 'Warfarin', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('헤파린', 'HPRN', 'Heparin', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에녹사파린', 'ENXPRN', 'Enoxaparin', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('달테파린', 'DLTPRN', 'Dalteparin', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('나드로파린', 'NDRPRN', 'Nadroparin', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폰다파리눅스', 'FNDPRN', 'Fondaparinux', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아픽사반', 'APXBN', 'Apixaban', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리바록사반', 'RVRXBN', 'Rivaroxaban', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에독사반', 'EDXBN', 'Edoxaban', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('다비가트란', 'DBGTRN', 'Dabigatran', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아가트로반', 'ARGTRB', 'Argatroban', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비발리루딘', 'BVLRDN', 'Bivalirudin', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로피도그렐', 'CLPDGR', 'Clopidogrel', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프라수그렐', 'PRSGRL', 'Prasugrel', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('티카그렐러', 'TCGRLR', 'Ticagrelor', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('실로스타졸', 'CLSTZL', 'Cilostazol', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('디피리다몰', 'DPYRDM', 'Dipyridamole', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사포그릴레이트', 'SRPGRL', 'Sarpogrelate', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('베라프로스트', 'BRPRST', 'Beraprost', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리마프로스트', 'LMPRST', 'Limaprost', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아브식시맙', 'ABCXMB', 'Abciximab', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('티로피반', 'TRFBN', 'Tirofiban', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알테플라제', 'ALTPLS', 'Alteplase', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테넥테플라제', 'TNCTPL', 'Tenecteplase', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('유로키나제', 'URKNS', 'Urokinase', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트라넥삼산', 'TRNACD', 'Tranexamic Acid', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아미노카프로산', 'AMNCACID', 'Aminocaproic Acid', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비타민K', 'VITK', 'Phytonadione', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프로타민', 'PRTMN', 'Protamine', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이다루시주맙', 'IDRCZM', 'Idarucizumab', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보센탄', 'BSNTN', 'Bosentan', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('암브리센탄', 'AMBRSN', 'Ambrisentan', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마시텐탄', 'MCTNTN', 'Macitentan', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('실데나필', 'SLDNFL', 'Sildenafil', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('타다라필', 'TDLFL', 'Tadalafil', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리오시구앗', 'RCGT', 'Riociguat', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일로프로스트', 'ILPRST', 'Iloprost', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트레프로스티닐', 'TRPRST', 'Treprostinil', '분류: 성분명: 순환기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('살부타몰', 'SLBTML', 'Salbutamol', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테르부탈린', 'TRBTLN', 'Terbutaline', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프로카테롤', 'PRCTRL', 'Procaterol', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('툴로부테롤', 'TLBTRL', 'Tulobuterol', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('살메테롤', 'SLMTRL', 'Salmeterol', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('포르모테롤', 'FRMTRL', 'Formoterol', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인다카테롤', 'INDCTR', 'Indacaterol', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('빌란테롤', 'VLNTRL', 'Vilanterol', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('올로다테롤', 'OLDTRL', 'Olodaterol', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('티오트로피움', 'TRPM', 'Tiotropium', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이프라트로피움', 'IPRTRP', 'Ipratropium', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('글리코피로니움', 'GLYCPYR', 'Glycopyrronium', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('유메클리디니움', 'UMCLDN', 'Umeclidinium', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아클리디니움', 'ACLDNM', 'Aclidinium', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부데소니드', 'BDSND', 'Budesonide', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플루티카손', 'FLTCSN', 'Fluticasone', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('베클로메타손', 'BCLMTH', 'Beclomethasone', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시클레소니드', 'CLSND', 'Ciclesonide', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('모메타손', 'MTSN', 'Mometasone', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('몬테루카스트', 'MNTLKS', 'Montelukast', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프란루카스트', 'PRNLKS', 'Pranlukast', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('자피르루카스트', 'ZFRLKS', 'Zafirlukast', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테오필린', 'THPHYL', 'Theophylline', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아미노필린', 'AMNPHY', 'Aminophylline', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('독소필린', 'DXFYLN', 'Doxofylline', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로플루밀라스트', 'RFLMLS', 'Roflumilast', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오말리주맙', 'OMLZMB', 'Omalizumab', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메폴리주맙', 'MPLZMB', 'Mepolizumab', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('벤랄리주맙', 'BNRLZM', 'Benralizumab', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('두필루맙', 'DPLMB', 'Dupilumab', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세티리진', 'CTRZN', 'Cetirizine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레보세티리진', 'LVCTRZ', 'Levocetirizine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로라타딘', 'LRTDN', 'Loratadine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('데슬로라타딘', 'DSLRTD', 'Desloratadine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('펙소페나딘', 'FXFNDN', 'Fexofenadine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에바스틴', 'EBSTN', 'Ebastine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('베포타스틴', 'BPTSTN', 'Bepotastine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('올로파타딘', 'OLPTDN', 'Olopatadine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에피나스틴', 'EPNSTN', 'Epinastine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('케토티펜', 'KTFN', 'Ketotifen', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아젤라스틴', 'AZLSTN', 'Azelastine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로르페니라민', 'CHLRPH', 'Chlorpheniramine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('디펜히드라민', 'DPHNHY', 'Diphenhydramine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시프로헵타딘', 'CYPRHP', 'Cyproheptadine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메퀴타진', 'MQTZN', 'Mequitazine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('덱스클로르페니라민', 'DXCHLR', 'Dexchlorpheniramine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프로메타진', 'PRMTHZ', 'Promethazine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('덱스트로메토르판', 'DXTRMT', 'Dextromethorphan', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('벤프로페린', 'BNPRPR', 'Benproperine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레보드로프로피진', 'LVDRPR', 'Levodropropizine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아세틸시스테인', 'ACTYLC', 'Acetylcysteine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카르보시스테인', 'CRBCST', 'Carbocisteine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에르도스테인', 'ERDSTN', 'Erdosteine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('암브록솔', 'AMBRXL', 'Ambroxol', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('브롬헥신', 'BRMHXN', 'Bromhexine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('구아이페네신', 'GFNSN', 'Guaifenesin', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('슈도에페드린', 'PSDPHD', 'Pseudoephedrine', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('옥시메타졸린', 'OXYMTZ', 'Oxymetazoline', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('자일로메타졸린', 'XYLMTZ', 'Xylometazoline', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아이비엽엑스', 'IVYLFEXT', 'Ivy Leaf Extract', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피레니엔엑스', 'PLREXT', 'Pelargonium Extract', '분류: 성분명: 호흡기·알레르기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오메프라졸', 'OMPRZL', 'Omeprazole', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에스오메프라졸', 'ESMPRZ', 'Esomeprazole', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('란소프라졸', 'LNSPRZ', 'Lansoprazole', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('덱스란소프라졸', 'DXLNSP', 'Dexlansoprazole', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('판토프라졸', 'PNTPRZ', 'Pantoprazole', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라베프라졸', 'RBPRZL', 'Rabeprazole', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일라프라졸', 'ILPRZL', 'Ilaprazole', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테고프라잔', 'TGPRZN', 'Tegoprazan', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('펙수프라잔', 'FXPRZN', 'Fexuprazan', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보노프라잔', 'VNPRZN', 'Vonoprazan', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('파모티딘', 'FMTDN', 'Famotidine', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라니티딘', 'RNTDN', 'Ranitidine', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('니자티딘', 'NZTDN', 'Nizatidine', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시메티딘', 'CMTDN', 'Cimetidine', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라푸티딘', 'LFTDN', 'Lafutidine', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레바미피드', 'RBMPD', 'Rebamipide', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에카베트', 'ECABET', 'Ecabet', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수크랄페이트', 'SCRLFT', 'Sucralfate', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알긴산나트륨', 'SDMALG', 'Sodium Alginate', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테프레논', 'TPRN', 'Teprenone', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미소프로스톨', 'MSPRST', 'Misoprostol', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비스무트', 'BSMTH', 'Bismuth', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알마게이트', 'ALMGT', 'Almagate', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수산화알루미늄', 'ALMHYD', 'Aluminum Hydroxide', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수산화마그네슘', 'MGNHYD', 'Magnesium Hydroxide', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('탄산칼슘', 'CLCCRB', 'Calcium Carbonate', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시메티콘', 'SMTHCN', 'Simethicone', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메토클로프라미드', 'MTCLPR', 'Metoclopramide', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('돔페리돈', 'DMPRDN', 'Domperidone', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레보설피리드', 'LVSLPR', 'Levosulpiride', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이토프리드', 'ITPRD', 'Itopride', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('모사프리드', 'MSPRD', 'Mosapride', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트리메부틴', 'TRMBTN', 'Trimebutine', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프루칼로프리드', 'PRCLPR', 'Prucalopride', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('온단세트론', 'ONDNST', 'Ondansetron', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('그라니세트론', 'GRNSTR', 'Granisetron', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('팔로노세트론', 'PLNSTR', 'Palonosetron', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라모세트론', 'RMSTRN', 'Ramosetron', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아프레피탄트', 'APRPTN', 'Aprepitant', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('포사프레피탄트', 'FSPRPT', 'Fosaprepitant', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('네투피탄트', 'NTPTNT', 'Netupitant', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로페라미드', 'LPRMD', 'Loperamide', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('디오스멕타이트', 'DCTSMC', 'Dioctahedral Smectite', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라세카도트릴', 'RCDTRL', 'Racecadotril', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('락툴로오스', 'LCTLS', 'Lactulose', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('락티톨', 'LCTL', 'Lactitol', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폴리에틸렌글리콜', 'PLYGLY', 'Polyethylene Glycol', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('산화마그네슘', 'MGNOXD', 'Magnesium Oxide', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비사코딜', 'BSCDYL', 'Bisacodyl', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('센나', 'SENNA', 'Senna', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('차전자피', 'PSYHSK', 'Psyllium Husk', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('도큐세이트', 'DCST', 'Docusate', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피코설페이트', 'PCSLFT', 'Picosulfate', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('글리세린', 'GLYCRN', 'Glycerin', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('날데메딘', 'NLDMDN', 'Naldemedine', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메살라진', 'MSLZN', 'Mesalazine', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('설파살라진', 'SLFSLZ', 'Sulfasalazine', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('발살라지드', 'BLSLZD', 'Balsalazide', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부틸스코폴라민', 'BTYLSC', 'Butylscopolamine', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오틸로늄', 'OTLNM', 'Otilonium', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피나베리움', 'PNVRM', 'Pinaverium', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알베린', 'ALVRN', 'Alverine', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메베베린', 'MBVRN', 'Mebeverine', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('판크레아틴', 'PNCRTN', 'Pancreatin', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('판크렐리파아제', 'PNCRLP', 'Pancrelipase', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('우르소데옥시콜산', 'URSACD', 'Ursodeoxycholic Acid', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('실리마린', 'SLYMRN', 'Silymarin', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비페닐디메틸디카르복실레이트', 'BPHDMTDCR', 'Biphenyl Dimethyl Dicarboxylate', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('글루타티온', 'GLTHN', 'Glutathione', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('엘오르니틴엘아스파르트산', 'LORNLASP', 'L Ornithine L Aspartate', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리팍시민', 'RFXMN', 'Rifaximin', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('엔테카비르', 'ENTCVR', 'Entecavir', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테노포비르', 'TNFVR', 'Tenofovir', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('베시포비르', 'BSFVR', 'Besifovir', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라미부딘', 'LMVDN', 'Lamivudine', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아데포비르', 'ADFVR', 'Adefovir', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('텔비부딘', 'TLBVDN', 'Telbivudine', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('소포스부비르', 'SFSBVR', 'Sofosbuvir', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레디파스비르', 'LDPSVR', 'Ledipasvir', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('글레카프레비르', 'GLCPRV', 'Glecaprevir', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피브렌타스비르', 'PBRNTS', 'Pibrentasvir', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('다클라타스비르', 'DCLTSV', 'Daclatasvir', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('가베제이트', 'GBXT', 'Gabexate', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('나파모스타트', 'NFMST', 'Nafamostat', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('울리나스타틴', 'ULNSTN', 'Ulinastatin', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('옥트레오타이드', 'OCTRTD', 'Octreotide', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테를리프레신', 'TRLPRS', 'Terlipressin', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('락토바실루스', 'LCTBCL', 'Lactobacillus', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비피도박테리움', 'BFDBCT', 'Bifidobacterium', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사카로미세스', 'SCHRMY', 'Saccharomyces', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('바실루스', 'BCLS', 'Bacillus', '분류: 성분명: 소화기', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메트포르민', 'MTFRMN', 'Metformin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('글리메피리드', 'GLMPRD', 'Glimepiride', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('글리클라지드', 'GLCLZD', 'Gliclazide', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('글리피지드', 'GLPZD', 'Glipizide', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('글리벤클라미드', 'GLBNCL', 'Glibenclamide', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레파글리니드', 'RPGLND', 'Repaglinide', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('나테글리니드', 'NTGLND', 'Nateglinide', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미티글리니드', 'MTGLND', 'Mitiglinide', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피오글리타존', 'PGLTZN', 'Pioglitazone', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로베글리타존', 'LBGLTZ', 'Lobeglitazone', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시타글립틴', 'STGLPT', 'Sitagliptin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('빌다글립틴', 'VLDGLP', 'Vildagliptin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('삭사글립틴', 'SXGLPT', 'Saxagliptin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리나글립틴', 'LNGLPT', 'Linagliptin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알로글립틴', 'ALGLPT', 'Alogliptin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테네리글립틴', 'TNLGLP', 'Teneligliptin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('제미글립틴', 'GMGLPT', 'Gemigliptin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에보글립틴', 'EVGLPT', 'Evogliptin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아나글립틴', 'ANGLPT', 'Anagliptin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('다파글리플로진', 'DPGLFL', 'Dapagliflozin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('엠파글리플로진', 'EMPGLF', 'Empagliflozin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카나글리플로진', 'CNGLFL', 'Canagliflozin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에르투글리플로진', 'ERTGLF', 'Ertugliflozin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이프라글리플로진', 'IPRGLF', 'Ipragliflozin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('엔블리플로진', 'ENVGLF', 'Enavogliflozin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아카보스', 'ACRBS', 'Acarbose', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보글리보스', 'VGLBS', 'Voglibose', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미글리톨', 'MGLTL', 'Miglitol', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리라글루티드', 'LRGLTD', 'Liraglutide', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('둘라글루티드', 'DLGLTD', 'Dulaglutide', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세마글루티드', 'SMGLTD', 'Semaglutide', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('엑세나티드', 'EXNTD', 'Exenatide', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('릭시세나티드', 'LXSNTD', 'Lixisenatide', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('터제파티드', 'TRZPTD', 'Tirzepatide', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인슐린글라진', 'INSGLR', 'Insulin Glargine', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인슐린디터머', 'INSDTM', 'Insulin Detemir', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인슐린데글루덱', 'INSDGL', 'Insulin Degludec', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인슐린아스파트', 'INSASP', 'Insulin Aspart', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인슐린리스프로', 'INSLSP', 'Insulin Lispro', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인슐린글루리신', 'INSGLS', 'Insulin Glulisine', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('휴먼인슐린', 'HMNINS', 'Human Insulin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('NPH인슐린', 'NPHINS', 'NPH Insulin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('글루카곤', 'GLCGN', 'Glucagon', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레보티록신', 'LVTHYR', 'Levothyroxine', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리오티로닌', 'LTHYRN', 'Liothyronine', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메티마졸', 'MTHMZL', 'Methimazole', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프로필티오우라실', 'PRPYLT', 'Propylthiouracil', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카르비마졸', 'CRBMZL', 'Carbimazole', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프레드니솔론', 'PRDNSL', 'Prednisolone', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프레드니손', 'PRDNSN', 'Prednisone', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메틸프레드니솔론', 'MTHYLPR', 'Methylprednisolone', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('덱사메타손', 'DXMTHS', 'Dexamethasone', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('베타메타손', 'BTMTHS', 'Betamethasone', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('하이드로코르티손', 'HYDRCR', 'Hydrocortisone', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트리암시놀론', 'TRMCNL', 'Triamcinolone', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('데플라자코트', 'DFLZCR', 'Deflazacort', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플루드로코르티손', 'FLDRCR', 'Fludrocortisone', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로베타솔', 'CLBTSL', 'Clobetasol', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('데속시메타손', 'DSXMTS', 'Desoximetasone', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프레드니카베이트', 'PRDNCR', 'Prednicarbate', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에스트라디올', 'ESTRDL', 'Estradiol', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('결합에스트로겐', 'CNJEST', 'Conjugated Estrogens', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프로게스테론', 'PRGSTR', 'Progesterone', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메드록시프로게스테론', 'MDRXYP', 'Medroxyprogesterone', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('디에노게스트', 'DNGST', 'Dienogest', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('노르에티스테론', 'NRTHST', 'Norethisterone', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('드로스피레논', 'DRSPRN', 'Drospirenone', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레보노르게스트렐', 'LVNRGS', 'Levonorgestrel', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에티닐에스트라디올', 'ETHEST', 'Ethinyl Estradiol', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('티볼론', 'TBLN', 'Tibolone', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테스토스테론', 'TSTSTR', 'Testosterone', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피나스테리드', 'FNSTRD', 'Finasteride', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('두타스테리드', 'DTSTRD', 'Dutasteride', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('탐스로신', 'TMSLSN', 'Tamsulosin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('실로도신', 'SLDSN', 'Silodosin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알푸조신', 'ALFZSN', 'Alfuzosin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('나프토피딜', 'NFTPDL', 'Naftopidil', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('솔리페나신', 'SLFNCN', 'Solifenacin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('톨테로딘', 'TLTRDN', 'Tolterodine', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('페소테로딘', 'FSTRDN', 'Fesoterodine', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('옥시부티닌', 'OXYBTY', 'Oxybutynin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프로피베린', 'PRPVRN', 'Propiverine', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트로스피움', 'TRSPM', 'Trospium', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미라베그론', 'MRBGRN', 'Mirabegron', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비베그론', 'VBGRN', 'Vibegron', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('데스모프레신', 'DSMPRS', 'Desmopressin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('베타네콜', 'BTHNCH', 'Bethanechol', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('유데나필', 'UDNFL', 'Udenafil', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미로데나필', 'MRDNFL', 'Mirodenafil', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('바데나필', 'VRDNFL', 'Vardenafil', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아바나필', 'AVNFL', 'Avanafil', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('옥시토신', 'OXYTCN', 'Oxytocin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카르베토신', 'CRBTCN', 'Carbetocin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메틸에르고메트린', 'MTHYLR', 'Methylergometrine', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('디노프로스톤', 'DNPRST', 'Dinoprostone', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리토드린', 'RTDRN', 'Ritodrine', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아토시반', 'ATSBN', 'Atosiban', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로미펜', 'CLMPHN', 'Clomiphene', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레트로졸', 'LTRZL', 'Letrozole', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아나스트로졸', 'ANSTRZ', 'Anastrozole', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('엑세메스탄', 'EXMSTN', 'Exemestane', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('타목시펜', 'TMXFN', 'Tamoxifen', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('토레미펜', 'TRMFN', 'Toremifene', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('풀베스트란트', 'FLVSTR', 'Fulvestrant', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비칼루타미드', 'BCLTMD', 'Bicalutamide', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('엔잘루타마이드', 'ENZLTM', 'Enzalutamide', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아팔루타마이드', 'APLTMD', 'Apalutamide', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('다로루타마이드', 'DRLTMD', 'Darolutamide', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아비라테론', 'ABRTRN', 'Abiraterone', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('류프로렐린', 'LPRLN', 'Leuprorelin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('고세렐린', 'GSRLN', 'Goserelin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트립토렐린', 'TRPTRL', 'Triptorelin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('데가렐릭스', 'DGRLX', 'Degarelix', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('소마트로핀', 'SMTRPN', 'Somatropin', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알렌드로네이트', 'ALNDRN', 'Alendronate', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리세드로네이트', 'RSDRNT', 'Risedronate', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이반드로네이트', 'IBNDRN', 'Ibandronate', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('졸레드론산', 'ZLDACD', 'Zoledronic Acid', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('파미드로네이트', 'PMDRNT', 'Pamidronate', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라록시펜', 'RLXFN', 'Raloxifene', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('바제독시펜', 'BZDXFN', 'Bazedoxifene', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('데노수맙', 'DNSMB', 'Denosumab', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테리파라타이드', 'TRPRTD', 'Teriparatide', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로모소주맙', 'RMSZMB', 'Romosozumab', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('칼시트리올', 'CLCTRL', 'Calcitriol', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알파칼시돌', 'ALFCLC', 'Alfacalcidol', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('콜레칼시페롤', 'CHLCLC', 'Cholecalciferol', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에르고칼시페롤', 'ERGCLC', 'Ergocalciferol', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('파리칼시톨', 'PRCLCTL', 'Paricalcitol', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시나칼셋', 'CNCLCT', 'Cinacalcet', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에텔칼세타이드', 'ETLCLC', 'Etelcalcetide', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세벨라머', 'SVLMR', 'Sevelamer', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('탄산란탄', 'LNTCRB', 'Lanthanum Carbonate', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('초산칼슘', 'CLCACT', 'Calcium Acetate', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수크로페릭옥시수산화물', 'SCROXY', 'Sucroferric Oxyhydroxide', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알로푸리놀', 'ALPRNL', 'Allopurinol', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('페북소스타트', 'FBXST', 'Febuxostat', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('벤즈브로마론', 'BNZBRM', 'Benzbromarone', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('콜히친', 'CLCHCN', 'Colchicine', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프로베네시드', 'PRBNCD', 'Probenecid', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라스부리카제', 'RSBRCS', 'Rasburicase', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오르리스타트', 'ORLST', 'Orlistat', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('펜터민', 'PHNTRM', 'Phentermine', '분류: 성분명: 내분비·대사', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('페니실린G', 'PENG', 'Penicillin G', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('벤자틴페니실린', 'BNZPNC', 'Benzathine Penicillin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아목시실린', 'AMXCLN', 'Amoxicillin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('암피실린', 'AMPCLN', 'Ampicillin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클라불란산', 'CLVACD', 'Clavulanic Acid', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('설박탐', 'SLBCTM', 'Sulbactam', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('타조박탐', 'TZBCTM', 'Tazobactam', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피페라실린', 'PRCLN', 'Piperacillin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('나프실린', 'NFCLN', 'Nafcillin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('옥사실린', 'OXCLN', 'Oxacillin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세파졸린', 'CFZLN', 'Cefazolin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세팔렉신', 'CPHLXN', 'Cephalexin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세파드록실', 'CFDRXL', 'Cefadroxil', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세파클러', 'CFCLR', 'Cefaclor', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세푸록심', 'CFRXM', 'Cefuroxime', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세폭시틴', 'CFXTN', 'Cefoxitin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세포테탄', 'CFTN', 'Cefotetan', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세프메타졸', 'CFMTZL', 'Cefmetazole', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세프트리악손', 'CFTRXN', 'Ceftriaxone', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세포탁심', 'CFTXM', 'Cefotaxime', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세프타지딤', 'CFTZDM', 'Ceftazidime', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세포페라존', 'CFPRZN', 'Cefoperazone', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세픽심', 'CFXM', 'Cefixime', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세프디니르', 'CFDNR', 'Cefdinir', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세프포독심', 'CFPDXM', 'Cefpodoxime', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세프디토렌', 'CFDTRN', 'Cefditoren', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세프카펜', 'CFCPN', 'Cefcapene', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세페핌', 'CFPM', 'Cefepime', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세프피롬', 'CFPRM', 'Cefpirome', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세프타롤린', 'CFTRLN', 'Ceftaroline', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세프톨로잔', 'CFTLZN', 'Ceftolozane', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아비박탐', 'AVBCTM', 'Avibactam', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이미페넴', 'IMPNM', 'Imipenem', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('실라스타틴', 'CLSTN', 'Cilastatin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메로페넴', 'MRPNM', 'Meropenem', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에르타페넴', 'ERTPNM', 'Ertapenem', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('도리페넴', 'DRPNM', 'Doripenem', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아즈트레오남', 'AZTRNM', 'Aztreonam', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('겐타마이신', 'GNTMCN', 'Gentamicin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아미카신', 'AMKCN', 'Amikacin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('토브라마이신', 'TBRMYC', 'Tobramycin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('스트렙토마이신', 'STRPTM', 'Streptomycin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이세파마이신', 'ISPMCN', 'Isepamicin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('네틸마이신', 'NTLMCN', 'Netilmicin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에리스로마이신', 'ERYTHR', 'Erythromycin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클래리스로마이신', 'CLRTHR', 'Clarithromycin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아지스로마이신', 'AZTHRM', 'Azithromycin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('록시스로마이신', 'RXTHRM', 'Roxithromycin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시프로플록사신', 'CPRFLX', 'Ciprofloxacin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레보플록사신', 'LVFLXC', 'Levofloxacin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('목시플록사신', 'MXFLXC', 'Moxifloxacin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오플록사신', 'OFLXCN', 'Ofloxacin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('노르플록사신', 'NRFLXC', 'Norfloxacin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('제미플록사신', 'GMFLXC', 'Gemifloxacin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('델라플록사신', 'DLFLXC', 'Delafloxacin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('독시사이클린', 'DXYCYC', 'Doxycycline', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미노사이클린', 'MNCYCL', 'Minocycline', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테트라사이클린', 'TRCYCL', 'Tetracycline', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('티게사이클린', 'TGCYCL', 'Tigecycline', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반코마이신', 'VNCMYC', 'Vancomycin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테이코플라닌', 'TCPLN', 'Teicoplanin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('달바반신', 'DLBVNC', 'Dalbavancin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리네졸리드', 'LNZLD', 'Linezolid', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테디졸리드', 'TDZLD', 'Tedizolid', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('답토마이신', 'DPTMYC', 'Daptomycin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클린다마이신', 'CLNDMY', 'Clindamycin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메트로니다졸', 'MTRNDZ', 'Metronidazole', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('티니다졸', 'TNDZL', 'Tinidazole', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트리메토프림', 'TRMTHP', 'Trimethoprim', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('설파메톡사졸', 'SLFMTH', 'Sulfamethoxazole', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('콜리스틴', 'COLISTIN', 'Colistin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폴리믹신B', 'PLMXNB', 'Polymyxin B', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('포스포마이신', 'FSFMYC', 'Fosfomycin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('니트로푸란토인', 'NTRFRN', 'Nitrofurantoin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('무피로신', 'MPRCN', 'Mupirocin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('푸시드산', 'FSDACD', 'Fusidic Acid', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('바시트라신', 'BCTRCN', 'Bacitracin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('네오마이신', 'NMYCN', 'Neomycin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리팜핀', 'RFMPN', 'Rifampin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이소니아지드', 'ISNZD', 'Isoniazid', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피라진아미드', 'PYRZNM', 'Pyrazinamide', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에탐부톨', 'ETHMBT', 'Ethambutol', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리파부틴', 'RFBTN', 'Rifabutin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('베다퀼린', 'BDQLN', 'Bedaquiline', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('델라마니드', 'DLMND', 'Delamanid', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사이클로세린', 'CYCLSR', 'Cycloserine', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플루코나졸', 'FLCNZL', 'Fluconazole', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이트라코나졸', 'ITRCNZ', 'Itraconazole', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보리코나졸', 'VRCNZL', 'Voriconazole', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('포사코나졸', 'PSCNZL', 'Posaconazole', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이사부코나졸', 'ISVCNZ', 'Isavuconazole', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('암포테리신B', 'AMPHB', 'Amphotericin B', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카스포펀진', 'CSPFNG', 'Caspofungin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미카펀진', 'MCFNGN', 'Micafungin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아니둘라펀진', 'ANDLFN', 'Anidulafungin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테르비나핀', 'TRBNFN', 'Terbinafine', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로트리마졸', 'CLTRMZ', 'Clotrimazole', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('케토코나졸', 'KTCNZL', 'Ketoconazole', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('니스타틴', 'NYSTN', 'Nystatin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아시클로버', 'ACYCLV', 'Acyclovir', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('발라시클로버', 'VLCYCL', 'Valacyclovir', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('팜시클로버', 'FMCLVR', 'Famciclovir', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('간시클로버', 'GNCLVR', 'Ganciclovir', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('발간시클로버', 'VLGNCL', 'Valganciclovir', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('포스카넷', 'FSCRNT', 'Foscarnet', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오셀타미비르', 'OSLTMV', 'Oseltamivir', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('자나미비르', 'ZNMVR', 'Zanamivir', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('페라미비르', 'PRMVR', 'Peramivir', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('발록사비르', 'BLXVR', 'Baloxavir', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('렘데시비르', 'RMDSVR', 'Remdesivir', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('니르마트렐비르', 'NRMTRL', 'Nirmatrelvir', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리토나비르', 'RTNVR', 'Ritonavir', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('몰누피라비르', 'MLNPRV', 'Molnupiravir', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('돌루테그라비르', 'DLTGRV', 'Dolutegravir', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('빅테그라비르', 'BCTGRV', 'Bictegravir', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('랄테그라비르', 'RLTGRV', 'Raltegravir', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('엠트리시타빈', 'EMTRCT', 'Emtricitabine', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아바카비르', 'ABCVR', 'Abacavir', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('지도부딘', 'ZDVDN', 'Zidovudine', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('다루나비르', 'DRNVR', 'Darunavir', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에파비렌즈', 'EFVRNZ', 'Efavirenz', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('릴피비린', 'RLPVRN', 'Rilpivirine', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알벤다졸', 'ALBNDZ', 'Albendazole', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메벤다졸', 'MBNDZL', 'Mebendazole', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프라지콴텔', 'PRZQNT', 'Praziquantel', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이버멕틴', 'IVRMCT', 'Ivermectin', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피란텔', 'PYRNTL', 'Pyrantel', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('하이드록시클로로퀸', 'HYDRXYC', 'Hydroxychloroquine', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로로퀸', 'CHLRQN', 'Chloroquine', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메플로퀸', 'MFLQN', 'Mefloquine', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아토바쿠온', 'ATVQN', 'Atovaquone', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프리마퀸', 'PRMQN', 'Primaquine', '분류: 성분명: 항감염', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시클로포스파미드', 'CYCLPH', 'Cyclophosphamide', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이포스파미드', 'IFSFMD', 'Ifosfamide', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메스나', 'MESNA', 'Mesna', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('멜팔란', 'MLPHLN', 'Melphalan', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부설판', 'BSLFN', 'Busulfan', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('벤다무스틴', 'BNDMST', 'Bendamustine', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로람부실', 'CHLRMB', 'Chlorambucil', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카르무스틴', 'CRMSTN', 'Carmustine', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테모졸로미드', 'TMZLMD', 'Temozolomide', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('다카바진', 'DCRBZN', 'Dacarbazine', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시스플라틴', 'CSPLTN', 'Cisplatin', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카보플라틴', 'CRBPLT', 'Carboplatin', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('옥살리플라틴', 'OXLPLT', 'Oxaliplatin', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메토트렉세이트', 'MTHTRX', 'Methotrexate', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('페메트렉시드', 'PMTRXD', 'Pemetrexed', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플루오로우라실', 'FLRCL', 'Fluorouracil', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카페시타빈', 'CPCTBN', 'Capecitabine', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테가푸르', 'TGFR', 'Tegafur', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('젬시타빈', 'GMCTBN', 'Gemcitabine', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시타라빈', 'CYTRBN', 'Cytarabine', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플루다라빈', 'FLDRBN', 'Fludarabine', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클라드리빈', 'CLDRBN', 'Cladribine', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아자시티딘', 'AZCTDN', 'Azacitidine', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('데시타빈', 'DCTBN', 'Decitabine', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('하이드록시유레아', 'HYDRXYR', 'Hydroxyurea', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('머캅토퓨린', 'MRCPTP', 'Mercaptopurine', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('티오구아닌', 'THGN', 'Thioguanine', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('류코보린', 'LCVRN', 'Leucovorin', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('독소루비신', 'DXRBCN', 'Doxorubicin', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에피루비신', 'EPRBCN', 'Epirubicin', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이다루비신', 'IDRBCN', 'Idarubicin', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('다우노루비신', 'DNRBCN', 'Daunorubicin', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미톡산트론', 'MTXNTR', 'Mitoxantrone', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('블레오마이신', 'BLMYCN', 'Bleomycin', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미토마이신', 'MTMYCN', 'Mitomycin', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('닥티노마이신', 'DCTNMY', 'Dactinomycin', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('파클리탁셀', 'PCLTXL', 'Paclitaxel', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('도세탁셀', 'DCTXL', 'Docetaxel', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카바지탁셀', 'CBZTXL', 'Cabazitaxel', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('빈크리스틴', 'VNCRST', 'Vincristine', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('빈블라스틴', 'VNBLST', 'Vinblastine', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비노렐빈', 'VNRLBN', 'Vinorelbine', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에리불린', 'ERBLN', 'Eribulin', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에토포시드', 'ETPSD', 'Etoposide', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이리노테칸', 'IRNTCN', 'Irinotecan', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('토포테칸', 'TPTCN', 'Topotecan', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이마티닙', 'IMTNB', 'Imatinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('다사티닙', 'DSTNB', 'Dasatinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('닐로티닙', 'NLTNB', 'Nilotinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라도티닙', 'RDTNB', 'Radotinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보수티닙', 'BSTNB', 'Bosutinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('포나티닙', 'PNTNB', 'Ponatinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('게피티닙', 'GFTNB', 'Gefitinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('엘로티닙', 'ERLTNB', 'Erlotinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아파티닙', 'AFTNB', 'Afatinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오시머티닙', 'OSMRTN', 'Osimertinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레이저티닙', 'LZRTNB', 'Lazertinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('크리조티닙', 'CRZTNB', 'Crizotinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알렉티닙', 'ALCTNB', 'Alectinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세리티닙', 'CRTNB', 'Ceritinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('브리가티닙', 'BRGTNB', 'Brigatinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로라티닙', 'LRLTNB', 'Lorlatinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('소라페닙', 'SRFNB', 'Sorafenib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('렌바티닙', 'LNVTNB', 'Lenvatinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수니티닙', 'SNTNB', 'Sunitinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('파조파닙', 'PZPNB', 'Pazopanib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레고라페닙', 'RGRFNB', 'Regorafenib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카보잔티닙', 'CBZNTN', 'Cabozantinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('악시티닙', 'AXTNB', 'Axitinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에버롤리무스', 'EVRLMS', 'Everolimus', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('팔보시클립', 'PLBCLB', 'Palbociclib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리보시클립', 'RBCLB', 'Ribociclib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아베마시클립', 'ABMCLB', 'Abemaciclib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('올라파립', 'OLPRB', 'Olaparib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('니라파립', 'NRPRB', 'Niraparib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라파티닙', 'LPTNB', 'Lapatinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이브루티닙', 'IBRTNB', 'Ibrutinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아칼라브루티닙', 'ACLBRT', 'Acalabrutinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('룩소리티닙', 'RXLTNB', 'Ruxolitinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('베네토클락스', 'VNTCLX', 'Venetoclax', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보르테조밉', 'BRTZMB', 'Bortezomib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카르필조밉', 'CRFLZM', 'Carfilzomib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레날리도마이드', 'LNLDMD', 'Lenalidomide', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('포말리도마이드', 'PMLDMD', 'Pomalidomide', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('탈리도마이드', 'THLDMD', 'Thalidomide', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트레티노인', 'TRTN', 'Tretinoin', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('삼산화비소', 'ARSTRX', 'Arsenic Trioxide', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리툭시맙', 'RTXMB', 'Rituximab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트라스투주맙', 'TRSTZM', 'Trastuzumab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('퍼투주맙', 'PRTZMB', 'Pertuzumab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('베바시주맙', 'BVCZMB', 'Bevacizumab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세툭시맙', 'CTXMB', 'Cetuximab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('파니투무맙', 'PNTMB', 'Panitumumab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라무시루맙', 'RMCRMB', 'Ramucirumab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('펨브롤리주맙', 'PMBRLZ', 'Pembrolizumab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('니볼루맙', 'NVLMB', 'Nivolumab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아테졸리주맙', 'ATZLZM', 'Atezolizumab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('더발루맙', 'DRVLMB', 'Durvalumab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아벨루맙', 'AVLMB', 'Avelumab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이필리무맙', 'IPLMB', 'Ipilimumab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('다라투무맙', 'DRTMB', 'Daratumumab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('블리나투모맙', 'BLNTMB', 'Blinatumomab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('브렌툭시맙', 'BRNTXM', 'Brentuximab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('필그라스팀', 'FLGRST', 'Filgrastim', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('페그필그라스팀', 'PGFLGR', 'Pegfilgrastim', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레노그라스팀', 'LNGRST', 'Lenograstim', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에리스로포이에틴', 'ERYTHRP', 'Erythropoietin', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('다베포에틴', 'DRBPTN', 'Darbepoetin', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('엘트롬보팍', 'ELTRMB', 'Eltrombopag', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로미플로스팀', 'RMPLST', 'Romiplostim', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('덱스라족산', 'DXRZXN', 'Dexrazoxane', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아미포스틴', 'AMFSTN', 'Amifostine', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시클로스포린', 'CYCLSP', 'Cyclosporine', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('타크로리무스', 'TCRLMS', 'Tacrolimus', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시롤리무스', 'SRLMS', 'Sirolimus', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미코페놀레이트', 'MYCPHN', 'Mycophenolate', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아자티오프린', 'AZTHPR', 'Azathioprine', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('바실릭시맙', 'BSLXMB', 'Basiliximab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항흉선세포글로불린', 'ATG', 'Antithymocyte Globulin', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레플루노마이드', 'LFLNMD', 'Leflunomide', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('토파시티닙', 'TFCTNB', 'Tofacitinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('바리시티닙', 'BRCTNB', 'Baricitinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('우파다시티닙', 'UPDCTN', 'Upadacitinib', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아달리무맙', 'ADLMB', 'Adalimumab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인플릭시맙', 'INFLXM', 'Infliximab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에타너셉트', 'ETNRCP', 'Etanercept', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('골리무맙', 'GLMB', 'Golimumab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('토실리주맙', 'TCLZMB', 'Tocilizumab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아바타셉트', 'ABTCPT', 'Abatacept', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('우스테키누맙', 'USTKNM', 'Ustekinumab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세쿠키누맙', 'SCKNMB', 'Secukinumab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('베돌리주맙', 'VDLZMB', 'Vedolizumab', '분류: 성분명: 항암·면역', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('염화나트륨', 'SDMCHL', 'Sodium Chloride', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('염화칼륨', 'PTSCHL', 'Potassium Chloride', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('글루콘산칼슘', 'CLCGLC', 'Calcium Gluconate', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('염화칼슘', 'CLCCHL', 'Calcium Chloride', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('황산마그네슘', 'MGNSLF', 'Magnesium Sulfate', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('탄산수소나트륨', 'SDMBCR', 'Sodium Bicarbonate', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인산칼륨', 'PTSPHS', 'Potassium Phosphate', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인산나트륨', 'SDMPHS', 'Sodium Phosphate', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('초산나트륨', 'SDMACT', 'Sodium Acetate', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('젖산링거', 'LCTRNG', 'Lactated Ringer', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('하트만액', 'HRTSLT', 'Hartmann Solution', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('덱스트란', 'DXTRN', 'Dextran', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('하이드록시에틸전분', 'HYDSTR', 'Hydroxyethyl Starch', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('젤라틴', 'GLTN', 'Gelatin', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정제수', 'PRFWTR', 'Purified Water', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주사용수', 'WTRINJ', 'Water For Injection', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('철', 'IRNELM', 'Iron Element', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수크로스철', 'IRNSCR', 'Iron Sucrose', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카르복시말토스철', 'FRCCRB', 'Ferric Carboxymaltose', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('황산제일철', 'FRSSLF', 'Ferrous Sulfate', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폴산', 'FLCACD', 'Folic Acid', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시아노코발라민', 'CYNCBL', 'Cyanocobalamin', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('히드록소코발라민', 'HYDRXC', 'Hydroxocobalamin', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('티아민', 'THMN', 'Thiamine', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리보플라빈', 'RBFLVN', 'Riboflavin', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피리독신', 'PYRDXN', 'Pyridoxine', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아스코르브산', 'ASCACD', 'Ascorbic Acid', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('토코페롤', 'TCPHRL', 'Tocopherol', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레티놀', 'RTNL', 'Retinol', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('판토텐산', 'PNTACD', 'Pantothenic Acid', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비오틴', 'BIOTIN', 'Biotin', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아연', 'ZINC', 'Zinc', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('셀레늄', 'SLNM', 'Selenium', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('구리', 'COPPER', 'Copper', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('망간', 'MNGNS', 'Manganese', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('크롬', 'CHRM', 'Chromium', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('요오드', 'IODINE', 'Iodine', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카르니틴', 'CRNTN', 'Carnitine', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('글루타민', 'GLTMN', 'Glutamine', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('분지쇄아미노산', 'BCAA', 'Branched Chain Amino Acid', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대두유', 'SYBOIL', 'Soybean Oil', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('어유', 'FSHOIL', 'Fish Oil', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('올리브유', 'OLVOIL', 'Olive Oil', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('중쇄중성지방', 'MCT', 'Medium Chain Triglyceride', '분류: 성분명: 수액·전해질·영양·비타민', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아다팔렌', 'ADPLN', 'Adapalene', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('과산화벤조일', 'BNZPRX', 'Benzoyl Peroxide', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이소트레티노인', 'ISTRTN', 'Isotretinoin', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아시트레틴', 'ACTRTN', 'Acitretin', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('칼시포트리올', 'CLCPTR', 'Calcipotriol', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피메크로리무스', 'PMCRLM', 'Pimecrolimus', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('크로타미톤', 'CRTMTN', 'Crotamiton', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('퍼메트린', 'PRMTHR', 'Permethrin', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('요소', 'UREA', 'Urea', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('산화아연', 'ZNCOXD', 'Zinc Oxide', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('은설파디아진', 'SLVSLF', 'Silver Sulfadiazine', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('포비돈요오드', 'PVDIDN', 'Povidone Iodine', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로르헥시딘', 'CHLRHX', 'Chlorhexidine', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에탄올', 'ETHNL', 'Ethanol', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이소프로필알코올', 'ISPALC', 'Isopropyl Alcohol', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('과산화수소', 'HYDPRX', 'Hydrogen Peroxide', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라타노프로스트', 'LTNPRS', 'Latanoprost', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트라보프로스트', 'TRVPRS', 'Travoprost', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비마토프로스트', 'BMTPRS', 'Bimatoprost', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('타플루프로스트', 'TFLPRS', 'Tafluprost', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('티몰롤', 'TML', 'Timolol', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('도르졸라미드', 'DRZLMD', 'Dorzolamide', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('브린졸라미드', 'BRNZLM', 'Brinzolamide', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('브리모니딘', 'BRMNDN', 'Brimonidine', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('필로카르핀', 'PLCRPN', 'Pilocarpine', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트로피카미드', 'TRPCMD', 'Tropicamide', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사이클로펜톨레이트', 'CYCLPN', 'Cyclopentolate', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('히알루론산', 'HYLACD', 'Hyaluronic Acid', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('디쿠아포솔', 'DQFSL', 'Diquafosol', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카르복시메틸셀룰로오스', 'CRBXYM', 'Carboxymethylcellulose', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라니비주맙', 'RNBZMB', 'Ranibizumab', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('애플리버셉트', 'AFLBRC', 'Aflibercept', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보툴리눔독소', 'BTLTXN', 'Botulinum Toxin', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('요오헥솔', 'IHXL', 'Iohexol', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('요오프로마이드', 'IPRMD', 'Iopromide', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('요오딕사놀', 'IDXNL', 'Iodixanol', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('가도부트롤', 'GDBTRL', 'Gadobutrol', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('가도테르산', 'GDTACD', 'Gadoteric Acid', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('바륨', 'BRMSLF', 'Barium Sulfate', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플루데옥시글루코스', 'FDG', 'Fludeoxyglucose', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테크네튬', 'TCHNTM', 'Technetium', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인도시아닌그린', 'INDGRN', 'Indocyanine Green', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투베르쿨린', 'TBRCLN', 'Tuberculin', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인플루엔자백신', 'INFVCN', 'Influenza Vaccine', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폐렴구균백신', 'PNMVCN', 'Pneumococcal Vaccine', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('B형간염백신', 'HBVVAC', 'Hepatitis B Vaccine', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대상포진백신', 'ZSTVCN', 'Zoster Vaccine', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('파상풍톡소이드', 'TNSTXD', 'Tetanus Toxoid', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사람면역글로불린', 'HMNIMN', 'Human Immunoglobulin', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('B형간염면역글로불린', 'HBIG', 'Hepatitis B Immunoglobulin', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('파상풍면역글로불린', 'TNSIMN', 'Tetanus Immunoglobulin', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항독소', 'ANTXN', 'Antitoxin', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항사독소', 'ANTVNM', 'Antivenom', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플루마제닐', 'FLMZNL', 'Flumazenil', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피소스티그민', 'PHYSTG', 'Physostigmine', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('디곡신항체', 'DGXIMNFAB', 'Digoxin Immune Fab', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('활성탄', 'ACTCHR', 'Activated Charcoal', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메틸렌블루', 'MTHBL', 'Methylene Blue', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('푸마피졸', 'FMPZL', 'Fomepizole', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('데페록사민', 'DFRXMN', 'Deferoxamine', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('데페라시록스', 'DFRSRX', 'Deferasirox', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('페니실라민', 'PNCLMN', 'Penicillamine', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('디메르카프롤', 'DMRCPR', 'Dimercaprol', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에데트산칼슘', 'CLCEDT', 'Calcium Edetate', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프랄리독심', 'PRLDXM', 'Pralidoxime', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레보카르니틴', 'LVCRNT', 'Levocarnitine', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알파원항트립신', 'ALP1ANT', 'Alpha 1 Antitrypsin', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('혈액응고인자', 'CGLFCT', 'Coagulation Factor', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피브리노겐', 'FBRNGN', 'Fibrinogen', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('안티트롬빈', 'ANTHRM', 'Antithrombin', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프로트롬빈복합체', 'PRTCMP', 'Prothrombin Complex', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알프로스타딜', 'ALPRST', 'Alprostadil', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카페인', 'CFN', 'Caffeine', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('계면활성제', 'SRFCTN', 'Surfactant', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('산소', 'OXYGEN', 'Oxygen', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('의료용가스', 'MDCGAS', 'Medical Gas', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이산화탄소', 'CRBDXD', 'Carbon Dioxide', '분류: 성분명: 피부·안과·기타', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약물상담', 'DRGCNS', 'Drug Consultation', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('복약상담', 'MDCTCNSL', 'Medication Consultation', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('퇴원복약지도', 'DSCCNS', 'Discharge Counseling', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('입원복약지도', 'ADMCNS', 'Admission Counseling', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약물정보', 'DRGINF', 'Drug Information', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약물정보실', 'DRGINFCNT', 'Drug Information Center', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('의약품정보문의', 'DRGINFINQ', 'Drug Information Inquiry', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약력', 'MDCHST', 'Medication History', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약력관리', 'MDCHSTMNG', 'Medication History Management', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약물조정', 'MDCRCN', 'Medication Reconciliation', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약물이력', 'DRGHST', 'Drug History', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('지참약감별', 'BRGDRGIDN', 'Brought Drug Identification', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약품감별', 'DRGIDN', 'Drug Identification', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('식별표시', 'IDNMRK', 'Identification Mark', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('각인', 'IMPRNT', 'Imprint', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('성상', 'APRNC', 'Appearance', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('색상', 'COLOR', 'Color', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('모양', 'SHAPE', 'Shape', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('분할선', 'SCRLN', 'Score Line', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('크기', 'SIZE', 'Size', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약동학', 'PK', 'Pharmacokinetics', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약력학', 'PD', 'Pharmacodynamics', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('분포용적', 'VLMDST', 'Volume Of Distribution', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('생체이용률', 'BVLBLT', 'Bioavailability', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부하용량', 'LDNDS', 'Loading Dose', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('유지용량', 'MNTDS', 'Maintenance Dose', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('초회용량', 'INTDS', 'Initial Dose', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('목표농도', 'TRGTCNCN', 'Target Concentration', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('채혈시점', 'SMPTM', 'Sampling Time', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('용량계산', 'DSCLC', 'Dose Calculation', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('용량권고', 'DSRCM', 'Dose Recommendation', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항생제관리', 'ANTSTW', 'Antimicrobial Stewardship', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('제한항생제', 'RSTANT', 'Restricted Antibiotic', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항생제사용승인', 'ANTAPR', 'Antibiotic Approval', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('예방적항생제', 'PRPANT', 'Prophylactic Antibiotic', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항응고관리', 'ANTMNG', 'Anticoagulation Management', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('영양집중지원', 'NTRSPRTM', 'Nutrition Support Team', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('영양평가', 'NTRASM', 'Nutrition Assessment', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('열량', 'CLR', 'Calorie', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('단백질', 'PRTN', 'Protein', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('지질', 'LIPID', 'Lipid', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('탄수화물', 'CRBHYD', 'Carbohydrate', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수분', 'FLUID', 'Fluid', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('삼투압', 'OSMLTY', 'Osmolality', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정맥영양처방', 'PRNNTRORD', 'Parenteral Nutrition Order', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('삼합수액', 'THRCHMBAG', 'Three Chamber Bag', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이합수액', 'TWOCHMBAG', 'Two Chamber Bag', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항암처방', 'CHMORD', 'Chemotherapy Order', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항암레지먼', 'CHMRGMPRT', 'Chemotherapy Regimen Protocol', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항암주기', 'CHMCYC', 'Chemotherapy Cycle', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('항암일차', 'CHMDAYNMB', 'Chemotherapy Day Number', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('누적용량', 'CMLDS', 'Cumulative Dose', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('평생최대용량', 'LFTMXMDS', 'Lifetime Maximum Dose', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('용량제한독성', 'DSLMTTXC', 'Dose Limiting Toxicity', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('혈관외유출', 'EXTRVS', 'Extravasation', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('노출', 'EXPSR', 'Exposure', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('유출', 'SPILL', 'Spill', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('유출키트', 'SPLKIT', 'Spill Kit', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폐쇄형약물이송장치', 'CSTD', 'Closed System Transfer Device', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('위해의약품', 'HZRDRG', 'Hazardous Drug', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세포독성폐기물', 'CYTWST', 'Cytotoxic Waste', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('의료폐기물', 'MDCWST', 'Medical Waste', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('감염성폐기물', 'INFWST', 'Infectious Waste', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약품폐기물', 'PHRWST', 'Pharmaceutical Waste', '분류: 임상약제 서비스', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주사처방', 'INJPRS', 'Injection Prescription', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수액처방', 'FLDPRS', 'Fluid Prescription', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('혼주', 'ADMXTR', 'Admixture', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('배합', 'CMBBLN', 'Combination Blend', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('배합변화', 'INCMPT', 'Incompatibility', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('배합금기', 'INCCNT', 'Incompatibility Contraindication', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('배합가능', 'CMPTBL', 'Compatible', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('용해액', 'DLNT', 'Diluent', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('희석액', 'DLTFLD', 'Dilution Fluid', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('최종농도', 'FNLCNC', 'Final Concentration', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('최종용량', 'FNLVLM', 'Final Volume', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주입시간', 'INFDRT', 'Infusion Duration', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주입속도', 'INFSPD', 'Infusion Speed', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('점적', 'DRIP', 'Drip', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('점적수', 'DRPCNT', 'Drip Count', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라인', 'LINE', 'Line', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수액세트', 'INFSET', 'Infusion Set', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('필터', 'FILTER', 'Filter', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인라인필터', 'INLFLT', 'Inline Filter', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('차광세트', 'LGHPRTSET', 'Light Protection Set', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주사바늘', 'NEEDLE', 'Needle', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카테터', 'CTHTR', 'Catheter', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('포트', 'PORT', 'Port', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('중심정맥관', 'CNTVNSCTH', 'Central Venous Catheter', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('말초삽입중심정맥관', 'PICC', 'PICC', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('배치조제', 'BTCCMP', 'Batch Compounding', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미리조제', 'PRECMP', 'Pre Compounding', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제시각', 'CMPTM', 'Compounding Time', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사용시한', 'BUD', 'Beyond Use Date', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보관시한', 'STRLMT', 'Storage Limit', '분류: 주사·수액 조제', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약처방전', 'NRCPRSSHT', 'Narcotic Prescription Sheet', '분류: 마약류 업무', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약류보고', 'NRCRPR', 'Narcotic Report', '분류: 마약류 업무', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약류재고', 'NRCSTC', 'Narcotic Stock', '분류: 마약류 업무', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약류인수인계', 'NRCTHNDV', 'Narcotic Handover', '분류: 마약류 업무', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('잔여마약', 'RSDNRC', 'Residual Narcotic', '분류: 마약류 업무', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약잔량', 'NRCRMN', 'Narcotic Remainder', '분류: 마약류 업무', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약잔량폐기', 'NRCRMNDSP', 'Narcotic Remainder Disposal', '분류: 마약류 업무', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폐기입회', 'DSPSWTNS', 'Disposal Witness', '분류: 마약류 업무', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('입회자', 'WTNS', 'Witness', '분류: 마약류 업무', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마약류저장시설', 'NRCSTR', 'Narcotic Storage', '분류: 마약류 업무', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('향정처방', 'PSYPRS', 'Psychotropic Prescription', '분류: 마약류 업무', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('취급승인', 'HNDAPR', 'Handling Approval', '분류: 마약류 업무', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('취급보고', 'HNDRPR', 'Handling Report', '분류: 마약류 업무', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('저장시설점검', 'STRINS', 'Storage Inspection', '분류: 마약류 업무', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('환자확인', 'PTNIDN', 'Patient Identification', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이중확인', 'DBLCHC', 'Double Check', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투약오류', 'ADMER', 'Administration Error', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방오류', 'PRSER', 'Prescribing Error', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전사오류', 'TRNER', 'Transcription Error', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제오류보고', 'DSPERRPR', 'Dispensing Error Report', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오류유형', 'ERTYP', 'Error Type', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오류단계', 'ERSTG', 'Error Stage', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오류원인', 'ERCS', 'Error Cause', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재발방지', 'RCRPRV', 'Recurrence Prevention', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('개선활동', 'IMPACT', 'Improvement Activity', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('위험도', 'RSKLVL', 'Risk Level', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('고위험환자', 'HGHRSKPTN', 'High Risk Patient', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('고위험약관리', 'HGHALRDRGMNG', 'High Alert Drug Management', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('농축전해질', 'CNCELC', 'Concentrated Electrolyte', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('유사약품', 'SMLDRG', 'Similar Drug', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('혼동주의', 'CNFCTN', 'Confusion Caution', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('경고라벨', 'WRNLBL', 'Warning Label', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보조라벨', 'AXLLBL', 'Auxiliary Label', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('주의라벨', 'CTNLBL', 'Caution Label', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투약바코드', 'MDCBRC', 'Medication Barcode', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('환자팔찌', 'PTNWRS', 'Patient Wristband', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('바코드투약', 'BCMA', 'Barcode Medication Administration', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투약확인', 'ADMCNF', 'Administration Confirmation', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투약5원칙', 'FIVERGT', 'Five Rights', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정확한환자', 'RGHPTN', 'Right Patient', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정확한약', 'RGHDRG', 'Right Drug', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정확한용량', 'RGHDS', 'Right Dose', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정확한경로', 'RGHRT', 'Right Route', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정확한시간', 'RGHTM', 'Right Time', '분류: 투약 안전', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('병동약품', 'WRDDRG', 'Ward Drug', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('병동비치', 'WRDFLRSTC', 'Ward Floor Stock', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비치약품', 'STCDRG', 'Stock Drug', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비치수량', 'STCLVL', 'Stock Level', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보충', 'RPLNSH', 'Replenishment', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보충량', 'RPLQNT', 'Replenishment Quantity', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보충요청', 'RPLRQS', 'Replenishment Request', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('자동보충', 'ATRPL', 'Auto Replenishment', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('점검일', 'CHCDAY', 'Check Day', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('점검자', 'CHCKR', 'Checker', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('병동점검', 'WRDINS', 'Ward Inspection', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('응급약', 'EMRDRG', 'Emergency Drug', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('응급약품목록', 'EMRDRGLST', 'Emergency Drug List', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('응급카트점검', 'EMRCRTCHC', 'Emergency Cart Check', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('봉인', 'SEAL', 'Seal', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('봉인번호', 'SLNMB', 'Seal Number', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('개봉일', 'OPNDAY', 'Opening Day', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('개봉후사용기한', 'USESHLLF', 'In Use Shelf Life', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('다회용', 'MLTUSE', 'Multiple Use', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일회용', 'SNGUSE', 'Single Use', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('개인약', 'INDDRG', 'Individual Drug', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('환자별', 'PERPTN', 'Per Patient', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일일투약', 'DLYDSDSP', 'Daily Dose Dispensing', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('단위용량', 'UNTDS', 'Unit Dose', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('단위용량조제', 'UNTDSDSP', 'Unit Dose Dispensing', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('병동조제', 'WRDDSP', 'Ward Dispensing', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('정규조제', 'RGLDSP', 'Regular Dispensing', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('추가조제', 'ADTDSP', 'Additional Dispensing', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('퇴원조제', 'DSCDSP', 'Discharge Dispensing', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('응급조제', 'EMRDSP', 'Emergency Dispensing', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('선조제', 'PREDSP', 'Pre Dispensing', '분류: 병동 약품 관리', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납처리', 'RTRPRC', 'Return Processing', '분류: 반납·폐기 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납검수', 'RTRINS', 'Return Inspection', '분류: 반납·폐기 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납불가', 'RTRNOTALW', 'Return Not Allowed', '분류: 반납·폐기 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납가능', 'RTRALW', 'Return Allowed', '분류: 반납·폐기 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부분반납', 'PRTRTR', 'Partial Return', '분류: 반납·폐기 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전량반납', 'FLRTR', 'Full Return', '분류: 반납·폐기 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('자동반납', 'ATMRTR', 'Automatic Return', '분류: 반납·폐기 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납위치', 'RTRLCT', 'Return Location', '분류: 반납·폐기 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재고반영', 'STCRFL', 'Stock Reflection', '분류: 반납·폐기 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재불출', 'REIS', 'Re Issue', '분류: 반납·폐기 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반납율', 'RTRRT', 'Return Rate', '분류: 반납·폐기 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폐기처리', 'DSPPRC', 'Disposal Processing', '분류: 반납·폐기 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폐기방법', 'DSPSMTHD', 'Disposal Method', '분류: 반납·폐기 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폐기업체', 'DSPSCMPN', 'Disposal Company', '분류: 반납·폐기 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('소각', 'INCNRT', 'Incineration', '분류: 반납·폐기 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수거', 'CLCTN', 'Collection', '분류: 반납·폐기 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수거함', 'CLCBOX', 'Collection Box', '분류: 반납·폐기 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출계획', 'ISPLN', 'Issue Plan', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출일정', 'ISSCH', 'Issue Schedule', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출시간', 'ISTM', 'Issue Time', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출지', 'ISPLC', 'Issue Place', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출확정', 'ISCNF', 'Issue Confirmation', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('분할불출', 'PRTIS', 'Partial Issue', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일괄불출', 'BLKIS', 'Bulk Issue', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('개별불출', 'INDIS', 'Individual Issue', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('추가불출', 'ADTIS', 'Additional Issue', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대체불출', 'SBSIS', 'Substitute Issue', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미불출', 'NOTISD', 'Not Issued', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('선불출', 'PREIS', 'Pre Issue', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('후불출', 'PSTIS', 'Post Issue', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불출순서', 'ISORDSQN', 'Issue Order Sequence', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피킹', 'PCKNG', 'Picking', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피킹리스트', 'PCKLST', 'Picking List', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('패킹', 'PACKING', 'Packing', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('출하', 'SHPMNT', 'Shipment', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('배송지', 'DLVADR', 'Delivery Address', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('배송시간', 'DLVTM', 'Delivery Time', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('배송자', 'DLVPRS', 'Delivery Person', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('도착', 'ARVL', 'Arrival', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('도착확인', 'ARVCNF', 'Arrival Confirmation', '분류: 불출 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수수량', 'INSQNT', 'Inspected Quantity', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수단위', 'INSUNT', 'Inspection Unit', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수일시점', 'INSTMPNT', 'Inspection Time Point', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수장소', 'INSPLC', 'Inspection Place', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수사진', 'INSPHT', 'Inspection Photo', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수의견', 'INSOPN', 'Inspection Opinion', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('검수방법', 'INSMTH', 'Inspection Method', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('샘플링', 'SMPLNG', 'Sampling', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('표본', 'SAMPLE', 'Sample', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전수검사', 'FLINS', 'Full Inspection', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('발췌검사', 'SMPINS', 'Sampling Inspection', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시험성적서', 'COA', 'Certificate Of Analysis', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('품질검사', 'QLTINS', 'Quality Inspection', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('납품검수', 'DLVINS', 'Delivery Inspection', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('온도확인', 'TMPCHC', 'Temperature Check', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('포장상태', 'PCKCND', 'Packaging Condition', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라벨확인', 'LBLCHC', 'Label Check', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('유효기간확인', 'EXPCHC', 'Expiry Check', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('제조번호확인', 'LOTCHC', 'Lot Check', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일치', 'MATCH', 'Match', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('불일치', 'MSMTCH', 'Mismatch', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('차이수량', 'DFRQNT', 'Difference Quantity', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('과입고', 'OVRRCP', 'Over Receipt', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미입고', 'NOTRCV', 'Not Received', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부분입고', 'PRTRCP', 'Partial Receipt', '분류: 검수 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방일련', 'PRSSQN', 'Prescription Sequence', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방항목', 'PRSITM', 'Prescription Item', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방약품', 'PRSCDRUG', 'Prescribed Drug', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방용량', 'PRSDS', 'Prescribed Dose', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방단위', 'PRSUNT', 'Prescription Unit', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방용법', 'PRSUSG', 'Prescription Usage', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방메모', 'PRSM', 'Prescription Memo', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방사유', 'PRSRSN', 'Prescription Reason', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방근거', 'PRSBS', 'Prescription Basis', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방권한', 'PRSATH', 'Prescription Authority', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방제한', 'PRSRST', 'Prescription Restriction', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방수', 'PRSCNT', 'Prescription Count', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방건', 'PRSCS', 'Prescription Case', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방량합계', 'TLPRSQNT', 'Total Prescribed Quantity', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방패턴', 'PRSPTR', 'Prescription Pattern', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방분석', 'PRSANL', 'Prescription Analysis', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방적정성', 'PRSAPR', 'Prescription Appropriateness', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('다제약물', 'PLYPHR', 'Polypharmacy', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부적절약물', 'PIM', 'Potentially Inappropriate Medication', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('용법변경', 'USGCHN', 'Usage Change', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('용량변경', 'DSCHN', 'Dose Change', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('약품변경', 'DRGCHN', 'Drug Change', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('투여중지', 'ADMSTP', 'Administration Stop', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('재개', 'RESUME', 'Resume', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('연장', 'EXTNSN', 'Extension', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('단축', 'SHRTNG', 'Shortening', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('처방만료', 'PRSEXP', 'Prescription Expiry', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('자동중지', 'ATMSTP', 'Automatic Stop', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('중지일', 'STPDAY', 'Stop Day', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시작시점', 'STRTMPNT', 'Start Time Point', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('종료시점', 'ENDTMPNT', 'End Time Point', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('첫투여', 'FRSDS', 'First Dose', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마지막투여', 'LSTDS', 'Last Dose', '분류: 처방 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제시작', 'DSPSTR', 'Dispensing Start', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제종료', 'DSPEND', 'Dispensing End', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제소요시간', 'DSPDRT', 'Dispensing Duration', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제건수', 'DSPCNT', 'Dispensing Count', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제수량', 'DSPNQNTY', 'Dispensing Quantity', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제위치', 'DSPLCT', 'Dispensing Location', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제장비', 'DSPEQP', 'Dispensing Equipment', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제순서', 'DSPORD', 'Dispensing Order', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제그룹', 'DSPGRP', 'Dispensing Group', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제묶음', 'DSPBND', 'Dispensing Bundle', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제메모', 'DSPM', 'Dispensing Memo', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제주의', 'DSPCTN', 'Dispensing Caution', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조제라벨', 'DSPLBL', 'Dispensing Label', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('분포지', 'PCKPR', 'Packaging Paper', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('분포수', 'NMBPCK', 'Number Of Packets', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('분포방식', 'PCKMTH', 'Packaging Method', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시간별분포', 'TMBSDPCK', 'Time Based Packaging', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('요일별분포', 'DAYBSDPCK', 'Day Based Packaging', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('반정', 'HLFTBL', 'Half Tablet', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사분정', 'QTRTAB', 'Quarter Tablet', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('분할정', 'SPLTBL', 'Split Tablet', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('가루조제', 'PWDCMP', 'Powder Compounding', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('현탁조제', 'SPNCMP', 'Suspension Compounding', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('연고조제', 'ONTCMP', 'Ointment Compounding', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('캡슐충전', 'CPSFLN', 'Capsule Filling', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('수작업', 'MNLWRK', 'Manual Work', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('기계조제', 'MCHDSP', 'Machine Dispensing', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('대기번호', 'WTNNMB', 'Waiting Number', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('번호표', 'NMBTCK', 'Number Ticket', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('호출', 'CALL', 'Call', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('전광판', 'DSPBRD', 'Display Board', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('교부', 'DLVHND', 'Delivery Handout', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('교부대', 'HNDCNT', 'Handout Counter', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('교부완료', 'HNDCMP', 'Handout Completion', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미교부', 'NOTHNDOUT', 'Not Handed Out', '분류: 조제 세부', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아세틸살리실산리신', 'LYSACT', 'Lysine Acetylsalicylate', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프로파세타몰', 'PRPCTM', 'Propacetamol', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('니메술리드', 'NMSLD', 'Nimesulide', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아세메타신', 'ACMTCN', 'Acemetacin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('탈니플루메이트', 'TLNFLM', 'Talniflumate', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('글루코사민', 'GLCSMN', 'Glucosamine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('콘드로이틴', 'CHNDRT', 'Chondroitin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('디아세레인', 'DCRN', 'Diacerein', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아보카도소야', 'AVCSYBUNS', 'Avocado Soybean Unsaponifiables', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폴리데옥시리보뉴클레오티드', 'PDRN', 'Polydeoxyribonucleotide', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('히알루론산나트륨', 'SDMHYL', 'Sodium Hyaluronate', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리세드론산', 'RSDACD', 'Risedronic Acid', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로피도그렐아스피린', 'CLPASP', 'Clopidogrel Aspirin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아질사르탄메독소밀', 'AZLMDX', 'Azilsartan Medoxomil', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('올메사르탄메독소밀', 'OLMMDX', 'Olmesartan Medoxomil', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('칸데사르탄실렉세틸', 'CNDCLX', 'Candesartan Cilexetil', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('니솔디핀', 'NSLDPN', 'Nisoldipine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('라시디핀', 'LCDPN', 'Lacidipine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에스몰롤염산염', 'ESMHYD', 'Esmolol Hydrochloride', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('티클로피딘', 'TCLPDN', 'Ticlopidine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트리플루살', 'TRFLSL', 'Triflusal', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('펜톡시필린', 'PNTXFY', 'Pentoxifylline', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('은행잎추출물', 'GNKLFEXT', 'Ginkgo Leaf Extract', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('빈포세틴', 'VNPCTN', 'Vinpocetine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시티콜린', 'CTCLN', 'Citicoline', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피라세탐', 'PIRACETAM', 'Piracetam', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('옥시라세탐', 'OXRCTM', 'Oxiracetam', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에다라본', 'EDRVN', 'Edaravone', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리루졸', 'RLZL', 'Riluzole', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테트라베나진', 'TRBNZN', 'Tetrabenazine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('보툴리눔A형', 'BTLTYP', 'Botulinum Type A', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인터페론베타', 'INTBT', 'Interferon Beta', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('나탈리주맙', 'NTLZMB', 'Natalizumab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오크렐리주맙', 'OCRLZM', 'Ocrelizumab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('핑골리모드', 'FNGLMD', 'Fingolimod', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('디메틸푸마르산', 'DMTFMR', 'Dimethyl Fumarate', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테리플루노미드', 'TRFLNM', 'Teriflunomide', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에르게나맙', 'ERNMB', 'Erenumab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프레마네주맙', 'FRMNZM', 'Fremanezumab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('갈카네주맙', 'GLCNZM', 'Galcanezumab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리메게판트', 'RMGPNT', 'Rimegepant', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아세나핀', 'ASNPN', 'Asenapine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카리프라진', 'CRPRZN', 'Cariprazine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('일로페리돈', 'ILPRDN', 'Iloperidone', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플루펜틱솔', 'FLPNTX', 'Flupentixol', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플루니트라제팜', 'FLNTRZ', 'Flunitrazepam', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로르메타제팜', 'LRMTZP', 'Lormetazepam', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('쿠아제팜', 'QZPM', 'Quazepam', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('옥사제팜', 'OXZPM', 'Oxazepam', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로라제페이트', 'CLRZPT', 'Clorazepate', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('메프로바메이트', 'MPRBMT', 'Meprobamate', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('날메펜', 'NLMFN', 'Nalmefene', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아캄프로세이트', 'ACMPRS', 'Acamprosate', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('디설피람', 'DSLFRM', 'Disulfiram', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에스케타민', 'ESKTMN', 'Esketamine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레보밀나시프란', 'LVMLNC', 'Levomilnacipran', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('모클로베미드', 'MCLBMD', 'Moclobemide', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아목사핀', 'AMXPN', 'Amoxapine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마프로틸린', 'MPRTLN', 'Maprotiline', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('글리세롤', 'GLYCRL', 'Glycerol', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('덱스판테놀', 'DXPNTH', 'Dexpanthenol', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알로에', 'ALOE', 'Aloe', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마그네슘트리실리케이트', 'MGNTRS', 'Magnesium Trisilicate', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('코데인인산염', 'CDNPHS', 'Codeine Phosphate', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('노스카핀', 'NSCPN', 'Noscapine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로페라스틴', 'CLPRST', 'Cloperastine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('지페프롤', 'ZPRL', 'Zipeprol', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('뷰타미레이트', 'BTMRT', 'Butamirate', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('펜스피리드', 'FNSPRD', 'Fenspiride', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아젤라스틴비강', 'AZLNSL', 'Azelastine Nasal', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플루티카손푸로에이트', 'FLTFRT', 'Fluticasone Furoate', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('모메타손푸로에이트', 'MTSFRT', 'Mometasone Furoate', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트리암시놀론비강', 'TRMNSL', 'Triamcinolone Nasal', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('크로몰린', 'CRMLYN', 'Cromolyn', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('네도크로밀', 'NDCRML', 'Nedocromil', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레보카바스틴', 'LVCBST', 'Levocabastine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('알카프타딘', 'ALCFTD', 'Alcaftadine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프레드니솔론아세테이트', 'PRDACT', 'Prednisolone Acetate', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플루오로메톨론', 'FLRMTH', 'Fluorometholone', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로테프레드놀', 'LTPRDN', 'Loteprednol', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레보플록사신점안', 'LVFOPH', 'Levofloxacin Ophthalmic', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('목시플록사신점안', 'MXFOPH', 'Moxifloxacin Ophthalmic', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('가티플록사신', 'GTFLXC', 'Gatifloxacin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('토브라마이신점안', 'TBROPH', 'Tobramycin Ophthalmic', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('네파페낙', 'NPFNC', 'Nepafenac', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('브롬페낙', 'BRMFNC', 'Bromfenac', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('케토롤락점안', 'KTROPH', 'Ketorolac Ophthalmic', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시클로스포린점안', 'CYCOPH', 'Cyclosporine Ophthalmic', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리피테그라스트', 'LFTGRS', 'Lifitegrast', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아트로핀점안', 'ATROPH', 'Atropine Ophthalmic', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프로파라카인', 'PRPRCN', 'Proparacaine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플루오레세인', 'FLRSCN', 'Fluorescein', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인공눈물', 'ARTTRS', 'Artificial Tears', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세프토비프롤', 'CFTBPR', 'Ceftobiprole', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세파만돌', 'CFMNDL', 'Cefamandole', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세프티부텐', 'CFTBTN', 'Ceftibuten', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세프로질', 'CFPRZL', 'Cefprozil', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로라카르베프', 'LRCRBF', 'Loracarbef', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('파로페넴', 'FRPNM', 'Faropenem', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테비페넴', 'TBPNM', 'Tebipenem', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('술타미실린', 'SLTMCL', 'Sultamicillin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('바캄피실린', 'BCMPCL', 'Bacampicillin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플루클록사실린', 'FLCLXC', 'Flucloxacillin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('디클록사실린', 'DCLXCL', 'Dicloxacillin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('티카실린', 'TCRCLN', 'Ticarcillin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아목시실린클라불란산', 'AMXCLV', 'Amoxicillin Clavulanate', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('암피실린설박탐', 'AMPSLB', 'Ampicillin Sulbactam', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피페라실린타조박탐', 'PRCTZB', 'Piperacillin Tazobactam', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세포페라존설박탐', 'CFPSLB', 'Cefoperazone Sulbactam', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플라조마이신', 'PLZMCN', 'Plazomicin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('스펙티노마이신', 'SPCTNM', 'Spectinomycin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('조사마이신', 'JSMYCN', 'Josamycin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미데카마이신', 'MDCMYC', 'Midecamycin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('스피라마이신', 'SPRMYC', 'Spiramycin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('텔리스로마이신', 'TLTHRM', 'Telithromycin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('피닥소마이신', 'FDXMCN', 'Fidaxomicin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('로메플록사신', 'LMFLXC', 'Lomefloxacin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프루리플록사신', 'PRLFLX', 'Prulifloxacin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('네모녹사신', 'NMNXCN', 'Nemonoxacin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오리타반신', 'ORTVNC', 'Oritavancin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('텔라반신', 'TLVNCN', 'Telavancin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('퀴누프리스틴', 'QNPRST', 'Quinupristin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로람페니콜', 'CHLRMP', 'Chloramphenicol', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('린코마이신', 'LNCMYC', 'Lincomycin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('설파디아진', 'SLFDZN', 'Sulfadiazine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('답손', 'DPSN', 'Dapsone', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('클로파지민', 'CLFZMN', 'Clofazimine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에티오나미드', 'ETHNMD', 'Ethionamide', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('파라아미노살리실산', 'PAS', 'Para Aminosalicylic Acid', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카나마이신', 'KNMYCN', 'Kanamycin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카프레오마이신', 'CPRMYC', 'Capreomycin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('프레토마니드', 'PRTMND', 'Pretomanid', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리파펜틴', 'RFPNTN', 'Rifapentine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플루시토신', 'FLCYTS', 'Flucytosine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('그리세오풀빈', 'GRSFLV', 'Griseofulvin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아모롤핀', 'AMRLFN', 'Amorolfine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시클로피록스', 'CLPRX', 'Ciclopirox', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에피나코나졸', 'EFNCNZ', 'Efinaconazole', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('부테나핀', 'BTNFN', 'Butenafine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('설코나졸', 'SLCNZL', 'Sulconazole', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이소코나졸', 'ISCNZL', 'Isoconazole', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('미코나졸', 'MCNZL', 'Miconazole', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에코나졸', 'ECNZL', 'Econazole', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세르타코나졸', 'SRTCNZ', 'Sertaconazole', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('플루트리마졸', 'FLTRMZ', 'Flutrimazole', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('리바비린', 'RBVRN', 'Ribavirin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('인터페론알파', 'INTALP', 'Interferon Alpha', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('페그인터페론', 'PGNTRF', 'Peginterferon', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('시도포비르', 'CDFVR', 'Cidofovir', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('레테르모비르', 'LTRMVR', 'Letermovir', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('마리바비르', 'MRBVR', 'Maribavir', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('팔리비주맙', 'PLVZMB', 'Palivizumab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('니르세비맙', 'NRSVMB', 'Nirsevimab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('소트로비맙', 'STRVMB', 'Sotrovimab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트라스투주맙데룩스테칸', 'TRSDRX', 'Trastuzumab Deruxtecan', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트라스투주맙엠탄신', 'TRSEMT', 'Trastuzumab Emtansine', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('사시투주맙고비테칸', 'SCTGVT', 'Sacituzumab Govitecan', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('엔포투맙베도틴', 'ENFVDT', 'Enfortumab Vedotin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('폴라투주맙베도틴', 'PLTVDT', 'Polatuzumab Vedotin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이노투주맙오조가마이신', 'INTOZG', 'Inotuzumab Ozogamicin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('겜투주맙오조가마이신', 'GMTOZG', 'Gemtuzumab Ozogamicin', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('모가물리주맙', 'MGMLZM', 'Mogamulizumab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('엘로투주맙', 'ELTZMB', 'Elotuzumab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('이사툭시맙', 'ISTXMB', 'Isatuximab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오비누투주맙', 'OBNTZM', 'Obinutuzumab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('오파투무맙', 'OFTMB', 'Ofatumumab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('세미플리맙', 'CMPLMB', 'Cemiplimab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('도스탈리맙', 'DSTRLM', 'Dostarlimab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('티슬렐리주맙', 'TSLZMB', 'Tislelizumab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트레멜리무맙', 'TRMLMB', 'Tremelimumab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('렐라틀리맙', 'RLTLMB', 'Relatlimab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아미반타맙', 'AMVNTM', 'Amivantamab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테클리스타맙', 'TCLSTM', 'Teclistamab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('에프코리타맙', 'EPCRTM', 'Epcoritamab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('글로피타맙', 'GLFTMB', 'Glofitamab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('모수네투주맙', 'MSNTZM', 'Mosunetuzumab', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('티사젠렉류셀', 'TSGNLC', 'Tisagenlecleucel', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('악시캅타진실로류셀', 'AXCCLC', 'Axicabtagene Ciloleucel', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('소토라십', 'STRSB', 'Sotorasib', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('아다그라십', 'ADGRSB', 'Adagrasib', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('다브라페닙', 'DBRFNB', 'Dabrafenib', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('트라메티닙', 'TRMTNB', 'Trametinib', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('베무라페닙', 'VMRFNB', 'Vemurafenib', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('코비메티닙', 'CBMTNB', 'Cobimetinib', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('엔코라페닙', 'ENCRFN', 'Encorafenib', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('비니메티닙', 'BNMTNB', 'Binimetinib', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('카프마티닙', 'CPMTNB', 'Capmatinib', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('테포티닙', 'TPTNB', 'Tepotinib', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
+INSERT INTO std_word (name, abbreviation, english_name, description, classifier, created_at, updated_at) VALUES ('셀퍼카티닙', 'SLPRCT', 'Selpercatinib', '분류: 성분명: 추가', 'N', LOCALTIMESTAMP, LOCALTIMESTAMP);
 COMMIT;
+
+EXIT

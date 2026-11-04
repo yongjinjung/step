@@ -6,9 +6,11 @@
     'Y'/'N' 컬럼은 YesNoTypeHandler가 boolean으로 바꾼다.
   - 동적 조건: <where> 안의 <if>가 값이 있을 때만 붙고, 첫 AND는 <where>가 지운다.
   - 부분 일치: Likes.contains로 %, _ 를 이스케이프한 패턴을 만들고 ESCAPE '!'를 붙인다.
-    컬럼에 함수(LOWER 등)를 씌우지 않는다(인덱스를 못 쓴다). 대소문자는 DB 정렬 규칙이 구분하지 않고,
-    대문자로 저장하는 컬럼(영문약어)은 검색어도 대문자로 바꾼다(containsUpper).
-  - 이 SQL은 MySQL 8.4와 테스트용 H2(MODE=MySQL) 양쪽에서 실행된다. 양쪽에 있는 문법만 쓴다.
+    Oracle은 LIKE가 대소문자를 구분한다. 대문자로 저장하는 컬럼(영문약어)은 검색어만 대문자로 바꾸고(containsUpper),
+    대소문자가 섞이는 컬럼(단어명·영문명)은 UPPER(컬럼) LIKE 대문자 검색어로 비교한다.
+    UPPER()는 인덱스를 못 쓰게 하지만 %키워드% 검색은 원래 인덱스를 못 타므로 잃는 것이 없다.
+  - 페이징: ORDER BY 뒤에 OFFSET #{p.offset} ROWS FETCH NEXT #{p.pageSize} ROWS ONLY (Oracle 12c+ 표준 문법).
+  - 이 SQL은 Oracle 21c와 테스트용 H2(MODE=Oracle) 양쪽에서 실행된다. 양쪽에 있는 문법만 쓴다.
 -->
 <mapper namespace="com.step.dictionary.standard.word.WordMapper">
 
@@ -52,9 +54,9 @@
         <bind name="keywordUpper" value="@com.step.dictionary.global.mybatis.Likes@containsUpper(c.keyword)"/>
         <where>
             <if test="keyword != null">
-                AND (w.name LIKE #{keyword} ESCAPE '!'
+                AND (UPPER(w.name) LIKE #{keywordUpper} ESCAPE '!'
                      OR w.abbreviation LIKE #{keywordUpper} ESCAPE '!'
-                     OR w.english_name LIKE #{keyword} ESCAPE '!')
+                     OR UPPER(w.english_name) LIKE #{keywordUpper} ESCAPE '!')
             </if>
             <if test="c.classifier != null">AND w.classifier = #{c.classifier}</if>
         </where>
@@ -64,7 +66,7 @@
         SELECT <include refid="columns"/> FROM std_word w
         <include refid="searchWhere"/>
         ORDER BY w.name ASC
-        LIMIT #{p.pageSize} OFFSET #{p.offset}
+        OFFSET #{p.offset} ROWS FETCH NEXT #{p.pageSize} ROWS ONLY
     </select>
 
     <select id="count" resultType="long">

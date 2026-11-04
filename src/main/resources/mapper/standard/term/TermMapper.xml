@@ -2,7 +2,7 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <!--
   표준 용어 (std_term) + 구성 단어 조인 테이블 (std_term_word).
-  용어 조회는 도메인과 도메인의 분류어를 조인해 채운다(다대일이라 LIMIT 페이징이 그대로 동작한다).
+  용어 조회는 도메인과 도메인의 분류어를 조인해 채운다(다대일이라 페이징(OFFSET … FETCH)이 그대로 동작한다).
   구성 단어(일대다)를 같이 조인하면 행이 늘어 페이징이 깨지므로 findWordsByTermIds로 따로 읽는다.
 -->
 <mapper namespace="com.step.dictionary.standard.term.TermMapper">
@@ -82,7 +82,7 @@
         <bind name="keywordUpper" value="@com.step.dictionary.global.mybatis.Likes@containsUpper(c.keyword)"/>
         <where>
             <if test="keyword != null">
-                AND (t.name LIKE #{keyword} ESCAPE '!' OR t.abbreviation LIKE #{keywordUpper} ESCAPE '!')
+                AND (UPPER(t.name) LIKE #{keywordUpper} ESCAPE '!' OR t.abbreviation LIKE #{keywordUpper} ESCAPE '!')
             </if>
             <if test="c.domainId != null">AND t.domain_id = #{c.domainId}</if>
             <if test="c.wordId != null">
@@ -95,7 +95,7 @@
         SELECT <include refid="columns"/> <include refid="from"/>
         <include refid="searchWhere"/>
         ORDER BY t.name ASC
-        LIMIT #{p.pageSize} OFFSET #{p.offset}
+        OFFSET #{p.offset} ROWS FETCH NEXT #{p.pageSize} ROWS ONLY
     </select>
 
     <!-- 건수는 도메인을 조인하지 않는다 (domain_id가 NOT NULL FK라 건수가 같다). -->

@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Order(RoleInitializer.ORDER)
 public class RoleInitializer implements ApplicationRunner {
 
-    /** 메뉴 생성기(기본값 0) 다음에 실행한다. */
+    /** 메뉴 생성기({@code MenuInitializer.ORDER}) 다음에 실행한다. */
     public static final int ORDER = 100;
 
     private static final Logger log = LoggerFactory.getLogger(RoleInitializer.class);

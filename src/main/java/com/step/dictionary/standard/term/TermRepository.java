@@ -4,6 +4,7 @@ import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
 
+import com.step.dictionary.global.mybatis.InClause;
 import com.step.dictionary.global.mybatis.Pages;
 import com.step.dictionary.standard.term.dto.TermSearchCondition;
 import com.step.dictionary.standard.word.Word;
@@ -99,7 +100,8 @@ public class TermRepository {
         if (terms.isEmpty()) {
             return terms;
         }
-        Map<Long, List<Word>> wordsByTerm = mapper.findWordsByTermIds(terms.stream().map(Term::getId).toList())
+        List<Long> termIds = terms.stream().map(Term::getId).toList();
+        Map<Long, List<Word>> wordsByTerm = InClause.query(termIds, mapper::findWordsByTermIds)
                 .stream()
                 .collect(groupingBy(TermWordRow::getTermId, mapping(TermWordRow::getWord, toList())));
         terms.forEach(term -> term.loadWords(wordsByTerm.getOrDefault(term.getId(), List.of())));

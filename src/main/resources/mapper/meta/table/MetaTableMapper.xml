@@ -29,7 +29,7 @@
         <where>
             <if test="keyword != null">
                 AND (mt.physical_name LIKE #{keywordUpper} ESCAPE '!'
-                     OR mt.logical_name LIKE #{keyword} ESCAPE '!')
+                     OR UPPER(mt.logical_name) LIKE #{keywordUpper} ESCAPE '!')
             </if>
         </where>
     </sql>
@@ -38,7 +38,7 @@
         SELECT <include refid="columns"/> FROM meta_table mt
         <include refid="searchWhere"/>
         ORDER BY mt.physical_name ASC
-        LIMIT #{p.pageSize} OFFSET #{p.offset}
+        OFFSET #{p.offset} ROWS FETCH NEXT #{p.pageSize} ROWS ONLY
     </select>
 
     <select id="count" resultType="long">

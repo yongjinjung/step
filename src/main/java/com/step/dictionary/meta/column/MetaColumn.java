@@ -46,8 +46,6 @@ public class MetaColumn extends BaseTimeEntity {
      * (검출 규칙을 다루는 생성자·update의 시그니처를 건드리지 않기 위해서다).
      */
     private CodeGroup codeGroup;
-
-    // MySQL 방언은 STRING enum을 ENUM 타입으로 보므로 VARCHAR 컬럼과 validate가 어긋나지 않게 지정한다.
     /** 데이터 타입. 용어 도메인의 타입과 같아야 표준이다. */
     private DataType dataType;
 

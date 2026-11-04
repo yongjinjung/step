@@ -1,14 +1,9 @@
 -- =====================================================================
 -- V14: 테이블·컬럼 설명(Description)
 -- ---------------------------------------------------------------------
--- 모든 테이블과 컬럼에 한글 설명을 단다. DB 도구(Workbench, DBeaver 등)와 information_schema에서 보인다.
--- 설명 문법이 DB마다 달라 같은 내용을 DB 종류별 파일로 둔다 (spring.flyway.locations의 db/vendor/{vendor}).
---   MySQL: db/vendor/mysql/V14__...sql (ALTER TABLE ... COMMENT, MODIFY COLUMN ... COMMENT)
---   H2   : db/vendor/h2/V14__...sql    (COMMENT ON TABLE / COLUMN)
--- 두 파일의 설명은 같아야 한다. 이후 테이블·컬럼을 추가하면 그 마이그레이션에서 설명도 함께 단다
--- (공통 SQL은 db/migration, 설명은 같은 버전 번호를 쓰지 않도록 새 버전으로 vendor 폴더 양쪽에 둔다).
---
--- 이 파일: H2 (테스트 전용)
+-- 모든 테이블과 컬럼에 한글 설명을 단다. DB 도구(SQL Developer, DBeaver 등)와 데이터 사전
+-- (USER_TAB_COMMENTS, USER_COL_COMMENTS)에서 보인다. COMMENT ON 문법은 Oracle과 테스트용 H2가 같다.
+-- 이후 테이블·컬럼을 추가하면 그 마이그레이션에서 COMMENT ON으로 설명도 함께 단다 (SchemaCommentTest가 검사).
 -- =====================================================================
 
 -- std_word

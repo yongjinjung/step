@@ -2,7 +2,7 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <!--
   표준 도메인 (std_domain). 분류어 단어(std_word)를 조인해 association으로 채운다.
-  다대일 조인이라 행 수가 늘지 않아 LIMIT 페이징이 그대로 동작한다.
+  다대일 조인이라 행 수가 늘지 않아 페이징(OFFSET … FETCH)이 그대로 동작한다.
 -->
 <mapper namespace="com.step.dictionary.standard.domain.DomainMapper">
 
@@ -45,8 +45,9 @@
 
     <sql id="searchWhere">
         <bind name="keyword" value="@com.step.dictionary.global.mybatis.Likes@contains(c.keyword)"/>
+        <bind name="keywordUpper" value="@com.step.dictionary.global.mybatis.Likes@containsUpper(c.keyword)"/>
         <where>
-            <if test="keyword != null">AND d.name LIKE #{keyword} ESCAPE '!'</if>
+            <if test="keyword != null">AND UPPER(d.name) LIKE #{keywordUpper} ESCAPE '!'</if>
             <if test="c.classifierWordId != null">AND d.classifier_word_id = #{c.classifierWordId}</if>
             <if test="c.dataType != null">AND d.data_type = #{c.dataType}</if>
         </where>
@@ -56,7 +57,7 @@
         SELECT <include refid="columns"/> <include refid="from"/>
         <include refid="searchWhere"/>
         ORDER BY d.name ASC
-        LIMIT #{p.pageSize} OFFSET #{p.offset}
+        OFFSET #{p.offset} ROWS FETCH NEXT #{p.pageSize} ROWS ONLY
     </select>
 
     <!-- 건수는 분류어 컬럼이 필요 없어 조인하지 않는다 (classifier_word_id가 NOT NULL FK라 건수가 같다). -->

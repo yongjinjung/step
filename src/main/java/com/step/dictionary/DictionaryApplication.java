@@ -12,7 +12,7 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
  * {@link ConfigurationPropertiesScan}은 같은 범위의 {@code @ConfigurationProperties} record
  * ({@code JwtProperties}, {@code InitialAdminProperties})를 찾아 빈으로 등록한다.
  *
- * <p>기본 프로파일은 {@code local}(MySQL)이다. 실행 전에 {@code docker compose up -d}로 DB를 띄워야 한다.
+ * <p>기본 프로파일은 {@code local}(Oracle)이다. 실행 전에 {@code docker compose up -d}로 DB를 띄워야 한다.
  */
 @SpringBootApplication
 @ConfigurationPropertiesScan

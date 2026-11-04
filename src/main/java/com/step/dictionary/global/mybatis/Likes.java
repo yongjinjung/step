@@ -14,9 +14,10 @@ import org.springframework.util.StringUtils;
  * <ul>
  *   <li>사용자가 입력한 {@code %}, {@code _}는 와일드카드가 아니라 글자로 찾도록 {@code !}로 이스케이프한다.
  *       그래서 SQL에 반드시 {@code ESCAPE '!'}를 붙인다.</li>
- *   <li><b>컬럼에 함수({@code LOWER()} 등)를 씌우지 않는다.</b> 인덱스를 못 쓰게 된다. 대소문자는
- *       DB 정렬 규칙(MySQL {@code utf8mb4_0900_ai_ci}, 테스트 H2 {@code IGNORECASE=TRUE})이 구분하지 않는다.
- *       저장할 때 대문자·소문자로 정규화하는 컬럼은 {@code *Upper}/{@code *Lower}로 검색어도 같게 맞춘다.</li>
+ *   <li>Oracle은 LIKE가 대소문자를 구분한다. 대·소문자로 정규화해 저장하는 컬럼(영문약어, 코드ID, 물리명, 처방전번호,
+ *       아이디)은 검색어만 {@code *Upper}/{@code *Lower}로 맞추고 컬럼은 그대로 비교한다(인덱스를 쓸 수 있다).
+ *       대소문자가 섞이는 컬럼은 {@code UPPER(컬럼) LIKE #{keywordUpper}}로 비교한다. 컬럼에 함수를 씌우면 인덱스를 못 쓰지만
+ *       {@code %키워드%} 검색은 원래 인덱스를 못 타므로 이때만 허용한다. 앞부분 일치({@link #startsWith}) 검색에는 쓰지 않는다.</li>
  *   <li>{@link #contains}({@code %값%})는 앞에 {@code %}가 붙어 인덱스를 못 탄다. 데이터가 적은 표준 사전·관리 화면에만 쓰고,
  *       많이 쌓이는 업무 데이터(약제)는 인덱스를 타는 {@link #startsWith}({@code 값%})를 쓴다.</li>
  * </ul>

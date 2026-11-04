@@ -4,6 +4,7 @@ import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
 
+import com.step.dictionary.global.mybatis.InClause;
 import com.step.dictionary.global.mybatis.Pages;
 import com.step.dictionary.role.Role;
 import com.step.dictionary.user.dto.UserSearchCondition;
@@ -68,7 +69,8 @@ public class AppUserRepository {
     public Page<AppUser> search(UserSearchCondition condition, Pageable pageable) {
         List<AppUser> users = mapper.search(condition, pageable);
         if (!users.isEmpty()) {
-            Map<Long, List<Role>> rolesByUser = mapper.findRolesByUserIds(users.stream().map(AppUser::getId).toList())
+            List<Long> userIds = users.stream().map(AppUser::getId).toList();
+            Map<Long, List<Role>> rolesByUser = InClause.query(userIds, mapper::findRolesByUserIds)
                     .stream()
                     .collect(groupingBy(AppUserMapper.UserRoleRow::getUserId,
                             mapping(AppUserMapper.UserRoleRow::getRole, toList())));

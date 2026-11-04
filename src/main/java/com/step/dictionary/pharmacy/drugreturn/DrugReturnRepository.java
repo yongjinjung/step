@@ -1,6 +1,7 @@
 package com.step.dictionary.pharmacy.drugreturn;
 
 import com.step.dictionary.global.mybatis.Pages;
+import com.step.dictionary.pharmacy.Quantities;
 import com.step.dictionary.pharmacy.drugreturn.dto.DrugReturnSearchCondition;
 import java.math.BigDecimal;
 import java.util.Map;
@@ -41,8 +42,9 @@ public class DrugReturnRepository {
      */
     public Map<Long, BigDecimal> sumQuantityByIssueItem(Long issueId) {
         return mapper.sumQuantitiesByIssueId(issueId).stream()
+                // SUM 결과는 DB에 따라 소수 자릿수가 달라(Oracle은 1.000을 1로 준다) 수량 규칙(소수 3자리)으로 맞춘다.
                 .collect(Collectors.toMap(DrugReturnMapper.ReturnedQuantity::getIssueItemId,
-                        DrugReturnMapper.ReturnedQuantity::getQuantity));
+                        row -> Quantities.normalize(row.getQuantity())));
     }
 
     /** 조건에 맞는 반납을 반납 일시 최신순으로 페이지 조회한다 (품목 제외). */

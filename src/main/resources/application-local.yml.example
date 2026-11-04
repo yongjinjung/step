@@ -1,12 +1,13 @@
 # 로컬 개발 설정 예시. 이 파일을 같은 폴더에 application-local.yml로 복사한 뒤 값을 채운다.
 #   cp src/main/resources/application-local.yml.example src/main/resources/application-local.yml
 # application-local.yml은 비밀값이 들어가므로 .gitignore로 커밋에서 제외한다.
-# MySQL은 `docker compose up -d`로 실행한다 (접속 정보는 compose.yaml과 같다).
+# Oracle은 `docker compose up -d`로 실행한다 (접속 정보는 compose.yaml과 같다. 처음 기동은 1~2분 걸린다).
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/dictionary
-    username: dictionary
-    password: dictionary
+    # Oracle 21c XE (gvenzl/oracle-xe:21-slim). 서비스 이름 XEPDB1, 앱 계정 pharmacy (compose.yaml의 APP_USER).
+    url: jdbc:oracle:thin:@localhost:1521/XEPDB1
+    username: pharmacy
+    password: pharmacy
 
 # SQL 로그: 실제 실행 SQL에 파라미터 값을 채워 정렬해 보여준다 (P6Spy, 형식은 P6SpySqlFormatter).
 decorator:

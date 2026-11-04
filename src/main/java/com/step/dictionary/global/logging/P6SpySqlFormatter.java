@@ -34,9 +34,9 @@ public class P6SpySqlFormatter implements MessageFormattingStrategy {
         return "[SQL] " + elapsed + " ms | connection " + connectionId + System.lineSeparator() + format(category, sql);
     }
 
-    /** 일반 SQL은 MySQL 문법으로 정렬하고, 각 줄을 들여써 로그의 다른 줄과 구분한다. */
+    /** 일반 SQL은 Oracle(PL/SQL) 문법으로 정렬하고, 각 줄을 들여써 로그의 다른 줄과 구분한다. */
     static String format(String category, String sql) {
-        String formatted = isStatement(category) ? SqlFormatter.of(Dialect.MySql).format(sql.trim()) : sql.trim();
+        String formatted = isStatement(category) ? SqlFormatter.of(Dialect.PlSql).format(sql.trim()) : sql.trim();
         return INDENT + formatted.replace("\n", System.lineSeparator() + INDENT);
     }
 

@@ -1,5 +1,6 @@
 package com.step.dictionary.meta.column;
 
+import com.step.dictionary.global.mybatis.InClause;
 import com.step.dictionary.global.mybatis.Pages;
 import com.step.dictionary.meta.column.dto.NonStandardColumnCondition;
 import java.util.Collection;
@@ -48,7 +49,7 @@ public class MetaColumnRepository {
 
     /** 여러 테이블의 컬럼을 한 번에 조회한다. 엑셀 다운로드에서 테이블마다 따로 조회하지 않기 위해 쓴다. */
     public List<MetaColumn> findAllByTableIdInOrderBySeqAscIdAsc(Collection<Long> tableIds) {
-        return tableIds.isEmpty() ? List.of() : mapper.findAllByTableIds(tableIds);
+        return InClause.query(tableIds, mapper::findAllByTableIds);
     }
 
     /** 코드 그룹이 매핑된 컬럼 (테이블 물리명, 순서, ID 순). 코드 그룹 상세의 매핑 컬럼 목록에 쓴다. */

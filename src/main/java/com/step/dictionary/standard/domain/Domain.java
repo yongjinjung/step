@@ -28,8 +28,6 @@ public class Domain extends BaseTimeEntity {
      * ({@link DomainRepositoryCustomImpl}).
      */
     private Word classifierWord;
-
-    // MySQL 방언은 STRING enum을 ENUM 타입으로 보므로 VARCHAR 컬럼과 validate가 어긋나지 않게 지정한다.
     /** 데이터 타입. DB에는 enum 이름 문자열로 저장한다. */
     private DataType dataType;
 

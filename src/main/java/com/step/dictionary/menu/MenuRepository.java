@@ -1,5 +1,6 @@
 package com.step.dictionary.menu;
 
+import com.step.dictionary.global.mybatis.InClause;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -39,7 +40,7 @@ public class MenuRepository {
 
     /** 여러 ID를 한 번에 찾는다. 없는 ID는 결과에서 빠진다. */
     public List<Menu> findAllById(Collection<Long> ids) {
-        return ids.isEmpty() ? List.of() : mapper.findAllById(ids);
+        return InClause.query(ids, mapper::findAllById);
     }
 
     /** 메뉴 수. 기본 메뉴 생성 여부(비어 있을 때만)를 정한다. */
