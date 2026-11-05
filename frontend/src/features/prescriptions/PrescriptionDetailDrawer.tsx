@@ -1,11 +1,13 @@
-import { Alert, App, Button, Descriptions, Drawer, Skeleton, Table, Tag, Typography, type TableColumnsType } from 'antd'
+import { Alert, App, Button, Descriptions, Drawer, Skeleton, Space, Table, Tag, Typography, type TableColumnsType } from 'antd'
 import { useState } from 'react'
+import { useNavigate } from 'react-router'
 import { $api } from '@/api/client'
 import { errorMessage, isApiError } from '@/api/errors'
 import { ReasonModal } from '@/components/ReasonModal'
 import { useInvalidateApi } from '@/hooks/useInvalidateApi'
 import { useMenus } from '@/layouts/MenuContext'
 import { formatDateTime } from '@/utils/format'
+import { DispensingFormModal } from '@/features/dispensings/DispensingFormModal'
 import {
     PRESCRIPTION_STATUSES,
     PRESCRIPTION_TYPES,
@@ -59,6 +61,12 @@ export function PrescriptionDetailDrawer({ prescriptionId, onClose }: Prescripti
     // 버튼 표시 조건: 수정 권한 + 조제 전(ORDERED). 최종 검사는 서버가 한다.
     const cancellable = can('/prescriptions', 'update') && prescription?.status === 'ORDERED'
 
+    // 다음 단계(조제): 조제 전 처방이면 조제 등록 모달을 연다. 조제된 처방은 조제 목록으로 이동해 내역을 본다.
+    const navigate = useNavigate()
+    const [dispenseOpen, setDispenseOpen] = useState(false)
+    const dispensable = can('/dispensings', 'create') && prescription?.status === 'ORDERED'
+    const showDispensings = can('/dispensings', 'read') && prescription?.status === 'DISPENSED'
+
     const handleCancel = (reason: string | undefined) => {
         if (prescriptionId === null || !reason) {
             return
@@ -91,11 +99,28 @@ export function PrescriptionDetailDrawer({ prescriptionId, onClose }: Prescripti
             size="large"
             title={prescription ? `처방 ${prescription.prescriptionNo}` : '처방 상세'}
             extra={
-                cancellable && (
-                    <Button danger onClick={() => setCancelOpen(true)}>
-                        처방 취소
-                    </Button>
-                )
+                <Space>
+                    {showDispensings && (
+                        <Button
+                            onClick={() => {
+                                onClose()
+                                navigate(`/dispensings?prescriptionId=${prescriptionId}`)
+                            }}
+                        >
+                            조제 내역
+                        </Button>
+                    )}
+                    {cancellable && (
+                        <Button danger onClick={() => setCancelOpen(true)}>
+                            처방 취소
+                        </Button>
+                    )}
+                    {dispensable && (
+                        <Button type="primary" onClick={() => setDispenseOpen(true)}>
+                            조제
+                        </Button>
+                    )}
+                </Space>
             }
         >
             {detailQuery.isPending && open ? (
@@ -177,6 +202,7 @@ export function PrescriptionDetailDrawer({ prescriptionId, onClose }: Prescripti
                 onSubmit={handleCancel}
                 onCancel={() => setCancelOpen(false)}
             />
+            <DispensingFormModal open={dispenseOpen} prescriptionId={prescriptionId} onClose={() => setDispenseOpen(false)} />
         </Drawer>
     )
 }

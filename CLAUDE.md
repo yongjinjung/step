@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트
 
-데이터 표준 용어사전 관리 백엔드. 표준 단어, 도메인, 용어와 테이블/컬럼 정의를 관리하고 비표준 컬럼을 검출한다. 공통 코드(코드 그룹·코드값)와 코드성 컬럼 매핑, 신청/승인, 변경 이력, 엑셀 업·다운로드, 로그인과 역할 기반 권한(메뉴별 조회·등록·수정·삭제)도 포함한다. 병원 약제 업무(처방·조제·검수·불출·반납)의 마스터/품목 데이터와 API도 있다(13단계, 화면은 아직 없음).
+데이터 표준 용어사전 관리 백엔드. 표준 단어, 도메인, 용어와 테이블/컬럼 정의를 관리하고 비표준 컬럼을 검출한다. 공통 코드(코드 그룹·코드값)와 코드성 컬럼 매핑, 신청/승인, 변경 이력, 엑셀 업·다운로드, 로그인과 역할 기반 권한(메뉴별 조회·등록·수정·삭제)도 포함한다. 병원 약제 업무(처방·조제·검수·불출·반납)의 마스터/품목 데이터와 API도 있다(13단계). 화면은 처방(목록·상세·등록·취소)과 조제·검수·불출·반납(목록·상세·등록, 앞 단계 상세에서 다음 단계로 이어짐)이 있다(17단계).
 
 **설계와 단계별 진행 상황은 `docs/design.md`에 있다** (개념, 업무 규칙, 전체 ERD, 구현 단계 표). 기능을 구현하기 전에 읽고, 단계를 마치면 상태 표와 규칙을 갱신한다.
 
@@ -190,6 +190,9 @@ frontend/src
 │               menus/(MenuManagePage·MenuFormModal·MenuPermissionPage(사용자별 메뉴 권한)·menuFields — 관리자 전용),
 │               users/(UserListPage·UserFormModal(역할 다중 선택)·PasswordResetModal·userFields),
 │               roles/(RoleListPage(역할 목록 + 메뉴 권한 매트릭스)·RoleFormModal·roleFields),
+│               약제(17단계): prescriptions/(처방 목록·상세·등록·취소), dispensings/, inspections/, issues/, returns/
+│               (각각 XxxListPage·XxxDetailDrawer·XxxFormModal·xxxFields), pharmacy/(공용: pharmacyFields 코드표·pickCode/pickDate/pickId·
+│               수량 함수, pharmacyParts의 codeTag·DateRangeFilter, PharmacySelects의 앞 단계 기록 서버 검색 선택),
 │               samples/(개발 참고용 샘플 화면 — 초급 개발자 온보딩 자료: ReactSamplePage(/react)·TypeScriptSamplePage(/typescript)·
 │               ViteSamplePage(/vite)·AntdSamplePage(/antdesign)·RouterSamplePage(/router, RouterParamDemoPage는
 │               router-demo/:id 전용 useParams 데모)·DataFetchingSamplePage(/data-fetching, 조회 데모는 실제 백엔드를 호출)·
@@ -238,5 +241,6 @@ frontend/src
 - **사용자 관리 화면:** 계정은 삭제하지 않으므로 목록에 삭제 버튼이 없다(비활성으로 둔다). 아이디는 등록할 때만 입력하고 수정에서는 잠근다. 비밀번호는 초기화 모달로만 바꾸며, 규칙(8~64자 공백 없는 ASCII)은 `userFields.PASSWORD_RULES`에 두고 내 정보 화면과 같은 규칙을 쓴다. `LAST_ADMIN_REQUIRED`는 강등인지 비활성화인지에 따라 역할·활성 필드 중 맞는 자리에 보여준다. 목록의 "메뉴 권한"은 `/menu-permissions?userId=`로 열고, 그 화면은 목록에 없는 사용자면 단건 조회로 이름을 채운다.
 - **데이터 타입 입력:** 길이·소수점 입력은 `utils/dataType`의 `usesLength`/`usesScale`로 켜고 끄고, 타입을 바꾸면 쓸 수 없는 값을 비운다. 규칙을 바꾸면 백엔드 `DataType.isValidSpec`과 함께 고친다.
 - **엑셀 업로드**는 `ExcelActions`가 `apiClient.POST` + `bodySerializer`(FormData)로 보낸다. 오류 행은 표로 보여주고, 결과 `mode`가 REQUESTED면 신청 목록을 무효화한다.
+- **약제 화면(17단계):** 처방 → 조제 → 검수 → 불출 → 반납. 등록 모달은 앞 단계 ID(`prescriptionId`/`dispensingId`/`issueId: number | null`)를 받아, 앞 단계 상세의 버튼에서 열면 대상이 정해지고(선택 박스 잠김) 목록의 등록 버튼에서 열면 `PharmacySelects`로 고른다. 모달은 `Form.useWatch`로 고른 ID를 지켜보고 앞 단계 상세를 조회해 품목마다 `Form.List` 줄을 만든다(`setFieldValue('items', …)`, 줄 추가·삭제 없음, `sourceItems[index]`가 그 줄의 대상, 품목 ID는 `hidden` 칸). 다음 단계 버튼은 상태 + `can(다음 메뉴, 'create')`로 보인다(조제 상세: 검수·불출·재조제, 불출 상세: 반납·반납 내역, 처방 상세: 조제·조제 내역). 반납은 모든 불출 품목을 줄로 두고 반납량을 넣은 줄만 보내므로 폼 값 타입(`ReturnFormValues`)이 요청 타입과 다르고, 서버 `fieldErrors` 경로가 화면 줄과 어긋나 상단 메시지로만 보여준다. 등록 후에는 앞 단계 상태가 바뀌므로 앞 단계 목록·상세도 무효화한다. 주소의 ID 필터는 `pickId`로 검사한다. 세부는 `document/pharmacy-workflow-program-spec.md`.
 - **샘플 화면(`features/samples`):** 초급 개발자 온보딩용 참고 화면이다(메뉴 "샘플" 아래 `/react`, `/typescript`, `/vite`, `/antdesign`, `/router`, `/data-fetching`, `/forms`, `/backend-guide`). 섹션은 `SampleSection`으로 "설명 → 실행 결과(동작하는 데모) → 복사 가능한 코드" 순서를 지킨다. 데모는 되도록 실제로 동작하게 만들되, 업무 데이터를 바꾸는 동작(등록·수정·삭제)은 실제 API를 부르지 않고 흉내만 낸다(예: `DataFetchingSamplePage`의 조회 데모는 실제 백엔드를 부르지만 저장 데모는 흉내다; `BackendGuideSamplePage`는 GET만 실제로 호출해 응답·오류 JSON을 그대로 보여준다). 역할 권한상 USER·SYSTEM 역할에도 조회 권한을 열어 뒀다(`app_role_menu`, 업무 데이터가 없는 화면이라 전 역할에 공개). 기본 메뉴 목록(`MenuInitializer`)과 USER 기본 권한(`RoleInitializer`)에도 샘플 화면 전체가 등록돼 있어 새 설치·테스트 환경에서도 같은 구성이 만들어진다. **여기 적힌 규칙은 이 문서·실제 코드와 같아야 한다.** Ant Design 6 이름 변경, 생성 타입 사용법, 목록 화면 골격, 탭·라우팅 구조, 백엔드 계층 구조 같은 규칙을 바꾸면 해당 샘플 화면의 설명과 코드도 같이 고친다.
 - **버전 제약(Node 22.16):** orval은 Node 22.18+, react-router 8은 Node 22.22+가 필요해 쓰지 않았다. openapi-typescript가 `typescript ^5`를 요구해 TypeScript 7로 올리지 않는다. 의존성은 `--save-exact`로 고정한다.

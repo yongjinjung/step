@@ -28,6 +28,10 @@ import { NotFoundPage } from '@/pages/NotFoundPage'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
 import { useMenus } from './MenuContext'
 import { PrescriptionListPage } from '@/features/prescriptions/PrescriptionListPage'
+import { DispensingListPage } from '@/features/dispensings/DispensingListPage'
+import { InspectionListPage } from '@/features/inspections/InspectionListPage'
+import { IssueListPage } from '@/features/issues/IssueListPage'
+import { ReturnListPage } from '@/features/returns/ReturnListPage'
 
 /**
  * 화면 경로 → 화면.
@@ -50,7 +54,12 @@ const PAGES: Record<string, ReactElement> = {
   '/roles': <RoleListPage />,
   '/menus': <MenuManagePage />,
   '/menu-permissions': <MenuPermissionPage />,
+  // 약제 업무: 처방 → 조제 → 검수 → 불출 → 반납
   '/prescriptions': <PrescriptionListPage />,
+  '/dispensings': <DispensingListPage />,
+  '/inspections': <InspectionListPage />,
+  '/issues': <IssueListPage />,
+  '/returns': <ReturnListPage />,
     // 개발 참고용 샘플 화면. 업무 데이터를 다루지 않고 화면 안에서만 동작한다.
   '/react': <ReactSamplePage />,
   '/typescript': <TypeScriptSamplePage />,
